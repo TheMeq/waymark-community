@@ -32,20 +32,41 @@ Functional behaviour comes from the written spec. Visual direction comes from th
 - decorative animation that ignores reduced-motion preference;
 - homepage sections describing what their controls already communicate.
 
-## Required design-token groups
+## Implemented design tokens
 
-- semantic colours;
-- spacing;
-- radii;
-- shadows;
-- typography scale/weights/line heights;
-- container widths;
-- breakpoints;
-- transitions/motion;
-- focus ring;
-- image aspect-ratio conventions.
+The public frontend consumes the following stable CSS properties from
+`resources/css/app.css`. Installation colours may override only the four brand
+properties through `BrandTheme`; all values are validated as six-digit hex
+colours and paired with the higher-contrast approved foreground.
 
-Exact numeric token values will be extracted/approved during the first visual implementation milestone.
+| Group | Tokens |
+| --- | --- |
+| Brand | `--wm-brand`, `--wm-on-brand`, `--wm-accent`, `--wm-on-accent` |
+| Surfaces | `--wm-surface`, `--wm-surface-raised`, `--wm-surface-soft`, `--wm-surface-strong` |
+| Text | `--wm-text`, `--wm-text-muted`, `--wm-text-inverse` |
+| State | `--wm-positive`, `--wm-warning`, `--wm-critical` |
+| Borders | `--wm-border`, `--wm-border-strong` |
+| Spacing | `--wm-space-1` through `--wm-space-9` |
+| Shape | `--wm-radius-sm`, `--wm-radius-md`, `--wm-radius-lg`, `--wm-radius-pill` |
+| Elevation | `--wm-shadow-card`, `--wm-shadow-float` |
+| Layout | `--wm-container`, `--wm-container-copy` |
+| Interaction | `--wm-focus-ring`, `--wm-transition-fast`, `--wm-transition-base` |
+
+The default brand is moss (`#526B3F`) with an oat accent (`#D6B269`). The
+remaining palette is deliberately warm and neutral so an installation brand
+does not overwhelm photography or turn every public surface green.
+
+Instrument Sans is the single public type family in Phase 2. Display headings
+use weight 600, tight tracking and a compact line height; body copy uses the
+regular face at a relaxed line height. Type sizes remain fluid at component
+level rather than forming a framework-like fixed scale.
+
+The public container is capped at 80rem, with 1rem mobile and 2rem tablet-plus
+gutters. Component breakpoints follow content pressure: the primary tablet
+change begins at 48rem and desktop navigation/layout changes begin at 64rem.
+Photography uses deliberate per-component aspect ratios rather than a global
+crop. Motion is brief and functional, and the reduced-motion media query
+removes animation and smooth scrolling.
 
 ## Visual implementation gate
 

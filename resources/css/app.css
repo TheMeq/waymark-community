@@ -3,7 +3,159 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
-@theme {
+@theme inline {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-display: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+
+    --color-brand: var(--wm-brand);
+    --color-on-brand: var(--wm-on-brand);
+    --color-accent: var(--wm-accent);
+    --color-on-accent: var(--wm-on-accent);
+    --color-surface: var(--wm-surface);
+    --color-surface-raised: var(--wm-surface-raised);
+    --color-surface-soft: var(--wm-surface-soft);
+    --color-surface-strong: var(--wm-surface-strong);
+    --color-ink: var(--wm-text);
+    --color-ink-muted: var(--wm-text-muted);
+    --color-border: var(--wm-border);
+}
+
+:root {
+    color-scheme: light;
+
+    --wm-brand: #526b3f;
+    --wm-on-brand: #ffffff;
+    --wm-accent: #d6b269;
+    --wm-on-accent: #1f261c;
+    --wm-surface: #f7f6f1;
+    --wm-surface-raised: #ffffff;
+    --wm-surface-soft: #eef0e6;
+    --wm-surface-strong: #25331f;
+    --wm-text: #1f241e;
+    --wm-text-muted: #62695f;
+    --wm-text-inverse: #ffffff;
+    --wm-border: #dce1d7;
+    --wm-border-strong: #b9c2b3;
+    --wm-positive: #3f6b45;
+    --wm-warning: #9a6828;
+    --wm-critical: #a13e3e;
+
+    --wm-space-1: 0.25rem;
+    --wm-space-2: 0.5rem;
+    --wm-space-3: 0.75rem;
+    --wm-space-4: 1rem;
+    --wm-space-5: 1.5rem;
+    --wm-space-6: 2rem;
+    --wm-space-7: 3rem;
+    --wm-space-8: 4.5rem;
+    --wm-space-9: 6rem;
+
+    --wm-radius-sm: 0.625rem;
+    --wm-radius-md: 1rem;
+    --wm-radius-lg: 1.5rem;
+    --wm-radius-pill: 999px;
+    --wm-shadow-card: 0 1px 2px rgb(31 38 28 / 0.05), 0 12px 36px rgb(31 38 28 / 0.08);
+    --wm-shadow-float: 0 20px 50px rgb(31 38 28 / 0.16);
+    --wm-focus-ring: 0 0 0 3px color-mix(in srgb, var(--wm-brand) 38%, transparent);
+    --wm-container: 80rem;
+    --wm-container-copy: 42rem;
+    --wm-transition-fast: 150ms ease;
+    --wm-transition-base: 240ms ease;
+}
+
+@layer base {
+    *,
+    ::before,
+    ::after {
+        border-color: var(--wm-border);
+    }
+
+    html {
+        scroll-behavior: smooth;
+        text-rendering: optimizeLegibility;
+    }
+
+    body {
+        min-width: 20rem;
+        margin: 0;
+        background: var(--wm-surface);
+        color: var(--wm-text);
+        font-family: var(--font-sans);
+        line-height: 1.6;
+    }
+
+    h1,
+    h2,
+    h3 {
+        font-family: var(--font-display);
+        font-weight: 600;
+        line-height: 1.08;
+        letter-spacing: -0.035em;
+        text-wrap: balance;
+    }
+
+    a,
+    button,
+    summary,
+    input,
+    select,
+    textarea {
+        outline: none;
+    }
+
+    :focus-visible {
+        border-radius: var(--wm-radius-sm);
+        box-shadow: var(--wm-focus-ring);
+    }
+
+    img {
+        max-width: 100%;
+    }
+}
+
+@layer components {
+    .wm-container {
+        width: min(calc(100% - 2rem), var(--wm-container));
+        margin-inline: auto;
+    }
+
+    .wm-skip-link {
+        position: fixed;
+        z-index: 100;
+        top: var(--wm-space-3);
+        left: var(--wm-space-3);
+        translate: 0 -200%;
+        border-radius: var(--wm-radius-pill);
+        background: var(--wm-surface-raised);
+        padding: var(--wm-space-3) var(--wm-space-5);
+        color: var(--wm-text);
+        box-shadow: var(--wm-shadow-float);
+        transition: translate var(--wm-transition-fast);
+    }
+
+    .wm-skip-link:focus {
+        translate: 0;
+    }
+}
+
+@media (min-width: 48rem) {
+    .wm-container {
+        width: min(calc(100% - 4rem), var(--wm-container));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    *,
+    ::before,
+    ::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
 }
