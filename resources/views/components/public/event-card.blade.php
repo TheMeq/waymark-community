@@ -2,10 +2,10 @@
 
 @php
     $metadata = array_values(array_filter([
-        ['label' => 'Distance', 'value' => $event['distance'] ?? null, 'symbol' => '↔'],
-        ['label' => 'Ascent', 'value' => $event['ascent'] ?? null, 'symbol' => '↗'],
-        ['label' => 'Difficulty', 'value' => $event['difficulty'] ?? null, 'symbol' => '↟'],
-        ['label' => 'Spaces', 'value' => $event['capacity'] ?? null, 'symbol' => '♙'],
+        ['label' => 'Distance', 'value' => $event['distance'] ?? null, 'symbol' => '↔︎'],
+        ['label' => 'Ascent', 'value' => $event['ascent'] ?? null, 'symbol' => '↗︎'],
+        ['label' => 'Difficulty', 'value' => $event['difficulty'] ?? null, 'symbol' => '▲'],
+        ['label' => 'Spaces', 'value' => $event['capacity'] ?? null, 'symbol' => '●'],
     ], fn (array $item): bool => filled($item['value'])));
 @endphp
 
@@ -37,7 +37,7 @@
         @endif
 
         @if ($metadata !== [])
-            <dl class="mt-2 grid grid-cols-2 gap-x-2 gap-y-2 border-t border-border pt-2 sm:grid-cols-4">
+            <dl class="mt-2 grid grid-cols-2 gap-x-2 gap-y-2 border-t border-border pt-2 lg:grid-cols-4">
                 @foreach ($metadata as $item)
                     <div class="min-w-0 text-[0.62rem] leading-tight text-ink-muted">
                         <dt class="flex items-center gap-1 font-medium text-ink">

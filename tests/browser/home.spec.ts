@@ -24,6 +24,17 @@ test('homepage matches the approved responsive visual foundation', async ({ page
     });
 });
 
+test('desktop homepage keeps a compact reference-informed vertical rhythm', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop');
+
+    await page.goto('/');
+    await waitForImages(page);
+
+    const pageHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+
+    expect(pageHeight).toBeLessThanOrEqual(1320);
+});
+
 test('mobile menu is keyboard operable', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile');
 

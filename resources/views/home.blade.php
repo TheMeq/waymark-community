@@ -17,24 +17,24 @@
         >
         <div class="wm-hero-shade absolute inset-0 -z-10"></div>
 
-        <div class="wm-container flex min-h-[34rem] items-center py-10 sm:min-h-[38rem] lg:min-h-[22rem] lg:py-6">
-            <div class="w-full min-w-0 max-w-[44rem] pt-24 sm:pt-14 lg:pt-0">
-                <p class="mb-4 text-xs font-semibold uppercase tracking-[0.17em] text-brand">{{ $homepage->hero['eyebrow'] }}</p>
-                <h1 class="text-[clamp(2.75rem,5vw,3.6rem)] text-ink">
+        <div class="wm-container flex min-h-[34rem] items-center py-10 sm:min-h-[38rem] lg:min-h-[20rem] lg:py-4">
+            <div class="w-full min-w-0 max-w-[44rem] pt-24 sm:pt-14 lg:max-w-[40rem] lg:pt-0">
+                <p class="mb-4 text-xs font-semibold uppercase tracking-[0.17em] text-brand lg:mb-2">{{ $homepage->hero['eyebrow'] }}</p>
+                <h1 class="text-[clamp(2.75rem,5vw,3.6rem)] text-ink lg:text-[3.15rem]">
                     {{ $homepage->hero['headline'] }}
                     <span class="block text-brand">{{ $homepage->hero['highlight'] }}</span>
                 </h1>
-                <p class="mt-4 max-w-lg text-base leading-relaxed text-ink">{{ $homepage->hero['summary'] }}</p>
+                <p class="mt-4 max-w-lg text-base leading-relaxed text-ink lg:mt-2 lg:max-w-md lg:text-sm lg:leading-normal">{{ $homepage->hero['summary'] }}</p>
 
-                <div class="mt-5 flex flex-wrap gap-3">
+                <div class="mt-5 flex flex-wrap gap-3 lg:mt-3">
                     <x-public.button href="/walks">Upcoming walks <span aria-hidden="true">&rarr;</span></x-public.button>
                     <x-public.button href="/join" variant="secondary">Join us</x-public.button>
                 </div>
 
-                <ul class="mt-6 grid gap-3 border-t border-ink/10 pt-4 sm:grid-cols-3 lg:max-w-[42rem]" aria-label="Community highlights">
+                <ul class="mt-6 grid gap-3 border-t border-ink/10 pt-4 sm:grid-cols-3 lg:mt-4 lg:max-w-[38rem] lg:gap-2 lg:pt-3" aria-label="Community highlights">
                     @foreach ($homepage->benefits as $benefit)
-                        <li class="flex items-center gap-3">
-                            <span class="grid size-10 shrink-0 place-items-center rounded-full border border-brand/30 bg-white/70 text-brand" aria-hidden="true">
+                        <li class="flex items-center gap-3 lg:gap-2">
+                            <span class="grid size-10 shrink-0 place-items-center rounded-full border border-brand/30 bg-white/70 text-brand lg:size-8" aria-hidden="true">
                                 @if ($benefit['symbol'] === 'people')
                                     <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M16 20v-1.5a4.5 4.5 0 0 0-4.5-4.5h-3A4.5 4.5 0 0 0 4 18.5V20M10 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm6.5 1a2.5 2.5 0 1 0 0-5M18 20v-1.5a4.5 4.5 0 0 0-2.4-4" stroke-linecap="round" /></svg>
                                 @elseif ($benefit['symbol'] === 'route')
@@ -54,14 +54,14 @@
         </div>
     </section>
 
-    <section class="bg-surface-raised py-7 sm:py-8" aria-labelledby="weekend-heading">
-        <div class="wm-container grid gap-10 lg:grid-cols-[minmax(0,2.45fr)_minmax(19rem,1fr)]">
+    <section class="bg-surface-raised py-7 sm:py-8 lg:py-5" aria-labelledby="weekend-heading">
+        <div class="wm-container grid gap-10 lg:grid-cols-[minmax(0,2.45fr)_minmax(19rem,1fr)] lg:gap-6">
             <div class="min-w-0">
                 <div class="flex items-end justify-between gap-4">
-                    <h2 id="weekend-heading" class="text-3xl text-ink">This Weekend</h2>
+                    <h2 id="weekend-heading" class="text-3xl text-ink lg:text-2xl">This Weekend</h2>
                     <a class="text-sm font-semibold text-brand underline decoration-brand/30 underline-offset-4 sm:hidden" href="/walks">View all</a>
                 </div>
-                <div class="wm-card-rail mt-5 grid gap-4">
+                <div class="wm-card-rail mt-5 grid gap-4 lg:mt-3 lg:gap-3">
                     @foreach ($homepage->weekendWalks as $walk)
                         <x-public.event-card :event="$walk" />
                     @endforeach
@@ -70,36 +70,36 @@
 
             <div>
                 <div class="flex flex-wrap items-end justify-between gap-4">
-                    <h2 class="text-2xl text-ink">Holidays &amp; Weekends Away</h2>
-                    <a class="text-sm font-semibold text-brand" href="/weekends">View all <span aria-hidden="true">&rarr;</span></a>
+                    <h2 class="text-2xl text-ink lg:text-xl">Holidays &amp; Weekends Away</h2>
+                    <a class="text-sm font-semibold text-brand lg:text-xs" href="/weekends">View all <span aria-hidden="true">&rarr;</span></a>
                 </div>
-                <article class="group mt-5 overflow-hidden rounded-[var(--wm-radius-md)] border border-border bg-surface-raised shadow-[var(--wm-shadow-card)] md:grid md:grid-cols-[1.55fr_1fr] lg:block">
+                <article class="group mt-5 overflow-hidden rounded-[var(--wm-radius-md)] border border-border bg-surface-raised shadow-[var(--wm-shadow-card)] md:grid md:grid-cols-[1.55fr_1fr] lg:mt-3 lg:block">
                     <div class="relative overflow-hidden">
-                        <img class="aspect-[16/7] w-full object-cover transition-transform duration-300 group-hover:scale-[1.025] md:h-full md:min-h-56 md:object-cover lg:aspect-[16/7] lg:min-h-0" src="{{ $homepage->holiday['image_url'] }}" alt="{{ $homepage->holiday['image_alt'] }}" loading="lazy">
+                        <img class="aspect-[16/7] w-full object-cover transition-transform duration-300 group-hover:scale-[1.025] md:h-full md:min-h-56 md:object-cover lg:aspect-[16/6] lg:min-h-0" src="{{ $homepage->holiday['image_url'] }}" alt="{{ $homepage->holiday['image_alt'] }}" loading="lazy">
                         <x-public.badge class="absolute left-4 top-4" tone="brand">{{ $homepage->holiday['duration'] }}</x-public.badge>
                     </div>
                     <div class="p-3">
-                        <h3 class="text-lg"><a class="hover:text-brand" href="{{ $homepage->holiday['url'] }}">{{ $homepage->holiday['title'] }}</a></h3>
-                        <p class="mt-1 text-sm text-ink-muted">{{ $homepage->holiday['location'] }}</p>
-                        <p class="mt-2 text-xs font-medium text-ink">{{ $homepage->holiday['date'] }}</p>
-                        <p class="mt-2 text-xs text-ink-muted">{{ $homepage->holiday['summary'] }}</p>
+                        <h3 class="text-lg lg:text-base"><a class="hover:text-brand" href="{{ $homepage->holiday['url'] }}">{{ $homepage->holiday['title'] }}</a></h3>
+                        <p class="mt-1 text-sm text-ink-muted lg:text-xs">{{ $homepage->holiday['location'] }}</p>
+                        <p class="mt-2 text-xs font-medium text-ink lg:mt-1">{{ $homepage->holiday['date'] }}</p>
+                        <p class="mt-2 text-xs text-ink-muted lg:mt-1">{{ $homepage->holiday['summary'] }}</p>
                     </div>
                 </article>
             </div>
         </div>
     </section>
 
-    <section class="border-y border-border bg-surface py-6" aria-labelledby="gallery-heading">
-        <div class="wm-container wm-photo-band grid gap-4">
+    <section class="border-y border-border bg-surface py-5 lg:py-4" aria-labelledby="gallery-heading">
+        <div class="wm-container wm-photo-band grid gap-4 lg:gap-3">
             <div class="flex flex-col justify-center pb-2 lg:pb-0">
                 <p class="text-xs font-semibold uppercase tracking-[0.15em] text-brand">Our community</p>
-                <h2 id="gallery-heading" class="mt-2 text-3xl">Photos from our walks &amp; holidays</h2>
-                <p class="mt-2 text-xs text-ink-muted">Moments worth sharing.</p>
-                <a class="mt-3 text-sm font-semibold text-brand" href="/photos">View gallery <span aria-hidden="true">&rarr;</span></a>
+                <h2 id="gallery-heading" class="mt-2 text-3xl lg:mt-1 lg:text-2xl">Photos from our walks &amp; holidays</h2>
+                <p class="mt-2 text-xs text-ink-muted lg:mt-1">Moments worth sharing.</p>
+                <a class="mt-3 text-sm font-semibold text-brand lg:mt-2 lg:text-xs" href="/photos">View gallery <span aria-hidden="true">&rarr;</span></a>
             </div>
 
             @foreach ($homepage->gallery as $index => $photo)
-                <figure class="{{ $index === 0 ? 'wm-photo-feature' : '' }} h-36 self-center overflow-hidden rounded-[var(--wm-radius-md)] bg-surface-soft lg:h-32">
+                <figure class="{{ $index === 0 ? 'wm-photo-feature' : '' }} h-36 self-center overflow-hidden rounded-[var(--wm-radius-md)] bg-surface-soft lg:h-28">
                     <img class="size-full object-cover transition-transform duration-300 hover:scale-[1.025]" src="{{ $photo['image_url'] }}" alt="{{ $photo['image_alt'] }}" loading="lazy">
                 </figure>
             @endforeach
@@ -111,32 +111,32 @@
         </div>
     </section>
 
-    <section class="bg-surface-raised py-6 sm:py-7">
-        <div class="wm-container grid gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(18rem,1fr)]">
-            <div class="rounded-[var(--wm-radius-md)] bg-surface-soft p-4 sm:p-5">
-                <div class="flex flex-col gap-5 md:flex-row md:flex-wrap md:items-center">
+    <section class="bg-surface-raised py-6 sm:py-7 lg:py-3">
+        <div class="wm-container grid gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(18rem,1fr)] lg:gap-4">
+            <div class="rounded-[var(--wm-radius-md)] bg-surface-soft p-4 sm:p-5 lg:p-3">
+                <div class="flex flex-col gap-5 md:flex-row md:flex-wrap md:items-center lg:gap-3">
                     <div class="md:flex-[1_1_10rem]">
                         <p class="text-xs font-semibold uppercase tracking-[0.15em] text-brand">New here?</p>
-                        <h2 class="mt-2 text-3xl">Join us!</h2>
-                        <p class="mt-3 text-sm text-ink-muted">A friendly, volunteer-led group for people who enjoy the outdoors.</p>
-                        <blockquote class="mt-3 text-xs italic text-ink-muted">{{ $homepage->testimonial }}</blockquote>
+                        <h2 class="mt-2 text-3xl lg:mt-1 lg:text-2xl">Join us!</h2>
+                        <p class="mt-3 text-sm text-ink-muted lg:mt-2 lg:text-xs">A friendly, volunteer-led group for people who enjoy the outdoors.</p>
+                        <blockquote class="mt-3 text-xs italic text-ink-muted lg:mt-2">{{ $homepage->testimonial }}</blockquote>
                     </div>
 
-                    <div class="grid gap-4 sm:grid-cols-3 md:flex-[2_1_20rem]">
-                        <p class="border-l-2 border-brand/25 pl-4 text-sm"><strong class="block">Everyone welcome</strong><span class="text-ink-muted">Come as you are.</span></p>
-                        <p class="border-l-2 border-brand/25 pl-4 text-sm"><strong class="block">Try a walk</strong><span class="text-ink-muted">Find your pace.</span></p>
-                        <p class="border-l-2 border-brand/25 pl-4 text-sm"><strong class="block">Good company</strong><span class="text-ink-muted">Share the day.</span></p>
+                    <div class="grid gap-4 sm:grid-cols-3 md:flex-[2_1_20rem] lg:gap-3">
+                        <p class="border-l-2 border-brand/25 pl-4 text-sm lg:pl-3 lg:text-xs"><strong class="block">Everyone welcome</strong><span class="text-ink-muted">Come as you are.</span></p>
+                        <p class="border-l-2 border-brand/25 pl-4 text-sm lg:pl-3 lg:text-xs"><strong class="block">Try a walk</strong><span class="text-ink-muted">Find your pace.</span></p>
+                        <p class="border-l-2 border-brand/25 pl-4 text-sm lg:pl-3 lg:text-xs"><strong class="block">Good company</strong><span class="text-ink-muted">Share the day.</span></p>
                     </div>
 
                     <x-public.button class="md:flex-[0_0_auto]" href="/join">Join the group</x-public.button>
                 </div>
             </div>
 
-            <aside class="rounded-[var(--wm-radius-md)] border border-border bg-surface p-4" aria-labelledby="resources-heading">
-                <h2 id="resources-heading" class="text-xl">Member resources</h2>
+            <aside class="rounded-[var(--wm-radius-md)] border border-border bg-surface p-4 lg:p-3" aria-labelledby="resources-heading">
+                <h2 id="resources-heading" class="text-xl lg:text-lg">Member resources</h2>
                 <ul class="mt-2 divide-y divide-border text-xs">
                     @foreach ($homepage->memberResources as $resource)
-                        <li><a class="flex min-h-8 items-center justify-between gap-3 py-1.5 hover:text-brand" href="{{ $resource['url'] }}"><span>{{ $resource['label'] }}</span><span aria-hidden="true">&rarr;</span></a></li>
+                        <li><a class="flex min-h-8 items-center justify-between gap-3 py-1.5 hover:text-brand lg:min-h-7 lg:py-1" href="{{ $resource['url'] }}"><span>{{ $resource['label'] }}</span><span aria-hidden="true">&rarr;</span></a></li>
                     @endforeach
                 </ul>
             </aside>
