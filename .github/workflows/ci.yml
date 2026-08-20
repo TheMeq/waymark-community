@@ -51,6 +51,7 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: mbstring, intl, pdo_mysql
           coverage: none
+      - run: composer validate --strict
       - run: composer install --no-interaction --prefer-dist
       - run: composer test
       - run: composer verify:repository

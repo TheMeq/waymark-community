@@ -12,6 +12,8 @@ These steps reproduce the Phase 1 developer environment from a clean source clon
 
 Production hosts do not require Git, Composer, Node.js, npm, SQLite, Playwright, or developer tests.
 
+Composer's checked-in `config.platform.php` value targets PHP `8.3.0`, the minimum supported runtime. Keep that setting in place when updating dependencies from PHP 8.4 or newer so the committed lockfile remains installable on PHP 8.3. Dependency updates are not complete until the lockfile has also been clean-installed and tested with an actual PHP 8.3 CLI.
+
 ## Install from a clean clone
 
 PowerShell:
@@ -28,6 +30,15 @@ npm ci
 npm run build
 php artisan filament:assets
 ```
+
+After changing Composer requirements or updating the lockfile, verify the minimum-runtime resolution explicitly:
+
+```shell
+composer validate --strict
+composer prohibits php 8.3.0 --locked
+```
+
+The second command must report that no installed package requires a PHP version incompatible with `8.3.0`.
 
 Unix-like shell:
 

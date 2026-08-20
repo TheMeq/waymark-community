@@ -35,6 +35,22 @@ $required = [
 
 $errors = [];
 
+$composer = json_decode((string) file_get_contents($root.DIRECTORY_SEPARATOR.'composer.json'), true);
+$lock = json_decode((string) file_get_contents($root.DIRECTORY_SEPARATOR.'composer.lock'), true);
+$minimumPhp = '8.3.0';
+
+if (($composer['require']['php'] ?? null) !== '^8.3') {
+    $errors[] = 'composer.json must retain PHP ^8.3 as the supported runtime contract.';
+}
+
+if (($composer['config']['platform']['php'] ?? null) !== $minimumPhp) {
+    $errors[] = "Composer dependency resolution must target PHP {$minimumPhp}.";
+}
+
+if (($lock['platform-overrides']['php'] ?? null) !== $minimumPhp) {
+    $errors[] = "composer.lock was not resolved for PHP {$minimumPhp}.";
+}
+
 foreach ($required as $path) {
     if (! file_exists($root.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $path))) {
         $errors[] = "Required baseline file is missing: {$path}";
