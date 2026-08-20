@@ -150,6 +150,34 @@ final class WalkConfigurationAdminTest extends TestCase
         $this->assertTrue($settings->fresh()->leaders_can_publish_directly);
     }
 
+    public function test_walk_leader_cannot_access_or_update_global_configuration_resources(): void
+    {
+        $settings = app(UpdateWalkFieldSettings::class)->handle([]);
+        $walkLeader = User::factory()->create(['can_manage_walks' => true]);
+
+        $this->actingAs($walkLeader)
+            ->get('/admin/walk-field-settings')
+            ->assertForbidden();
+        $this->get("/admin/walk-field-settings/{$settings->id}/edit")->assertForbidden();
+        $this->get('/admin/grades')->assertForbidden();
+        $this->get('/admin/tags')->assertForbidden();
+
+        Livewire::test(EditWalkFieldSettings::class, ['record' => $settings->getKey()])
+            ->assertForbidden();
+    }
+
+    public function test_administrator_can_access_all_global_configuration_resources(): void
+    {
+        $settings = app(UpdateWalkFieldSettings::class)->handle([]);
+
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+
+        $this->get('/admin/walk-field-settings')->assertSuccessful();
+        $this->get("/admin/walk-field-settings/{$settings->id}/edit")->assertSuccessful();
+        $this->get('/admin/grades')->assertSuccessful();
+        $this->get('/admin/tags')->assertSuccessful();
+    }
+
     public function test_tag_and_walk_field_settings_indexes_render_for_an_admin(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => true]));
