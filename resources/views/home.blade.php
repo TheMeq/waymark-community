@@ -103,6 +103,11 @@
                     <img class="size-full object-cover transition-transform duration-300 hover:scale-[1.025]" src="{{ $photo['image_url'] }}" alt="{{ $photo['image_alt'] }}" loading="lazy">
                 </figure>
             @endforeach
+
+            <div class="wm-photo-upload flex flex-col gap-2 text-xs text-ink-muted sm:flex-row sm:items-center sm:justify-between">
+                <p>Members can upload photos linked to specific walks and holidays.</p>
+                <a class="shrink-0 font-semibold text-brand" href="/photos/upload">Upload your photos <span aria-hidden="true">&rarr;</span></a>
+            </div>
         </div>
     </section>
 

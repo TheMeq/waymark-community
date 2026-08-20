@@ -173,6 +173,10 @@
     .wm-photo-feature {
         grid-column: 1 / -1;
     }
+
+    .wm-photo-upload {
+        grid-column: 1 / -1;
+    }
 }
 
 @media (min-width: 48rem) {
@@ -213,6 +217,10 @@
 
     .wm-photo-band > :first-child {
         grid-column: auto;
+    }
+
+    .wm-photo-upload {
+        grid-column: 2 / -1;
     }
 }
 

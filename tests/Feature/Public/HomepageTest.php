@@ -36,6 +36,15 @@ final class HomepageTest extends TestCase
             ]);
     }
 
+    public function test_homepage_gallery_includes_the_member_upload_prompt_without_an_upload_workflow(): void
+    {
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('Members can upload photos linked to specific walks and holidays.')
+            ->assertSee('Upload your photos')
+            ->assertSee('href="/photos/upload"', false);
+    }
+
     public function test_homepage_uses_representative_local_images_with_meaningful_alternatives(): void
     {
         $response = $this->get('/');
