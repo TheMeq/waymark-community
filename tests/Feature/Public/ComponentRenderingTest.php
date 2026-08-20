@@ -23,7 +23,7 @@ final class ComponentRenderingTest extends TestCase
             ->assertSee('Save changes');
     }
 
-    public function test_event_card_exposes_semantic_content_and_difficulty_as_text(): void
+    public function test_event_card_exposes_the_compact_walk_information_contract_as_text(): void
     {
         $view = $this->blade(
             '<x-public.event-card :event="$event" />',
@@ -34,9 +34,16 @@ final class ComponentRenderingTest extends TestCase
                     'image_url' => '/images/demo/ridge.jpg',
                     'image_alt' => 'Walkers following a stone path above a reservoir',
                     'date' => 'Saturday 24 August',
+                    'day' => 'Sat',
+                    'day_number' => '24',
+                    'month' => 'Aug',
+                    'location' => 'North Moor',
                     'distance' => '8.5 miles',
                     'ascent' => '1,250 ft',
                     'difficulty' => 'Moderate',
+                    'capacity' => '12 of 16',
+                    'leader' => 'James S.',
+                    'status' => 'Spaces available',
                 ],
             ],
         );
@@ -45,13 +52,50 @@ final class ComponentRenderingTest extends TestCase
             ->assertSee('<h3', false)
             ->assertSee('href="/walks/ridge-and-reservoir"', false)
             ->assertSee('alt="Walkers following a stone path above a reservoir"', false)
+            ->assertSee('aria-label="Saturday 24 August"', false)
             ->assertSeeInOrder([
+                'Sat',
+                '24',
+                'Aug',
                 'Ridge and reservoir',
-                'Saturday 24 August',
+                'North Moor',
                 '8.5 miles',
                 '1,250 ft',
                 'Moderate',
+                '12 of 16',
+                'Led by James S.',
+                'Spaces available',
             ]);
+    }
+
+    public function test_event_card_omits_unavailable_optional_metadata_without_rendering_empty_labels(): void
+    {
+        $view = $this->blade(
+            '<x-public.event-card :event="$event" />',
+            [
+                'event' => [
+                    'title' => 'Quiet woodland loop',
+                    'url' => '/walks/quiet-woodland-loop',
+                    'image_url' => '/images/demo/woodland.jpg',
+                    'image_alt' => 'A quiet woodland path',
+                    'date' => 'Sunday 25 August',
+                    'day' => 'Sun',
+                    'day_number' => '25',
+                    'month' => 'Aug',
+                    'location' => 'West Woods',
+                    'distance' => '4 miles',
+                    'difficulty' => 'Leisurely',
+                ],
+            ],
+        );
+
+        $view->assertSee('Quiet woodland loop')
+            ->assertSee('West Woods')
+            ->assertSee('4 miles')
+            ->assertSee('Leisurely')
+            ->assertDontSee('Ascent')
+            ->assertDontSee('Spaces')
+            ->assertDontSee('Led by');
     }
 
     public function test_supporting_components_keep_names_and_relationships_visible(): void
