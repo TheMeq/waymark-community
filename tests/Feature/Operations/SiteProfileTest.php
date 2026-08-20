@@ -6,7 +6,9 @@ use App\Domain\Operations\Actions\GetSiteProfile;
 use App\Domain\Operations\Actions\UpdateSiteProfile;
 use App\Domain\Operations\Exceptions\SiteProfileNotConfigured;
 use App\Domain\Operations\Models\SiteProfile;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -16,9 +18,9 @@ final class SiteProfileTest extends TestCase
 
     public function test_site_profile_foundation_types_exist(): void
     {
-        $this->assertTrue(class_exists(\App\Domain\Operations\Models\SiteProfile::class));
-        $this->assertTrue(class_exists(\App\Domain\Operations\Actions\GetSiteProfile::class));
-        $this->assertTrue(class_exists(\App\Domain\Operations\Actions\UpdateSiteProfile::class));
+        $this->assertTrue(class_exists(SiteProfile::class));
+        $this->assertTrue(class_exists(GetSiteProfile::class));
+        $this->assertTrue(class_exists(UpdateSiteProfile::class));
     }
 
     public function test_site_profile_schema_holds_installation_identity_fields(): void
@@ -38,8 +40,9 @@ final class SiteProfileTest extends TestCase
             'affiliation_name',
             'affiliation_url',
             'module_configuration',
-            'is_active',
+            'singleton_key',
         ]));
+        $this->assertFalse(Schema::hasColumn('site_profiles', 'is_active'));
     }
 
     public function test_missing_site_profile_has_an_explicit_pre_install_failure(): void
@@ -49,7 +52,7 @@ final class SiteProfileTest extends TestCase
         app(GetSiteProfile::class)->handle();
     }
 
-    public function test_update_creates_the_single_active_installation_identity(): void
+    public function test_first_update_creates_the_canonical_installation_identity(): void
     {
         $profile = app(UpdateSiteProfile::class)->handle([
             'group_name' => 'Example Walking Group',
@@ -64,8 +67,9 @@ final class SiteProfileTest extends TestCase
         ]);
 
         $this->assertTrue($profile->exists);
+        $this->assertSame(SiteProfile::SINGLETON_ID, $profile->getKey());
         $this->assertTrue($profile->is(app(GetSiteProfile::class)->handle()));
-        $this->assertSame(1, SiteProfile::query()->where('is_active', true)->count());
+        $this->assertSame(1, SiteProfile::query()->count());
     }
 
     public function test_update_changes_the_existing_profile_without_creating_a_tenant(): void
@@ -77,12 +81,31 @@ final class SiteProfileTest extends TestCase
         $updated = app(UpdateSiteProfile::class)->handle([
             'group_name' => 'Renamed Group',
             'id' => 999,
-            'is_active' => false,
         ]);
 
         $this->assertSame($first->getKey(), $updated->getKey());
         $this->assertSame('Renamed Group', $updated->group_name);
-        $this->assertTrue($updated->is_active);
         $this->assertSame(1, SiteProfile::query()->count());
+    }
+
+    public function test_database_rejects_an_additional_installation_identity(): void
+    {
+        $profile = app(UpdateSiteProfile::class)->handle([
+            'group_name' => 'Canonical Group',
+        ]);
+
+        try {
+            DB::table('site_profiles')->insert([
+                'id' => 2,
+                'group_name' => 'Competing Group',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $this->fail('The database accepted a second installation identity.');
+        } catch (QueryException) {
+            $this->assertSame(1, SiteProfile::query()->count());
+            $this->assertTrue($profile->is(app(GetSiteProfile::class)->handle()));
+        }
     }
 }

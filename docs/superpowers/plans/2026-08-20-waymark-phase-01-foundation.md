@@ -270,7 +270,7 @@ git commit -m "feat: establish authentication and admin boundary"
 - Test: `tests/Feature/Operations/SiteProfileTest.php`
 
 **Interfaces:**
-- Exactly one active `SiteProfile` exists per installation.
+- Exactly one canonical `SiteProfile` row exists per installation; the database prevents additional profile identities.
 - It stores group identity/configuration, not tenant routing.
 - API:
 ```php
@@ -278,7 +278,7 @@ GetSiteProfile::handle(): SiteProfile
 UpdateSiteProfile::handle(array $validated): SiteProfile
 ```
 
-- [ ] **Step 1: Write test proving a single active site profile is the installation identity**
+- [ ] **Step 1: Write tests proving the canonical site profile is the only installation identity**
 - [ ] **Step 2: Create migration/model with group name, short name, contact email, timezone, locale, regional units, start year, branding placeholders, affiliation placeholders, and module configuration JSON where appropriate**
 - [ ] **Step 3: Implement `GetSiteProfile` with a safe missing-profile failure for pre-install state**
 - [ ] **Step 4: Implement validated update action**

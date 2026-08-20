@@ -30,18 +30,11 @@ final class UpdateSiteProfile
     {
         return DB::transaction(function () use ($validated): SiteProfile {
             $profile = SiteProfile::query()
-                ->where('is_active', true)
                 ->lockForUpdate()
-                ->first() ?? new SiteProfile();
+                ->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
 
             $profile->fill(Arr::only($validated, self::UPDATABLE_ATTRIBUTES));
-            $profile->is_active = true;
             $profile->save();
-
-            SiteProfile::query()
-                ->whereKeyNot($profile->getKey())
-                ->where('is_active', true)
-                ->update(['is_active' => false]);
 
             return $profile->refresh();
         });

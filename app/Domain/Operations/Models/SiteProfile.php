@@ -23,14 +23,18 @@ use Illuminate\Database\Eloquent\Model;
 ])]
 final class SiteProfile extends Model
 {
+    public const int SINGLETON_ID = 1;
+
+    public $incrementing = false;
+
     /** @var array<string, mixed> */
     protected $attributes = [
+        'id' => self::SINGLETON_ID,
         'timezone' => 'Europe/London',
         'locale' => 'en',
         'distance_unit' => 'miles',
         'ascent_unit' => 'feet',
         'module_configuration' => '[]',
-        'is_active' => true,
     ];
 
     /** @return array<string, string> */
@@ -39,7 +43,6 @@ final class SiteProfile extends Model
         return [
             'start_year' => 'integer',
             'module_configuration' => 'array',
-            'is_active' => 'boolean',
         ];
     }
 }

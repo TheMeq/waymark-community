@@ -9,7 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('site_profiles', function (Blueprint $table) {
-            $table->id();
+            $table->unsignedTinyInteger('id')->primary();
+            $table->unsignedTinyInteger('singleton_key')->storedAs('1')->unique();
             $table->string('group_name');
             $table->string('short_name')->nullable();
             $table->string('contact_email')->nullable();
@@ -24,7 +25,6 @@ return new class extends Migration
             $table->string('affiliation_name')->nullable();
             $table->string('affiliation_url')->nullable();
             $table->json('module_configuration')->nullable();
-            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
     }
