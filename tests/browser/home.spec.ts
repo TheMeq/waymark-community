@@ -1,23 +1,9 @@
-import { expect, test, type Page } from '@playwright/test';
-
-async function waitForImages(page: Page) {
-    await page.locator('img').evaluateAll(async (images: HTMLImageElement[]) => {
-        await Promise.all(images.map(async (image) => {
-            if (image.complete) {
-                return;
-            }
-
-            await new Promise<void>((resolve) => {
-                image.addEventListener('load', () => resolve(), { once: true });
-                image.addEventListener('error', () => resolve(), { once: true });
-            });
-        }));
-    });
-}
+import { expect, test } from '@playwright/test';
+import { waitForPageImages } from './support/images';
 
 test('homepage matches the approved responsive visual foundation', async ({ page }, testInfo) => {
     await page.goto('/');
-    await waitForImages(page);
+    await waitForPageImages(page);
 
     await expect(page).toHaveScreenshot(`homepage-${testInfo.project.name}.png`, {
         fullPage: true,
@@ -28,7 +14,7 @@ test('desktop homepage keeps a compact reference-informed vertical rhythm', asyn
     test.skip(testInfo.project.name !== 'desktop');
 
     await page.goto('/');
-    await waitForImages(page);
+    await waitForPageImages(page);
 
     const pageHeight = await page.evaluate(() => document.documentElement.scrollHeight);
 

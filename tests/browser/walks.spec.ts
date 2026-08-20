@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { waitForPageImages } from './support/images';
 
 async function expectNoHorizontalOverflow(page: Page) {
     const width = await page.evaluate(() => ({
@@ -24,10 +25,12 @@ test('published walks have a browseable list and public detail page', async ({ p
 test('public walk list and detail preserve the approved responsive rhythm', async ({ page }, testInfo) => {
     await page.goto('/walks');
     await expect(page.getByRole('link', { name: 'Ridge and reservoir' })).toBeVisible();
+    await waitForPageImages(page);
     await expect(page).toHaveScreenshot(`walk-list-${testInfo.project.name}.png`, { fullPage: true });
 
     await page.getByRole('link', { name: 'Ridge and reservoir' }).click();
     await expect(page.getByRole('heading', { name: 'Ridge and reservoir' })).toBeVisible();
+    await waitForPageImages(page);
     await expect(page).toHaveScreenshot(`walk-detail-${testInfo.project.name}.png`, { fullPage: true });
 });
 
