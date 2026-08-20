@@ -4,9 +4,11 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "test:e2e": "playwright test --pass-with-no-tests"
     },
     "devDependencies": {
+        "@playwright/test": "^1.62.1",
         "@tailwindcss/vite": "^4.0.0",
         "alpinejs": "^3.16.2",
         "concurrently": "^10.0.3",
