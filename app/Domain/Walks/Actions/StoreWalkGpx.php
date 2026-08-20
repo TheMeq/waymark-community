@@ -44,13 +44,19 @@ final readonly class StoreWalkGpx
             fclose($stream);
         }
 
-        $previousPath = $walk->gpx_path;
+        $walkId = $walk->getKey();
+        $previousPath = null;
 
         try {
             $storedGpx = StoredGpx::fromGeneratedPath($path, $metadata);
 
-            DB::transaction(function () use ($walk, $storedGpx): void {
-                $walk->forceFill($storedGpx->persistenceAttributes())->save();
+            $storedWalk = DB::transaction(function () use ($walkId, $storedGpx, &$previousPath): Walk {
+                $currentWalk = Walk::query()->lockForUpdate()->findOrFail($walkId);
+                $previousPath = $currentWalk->gpx_path;
+
+                $currentWalk->forceFill($storedGpx->persistenceAttributes())->save();
+
+                return $currentWalk;
             });
         } catch (\Throwable $exception) {
             $disk->delete($path);
@@ -60,11 +66,11 @@ final readonly class StoreWalkGpx
 
         if (GpxStoragePath::isGenerated($previousPath)
             && $previousPath !== $path
-            && ! Walk::query()->whereKeyNot($walk->id)->where('gpx_path', $previousPath)->exists()) {
+            && ! Walk::query()->whereKeyNot($storedWalk->id)->where('gpx_path', $previousPath)->exists()) {
             $disk->delete($previousPath);
         }
 
-        return $walk->refresh();
+        return $storedWalk->refresh();
     }
 
     private function validateUpload(UploadedFile $upload): void
@@ -82,7 +88,11 @@ final readonly class StoreWalkGpx
         }
 
         $mimeType = $upload->getMimeType();
-        $contentStart = ltrim((string) file_get_contents((string) $upload->getRealPath(), false, null, 0, 1024));
+        $contentStart = ltrim((string) preg_replace(
+            '/^\xEF\xBB\xBF/',
+            '',
+            (string) file_get_contents((string) $upload->getRealPath(), false, null, 0, 1024),
+        ));
 
         if (! in_array($mimeType, config('walks.gpx.allowed_mime_types', []), true)) {
             throw ValidationException::withMessages(['gpx' => 'The uploaded file has an unapproved MIME type.']);

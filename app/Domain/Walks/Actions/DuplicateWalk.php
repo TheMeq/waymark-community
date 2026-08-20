@@ -23,9 +23,14 @@ final readonly class DuplicateWalk
         Gate::forUser($actor)->authorize('duplicate', $source);
 
         $options = DuplicateWalkOptions::from($attributes);
-        $source->loadMissing(['event', 'coLeaders', 'tags']);
+        $sourceId = $source->getKey();
 
-        return DB::transaction(function () use ($source, $actor, $options): Walk {
+        return DB::transaction(function () use ($sourceId, $actor, $options): Walk {
+            $source = Walk::query()
+                ->with(['event', 'coLeaders', 'tags'])
+                ->lockForUpdate()
+                ->findOrFail($sourceId);
+
             $event = Event::query()->create([
                 'type' => EventType::Walk,
                 'title' => $options->title,

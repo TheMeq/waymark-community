@@ -57,6 +57,20 @@ final class GpxUploadTest extends TestCase
         $this->assertEqualsWithDelta(1298, $stored->gpx_derived_metadata['distance_metres'], 2);
     }
 
+    public function test_gpx_upload_accepts_a_utf8_bom_prefixed_xml_document(): void
+    {
+        Storage::fake('local');
+        config()->set('walks.gpx.disk', 'local');
+
+        $stored = app(StoreWalkGpx::class)->handle(
+            $this->walk(),
+            UploadedFile::fake()->createWithContent('route.gpx', "\xEF\xBB\xBF".$this->validGpx()),
+        );
+
+        Storage::disk('local')->assertExists($stored->gpx_path);
+        $this->assertSame(2, $stored->gpx_derived_metadata['point_count']);
+    }
+
     public function test_invalid_gpx_leaves_the_existing_walk_and_private_storage_unchanged(): void
     {
         Storage::fake('local');
@@ -214,6 +228,36 @@ GPX));
         ob_start();
         $response->sendContent();
         $this->assertSame($this->validGpx(), ob_get_clean());
+    }
+
+    public function test_duplicate_uses_the_current_locked_gpx_after_a_stale_source_instance_is_replaced(): void
+    {
+        Storage::fake('local');
+        config()->set('walks.gpx.disk', 'local');
+        $organiser = User::factory()->create(['can_manage_walks' => true]);
+        $source = app(SaveWalkDetails::class)->handle(Event::factory()->for($organiser, 'organiser')->create(), [
+            'primary_leader_id' => $organiser->id,
+        ]);
+        $source = app(StoreWalkGpx::class)->handle($source, UploadedFile::fake()->createWithContent('first.gpx', $this->validGpx()));
+        $staleSource = $source->fresh();
+        $firstPath = $source->gpx_path;
+        $replacement = app(StoreWalkGpx::class)->handle($source->fresh(), UploadedFile::fake()->createWithContent('replacement.gpx', $this->replacementGpx()));
+
+        $duplicate = app(DuplicateWalk::class)->handle($staleSource, $organiser, [
+            'title' => 'Current copied route',
+            'slug' => 'current-copied-route',
+            'starts_at' => '2026-12-13 09:00:00',
+            'ends_at' => '2026-12-13 14:00:00',
+            'copy_groups' => [DuplicateWalkCopyGroup::Gpx->value],
+        ]);
+
+        $this->assertSame($replacement->gpx_path, $duplicate->gpx_path);
+        $this->assertNotSame($firstPath, $duplicate->gpx_path);
+        Storage::disk('local')->assertMissing($firstPath);
+        $response = app(DownloadWalkGpx::class)->handle($duplicate->fresh());
+        ob_start();
+        $response->sendContent();
+        $this->assertSame($this->replacementGpx(), ob_get_clean());
     }
 
     public function test_replacing_a_walk_with_a_corrupt_legacy_path_does_not_delete_an_unrelated_file(): void
