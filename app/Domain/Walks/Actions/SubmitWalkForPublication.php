@@ -22,8 +22,7 @@ final readonly class SubmitWalkForPublication
         Gate::forUser($actor)->authorize('publish', $walk);
 
         $walk->loadMissing('event');
-        $canPublishDirectly = $actor->is_admin || (bool) WalkFieldSettings::query()
-            ->value('leaders_can_publish_directly');
+        $canPublishDirectly = $actor->is_admin || WalkFieldSettings::current()->leaders_can_publish_directly;
 
         if ($canPublishDirectly) {
             $this->publishEvent->handle($walk->event, $actor);

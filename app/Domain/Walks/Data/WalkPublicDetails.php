@@ -3,6 +3,7 @@
 namespace App\Domain\Walks\Data;
 
 use App\Domain\Walks\Models\Walk;
+use App\Domain\Walks\Models\WalkFieldSettings;
 
 final readonly class WalkPublicDetails
 {
@@ -16,33 +17,46 @@ final readonly class WalkPublicDetails
     /** @return array<string, mixed> */
     public function sections(): array
     {
-        $location = MeetingLocation::fromWalk($this->walk);
-        $map = WalkMapData::fromWalk($this->walk);
+        $settings = WalkFieldSettings::current();
+        $location = MeetingLocation::fromWalk($this->walk)->toArray();
+        if (! $settings->isEnabled('coordinates')) {
+            unset($location['latitude'], $location['longitude']);
+        }
+        if (! $settings->isEnabled('what3words')) {
+            unset($location['what3words']);
+        }
+        if (! $settings->isEnabled('os_grid_reference')) {
+            unset($location['os_grid_reference']);
+        }
+        if (! $settings->isEnabled('directions')) {
+            unset($location['directions']);
+        }
+        $map = $settings->isEnabled('route_map') ? WalkMapData::fromWalk($this->walk, $settings->isEnabled('coordinates')) : null;
 
         return array_filter([
-            'terrain' => $this->walk->terrain_notes,
-            'location' => $location->toArray(),
-            'parking' => $this->walk->parking_notes,
-            'public_transport' => $this->walk->is_public_transport_friendly ? self::withoutEmptyValues([
+            'terrain' => $settings->isEnabled('terrain_notes') ? $this->walk->terrain_notes : null,
+            'location' => $location,
+            'parking' => $settings->isEnabled('parking_notes') ? $this->walk->parking_notes : null,
+            'public_transport' => $settings->isEnabled('public_transport') && $this->walk->is_public_transport_friendly ? self::withoutEmptyValues([
                 'station_stop' => $this->walk->public_transport_station_stop,
                 'notes' => $this->walk->public_transport_notes,
                 'url' => $this->walk->public_transport_url,
             ]) : null,
-            'toilets' => $this->walk->toilet_information,
-            'cafe_pub' => $this->walk->cafe_pub_information,
-            'dogs' => $this->walk->dog_guidance,
-            'accessibility' => $this->walk->accessibility_notes,
-            'kit' => self::withoutEmptyValues([
-                'checklist' => $this->walk->kit_checklist,
-                'notes' => $this->walk->kit_notes,
-            ]),
+            'toilets' => $settings->isEnabled('toilet_information') ? $this->walk->toilet_information : null,
+            'cafe_pub' => $settings->isEnabled('cafe_pub_information') ? $this->walk->cafe_pub_information : null,
+            'dogs' => $settings->isEnabled('dog_guidance') ? $this->walk->dog_guidance : null,
+            'accessibility' => $settings->isEnabled('accessibility_notes') ? $this->walk->accessibility_notes : null,
+            'kit' => $settings->isEnabled('kit_checklist') || $settings->isEnabled('kit_notes') ? self::withoutEmptyValues([
+                'checklist' => $settings->isEnabled('kit_checklist') ? $this->walk->kit_checklist : null,
+                'notes' => $settings->isEnabled('kit_notes') ? $this->walk->kit_notes : null,
+            ]) : null,
             'availability' => self::withoutEmptyValues([
                 'capacity' => $this->walk->capacity,
                 'status' => $this->walk->availability,
             ]),
-            'attachments' => $this->walk->attachments,
+            'attachments' => $settings->isEnabled('attachments') ? $this->walk->attachments : null,
             'route' => self::withoutEmptyValues([
-                'gpx_path' => $this->walk->gpx_path,
+                'gpx_path' => $settings->isEnabled('gpx') ? $this->walk->gpx_path : null,
                 'metadata' => $this->walk->gpx_derived_metadata,
                 'map' => $map?->payload(),
             ]),

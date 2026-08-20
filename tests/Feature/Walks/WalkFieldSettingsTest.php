@@ -30,6 +30,16 @@ final class WalkFieldSettingsTest extends TestCase
         $this->assertSame(1, WalkFieldSettings::query()->count());
     }
 
+    public function test_clean_installation_reads_all_optional_fields_as_enabled_without_creating_the_singleton(): void
+    {
+        $settings = WalkFieldSettings::current();
+
+        $this->assertSame(0, WalkFieldSettings::query()->count());
+        foreach (array_keys(WalkFieldSettings::OPTIONAL_FIELDS) as $field) {
+            $this->assertTrue($settings->isEnabled($field));
+        }
+    }
+
     public function test_database_rejects_a_second_walk_field_settings_record(): void
     {
         $settings = app(UpdateWalkFieldSettings::class)->handle([]);

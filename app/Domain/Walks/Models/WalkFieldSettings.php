@@ -48,9 +48,17 @@ final class WalkFieldSettings extends Model
         return array_fill_keys(array_keys(self::OPTIONAL_FIELDS), true);
     }
 
+    public static function current(): self
+    {
+        return self::query()->find(self::SINGLETON_ID) ?? new self([
+            'id' => self::SINGLETON_ID,
+            'field_configuration' => self::defaultFieldConfiguration(),
+        ]);
+    }
+
     public function isEnabled(string $field): bool
     {
-        return ($this->field_configuration[$field] ?? false) === true;
+        return ($this->field_configuration[$field] ?? self::defaultFieldConfiguration()[$field] ?? false) === true;
     }
 
     /** @return array<string, string> */

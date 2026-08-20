@@ -9,6 +9,7 @@ use App\Domain\Walks\Data\GpxStoragePath;
 use App\Domain\Walks\Data\GradeAccent;
 use App\Domain\Walks\Data\WalkAttachment;
 use App\Domain\Walks\Data\WalkPublicDetails;
+use App\Domain\Walks\Models\WalkFieldSettings;
 
 final readonly class PublicWalkDetailViewModel
 {
@@ -16,6 +17,7 @@ final readonly class PublicWalkDetailViewModel
     public static function fromEvent(Event $event, SiteProfile $siteProfile): array
     {
         $walk = $event->walk;
+        $settings = WalkFieldSettings::current();
         $sections = WalkPublicDetails::from($walk)->sections();
         $route = $sections['route'] ?? [];
 
@@ -28,8 +30,8 @@ final readonly class PublicWalkDetailViewModel
             'starts_at' => $event->starts_at->format('l j F Y, H:i'),
             'ends_at' => $event->ends_at?->format('H:i'),
             'status' => self::status($event->status),
-            'recap' => $event->isPast() ? $walk->recap : null,
-            'highlights' => $event->isPast() ? $walk->highlights : null,
+            'recap' => $settings->isEnabled('recap') && ($event->isPast() || $event->status === EventStatus::Completed) ? $walk->recap : null,
+            'highlights' => $settings->isEnabled('recap') && ($event->isPast() || $event->status === EventStatus::Completed) ? $walk->highlights : null,
             'updates' => $event->updates->map(fn ($update): array => [
                 'message' => $update->message,
                 'date' => $update->created_at->format('j F Y, H:i'),
@@ -45,11 +47,11 @@ final readonly class PublicWalkDetailViewModel
             ],
             'leaders' => array_values(array_filter([
                 $walk->primaryLeader?->name,
-                ...$walk->coLeaders->pluck('name')->all(),
+                ...($settings->isEnabled('co_leaders') ? $walk->coLeaders->pluck('name')->all() : []),
             ])),
             'tags' => $walk->tags->pluck('name')->all(),
             'sections' => $sections,
-            'attachments' => WalkAttachment::availableForWalk($walk),
+            'attachments' => $settings->isEnabled('attachments') ? WalkAttachment::availableForWalk($walk) : [],
             'map' => is_array($route) ? ($route['map'] ?? null) : null,
             'has_gpx' => is_array($route) && GpxStoragePath::isAvailable($route['gpx_path'] ?? null),
         ];

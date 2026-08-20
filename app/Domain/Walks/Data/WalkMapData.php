@@ -19,7 +19,7 @@ final readonly class WalkMapData
         private array $bounds,
     ) {}
 
-    public static function fromWalk(Walk $walk): ?self
+    public static function fromWalk(Walk $walk, bool $includeMeetingPoint = true): ?self
     {
         $tileUrl = config('walks.map.tile_url');
         $attribution = config('walks.map.attribution');
@@ -28,7 +28,7 @@ final readonly class WalkMapData
             return null;
         }
 
-        $meetingPoint = MeetingLocation::fromWalk($walk)->coordinates();
+        $meetingPoint = $includeMeetingPoint ? MeetingLocation::fromWalk($walk)->coordinates() : null;
         $routePoints = self::routePoints($walk->gpx_derived_metadata['route_points'] ?? null);
 
         if ($meetingPoint === null && count($routePoints) < 2) {

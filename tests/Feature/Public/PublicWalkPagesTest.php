@@ -2,10 +2,12 @@
 
 namespace Tests\Feature\Public;
 
+use App\Domain\Events\Actions\ChangeEventStatus;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Domain\Walks\Actions\SaveWalkDetails;
+use App\Domain\Walks\Actions\UpdateWalkFieldSettings;
 use App\Domain\Walks\Models\Grade;
 use App\Domain\Walks\Models\Tag;
 use App\Models\User;
@@ -31,6 +33,93 @@ final class PublicWalkPagesTest extends TestCase
             ->assertDontSee('Private walk')
             ->assertDontSee('Unpublished walk')
             ->assertDontSee('Social event');
+    }
+
+    public function test_completed_public_walk_remains_available_to_detail_and_gpx_download_but_not_upcoming_surfaces(): void
+    {
+        Storage::fake('local');
+        config()->set('walks.gpx.disk', 'local');
+        $event = $this->publishedWalk('Completed route', '+2 weeks');
+        $path = 'walks/gpx/123e4567-e89b-12d3-a456-426614174000.gpx';
+        Storage::disk('local')->put($path, '<gpx version="1.1"></gpx>');
+        $event->walk->forceFill(['gpx_path' => $path, 'recap' => 'A memorable route.'])->save();
+
+        app(ChangeEventStatus::class)->handle($event, EventStatus::Completed);
+
+        $this->get('/walks')
+            ->assertOk()
+            ->assertDontSee('Completed route');
+        $this->get('/')->assertDontSee('Completed route');
+        $this->get('/walks/'.$event->slug)
+            ->assertOk()
+            ->assertSee('Completed route')
+            ->assertSee('A memorable route.');
+        $this->get('/walks/'.$event->slug.'/route.gpx')->assertOk();
+    }
+
+    public function test_future_dated_walk_marked_completed_by_override_is_not_in_upcoming_list_or_homepage(): void
+    {
+        $event = $this->publishedWalk('Override-completed route', '+2 weeks', ['completion_override' => true]);
+
+        $this->get('/walks')->assertDontSee($event->title);
+        $this->get('/')->assertDontSee($event->title);
+        $this->get('/walks/'.$event->slug)->assertOk();
+    }
+
+    public function test_archived_walk_is_not_public_even_when_its_publication_fields_remain_set(): void
+    {
+        $event = $this->publishedWalk('Archived route', '-2 days', ['status' => EventStatus::Archived]);
+
+        $this->get('/walks/'.$event->slug)->assertNotFound();
+    }
+
+    public function test_disabled_optional_fields_are_hidden_without_deleting_stored_data_and_reappear_when_enabled(): void
+    {
+        Storage::fake('local');
+        config()->set('walks.gpx.disk', 'local');
+        $event = $this->publishedWalk('Configurable route', '+1 week');
+        $path = 'walks/gpx/123e4567-e89b-12d3-a456-426614174000.gpx';
+        Storage::disk('local')->put($path, '<gpx version="1.1"></gpx>');
+        $event->walk->forceFill([
+            'terrain_notes' => 'Rocky ground.',
+            'latitude' => 52.95,
+            'longitude' => -1.16,
+            'what3words' => '///moss.path.hill',
+            'gpx_path' => $path,
+            'private_organiser_notes' => 'Never public.',
+        ])->save();
+        app(UpdateWalkFieldSettings::class)->handle([
+            'terrain_notes' => false,
+            'coordinates' => false,
+            'what3words' => false,
+            'gpx' => false,
+            'route_map' => false,
+        ]);
+
+        $this->get('/walks/'.$event->slug)
+            ->assertOk()
+            ->assertDontSee('Rocky ground.')
+            ->assertDontSee('///moss.path.hill')
+            ->assertDontSee('Download GPX')
+            ->assertDontSee('leaflet', false)
+            ->assertDontSee('Never public.');
+        $this->get('/walks/'.$event->slug.'/route.gpx')->assertNotFound();
+        $this->assertSame('Rocky ground.', $event->walk->fresh()->terrain_notes);
+        $this->assertNotNull($event->walk->fresh()->gpx_path);
+
+        app(UpdateWalkFieldSettings::class)->handle([
+            'terrain_notes' => true,
+            'coordinates' => true,
+            'what3words' => true,
+            'gpx' => true,
+            'route_map' => true,
+        ]);
+
+        $this->get('/walks/'.$event->slug)
+            ->assertOk()
+            ->assertSee('Rocky ground.')
+            ->assertSee('///moss.path.hill')
+            ->assertSee('Download GPX');
     }
 
     public function test_walk_index_applies_the_supported_public_filters_together(): void
