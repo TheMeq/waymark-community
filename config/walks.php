@@ -16,6 +16,11 @@ return [
         ],
     ],
 
+    'attachments' => [
+        'disk' => env('WALK_ATTACHMENTS_DISK', 'local'),
+        'directory' => 'walks/attachments',
+    ],
+
     'map' => [
         'tile_url' => env('WALK_MAP_TILE_URL', 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
         'attribution' => env('WALK_MAP_ATTRIBUTION', '&copy; OpenStreetMap contributors'),

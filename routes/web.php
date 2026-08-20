@@ -3,6 +3,7 @@
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\PublicWalkAttachmentDownloadController;
 use App\Http\Controllers\PublicWalkGpxDownloadController;
 use App\Http\Controllers\PublicWalkIndexController;
 use App\Http\Controllers\PublicWalkShowController;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', HomeController::class)->name('home');
 Route::get('/walks', PublicWalkIndexController::class)->name('walks.index');
 Route::get('/walks/grading-guide', WalkGradingGuideController::class)->name('walks.grading-guide');
+Route::get('/walks/{slug}/attachments/{attachment}', PublicWalkAttachmentDownloadController::class)->whereNumber('attachment')->name('walks.attachment');
 Route::get('/walks/{slug}/route.gpx', PublicWalkGpxDownloadController::class)->name('walks.gpx');
 Route::get('/walks/{slug}', PublicWalkShowController::class)->name('walks.show');
 

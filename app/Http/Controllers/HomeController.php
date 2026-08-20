@@ -14,7 +14,7 @@ final class HomeController
     public function __invoke(PublicWalksQuery $walks): View
     {
         $siteProfile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
-        $weekendWalks = $walks->upcoming()
+        $weekendWalks = $walks->weekend()
             ->limit(3)
             ->get()
             ->map(fn ($event) => PublicWalkCardViewModel::fromEvent($event, $siteProfile))

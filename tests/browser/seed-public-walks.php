@@ -7,6 +7,7 @@ use App\Domain\Operations\Actions\UpdateSiteProfile;
 use App\Domain\Walks\Actions\SaveWalkDetails;
 use App\Domain\Walks\Models\Grade;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Console\Kernel;
 
 require __DIR__.'/../../vendor/autoload.php';
@@ -23,11 +24,11 @@ $grade = Grade::query()->create([
 $leader = User::factory()->create(['name' => 'Morgan Walker']);
 
 foreach ([
-    ['Ridge and reservoir', 'hero-walkers.png', 8.5, 250],
-    ['Woodland and water', 'woodland-walk.png', 6.0, 180],
-    ['Moorland views', 'lakeside-friends.png', 10.0, 430],
-] as $offset => [$title, $image, $distance, $ascent]) {
-    $startsAt = now()->startOfDay()->addDays($offset + 2)->setTime(9 + $offset, 30);
+    ['Ridge and reservoir', 'hero-walkers.png', 8.5, 250, '2026-08-22 09:30:00'],
+    ['Woodland and water', 'woodland-walk.png', 6.0, 180, '2026-08-23 10:30:00'],
+    ['Moorland views', 'lakeside-friends.png', 10.0, 430, '2026-08-29 11:30:00'],
+] as [$title, $image, $distance, $ascent, $start]) {
+    $startsAt = CarbonImmutable::parse($start);
     $event = Event::query()->create([
         'type' => EventType::Walk,
         'title' => $title,
@@ -38,7 +39,7 @@ foreach ([
         'ends_at' => $startsAt->copy()->addHours(5),
         'status' => EventStatus::Published,
         'is_public' => true,
-        'published_at' => now()->subMinute(),
+        'published_at' => CarbonImmutable::parse('2026-08-19 12:00:00'),
         'organiser_id' => $leader->id,
     ]);
 

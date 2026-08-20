@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
+use App\Domain\Walks\Data\GradeAccent;
 use App\Domain\Walks\Models\Grade;
 use Illuminate\Contracts\View\View;
 
@@ -19,7 +20,15 @@ final class WalkGradingGuideController
                 'strapline' => 'A local walking community',
             ],
             'theme' => BrandTheme::fromSiteProfile($siteProfile),
-            'grades' => Grade::query()->orderBy('display_order')->orderBy('name')->get(),
+            'grades' => Grade::query()
+                ->orderBy('display_order')
+                ->orderBy('name')
+                ->get()
+                ->map(fn (Grade $grade): array => [
+                    'name' => $grade->name,
+                    'description' => $grade->description,
+                    'accent_style' => GradeAccent::style($grade->colour),
+                ]),
         ]);
     }
 }

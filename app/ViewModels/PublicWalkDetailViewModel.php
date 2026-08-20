@@ -5,6 +5,9 @@ namespace App\ViewModels;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Models\Event;
 use App\Domain\Operations\Models\SiteProfile;
+use App\Domain\Walks\Data\GpxStoragePath;
+use App\Domain\Walks\Data\GradeAccent;
+use App\Domain\Walks\Data\WalkAttachment;
 use App\Domain\Walks\Data\WalkPublicDetails;
 
 final readonly class PublicWalkDetailViewModel
@@ -16,7 +19,7 @@ final readonly class PublicWalkDetailViewModel
         $sections = WalkPublicDetails::from($walk)->sections();
         $route = $sections['route'] ?? [];
 
-        unset($sections['route']);
+        unset($sections['route'], $sections['attachments']);
 
         return [
             'title' => $event->title,
@@ -31,7 +34,8 @@ final readonly class PublicWalkDetailViewModel
             'grade' => $walk->grade === null ? null : [
                 'name' => $walk->grade->name,
                 'description' => $walk->grade->description,
-                'colour' => $walk->grade->colour,
+                'accent' => GradeAccent::from($walk->grade->colour),
+                'accent_style' => GradeAccent::style($walk->grade->colour),
             ],
             'leaders' => array_values(array_filter([
                 $walk->primaryLeader?->name,
@@ -39,8 +43,9 @@ final readonly class PublicWalkDetailViewModel
             ])),
             'tags' => $walk->tags->pluck('name')->all(),
             'sections' => $sections,
+            'attachments' => WalkAttachment::availableForWalk($walk),
             'map' => is_array($route) ? ($route['map'] ?? null) : null,
-            'has_gpx' => is_array($route) && is_string($route['gpx_path'] ?? null),
+            'has_gpx' => is_array($route) && GpxStoragePath::isAvailable($route['gpx_path'] ?? null),
         ];
     }
 

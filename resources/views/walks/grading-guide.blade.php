@@ -17,9 +17,9 @@
             @if ($grades->isNotEmpty())
                 <dl class="mt-8 divide-y divide-border rounded-[var(--wm-radius-md)] border border-border bg-surface">
                     @foreach ($grades as $grade)
-                        <div class="p-5">
-                            <dt class="text-xl font-semibold text-ink">{{ $grade->name }}</dt>
-                            <dd class="mt-2 text-ink-muted">{{ $grade->description }}</dd>
+                        <div style="{!! $grade['accent_style'] !!}" class="border-l-4 border-[var(--wm-grade-accent,var(--wm-border))] p-5 pl-4">
+                            <dt class="text-xl font-semibold text-ink">{{ $grade['name'] }}</dt>
+                            <dd class="mt-2 text-ink-muted">{{ $grade['description'] }}</dd>
                         </div>
                     @endforeach
                 </dl>

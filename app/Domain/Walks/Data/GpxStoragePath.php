@@ -2,6 +2,7 @@
 
 namespace App\Domain\Walks\Data;
 
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 final class GpxStoragePath
@@ -21,6 +22,12 @@ final class GpxStoragePath
             '#^'.preg_quote(self::directory(), '#').'/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.gpx$#D',
             $path,
         ) === 1;
+    }
+
+    public static function isAvailable(?string $path): bool
+    {
+        return self::isGenerated($path)
+            && Storage::disk((string) config('walks.gpx.disk', 'local'))->exists($path);
     }
 
     private static function directory(): string

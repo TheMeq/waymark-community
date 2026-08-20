@@ -138,6 +138,7 @@ final class PublicWalkPagesTest extends TestCase
 
         $this->get('/walks/grading-guide')
             ->assertOk()
+            ->assertSee('style="--wm-grade-accent: #00AA00"', false)
             ->assertSeeInOrder([
                 'Walk grading guide',
                 'Leisurely',
@@ -169,9 +170,87 @@ final class PublicWalkPagesTest extends TestCase
         $this->get('/walks/'.$event->slug.'/route.gpx')->assertNotFound();
     }
 
+    public function test_public_walk_detail_lists_only_available_safe_attachments_through_indexed_download_routes(): void
+    {
+        Storage::fake('local');
+        config()->set('walks.attachments.disk', 'local');
+        $event = $this->publishedWalk('Attachment walk', '+1 week');
+        Storage::disk('local')->put('walks/attachments/route-sheet.pdf', 'route sheet');
+        $event->walk->forceFill(['attachments' => [
+            ['path' => 'walks/attachments/route-sheet.pdf', 'name' => 'Route sheet.pdf'],
+            ['path' => 'walks/attachments/missing.pdf', 'name' => 'Missing sheet.pdf'],
+            ['path' => '../private/notes.pdf', 'name' => 'Private notes.pdf'],
+        ]])->save();
+
+        $this->get('/walks/'.$event->slug)
+            ->assertOk()
+            ->assertSee('Downloads')
+            ->assertSee('Route sheet.pdf')
+            ->assertSee('href="'.route('walks.attachment', [$event->slug, 0]).'"', false)
+            ->assertDontSee('Missing sheet.pdf')
+            ->assertDontSee('Private notes.pdf')
+            ->assertDontSee('walks/attachments/route-sheet.pdf');
+
+        $this->get('/walks/'.$event->slug.'/attachments/0')
+            ->assertOk()
+            ->assertHeader('content-disposition', 'attachment; filename="Route sheet.pdf"');
+
+        $this->get('/walks/'.$event->slug.'/attachments/1')->assertNotFound();
+        $this->get('/walks/'.$event->slug.'/attachments/2')->assertNotFound();
+    }
+
+    public function test_public_walk_detail_hides_gpx_downloads_for_missing_or_invalid_storage_references(): void
+    {
+        Storage::fake('local');
+        config()->set('walks.gpx.disk', 'local');
+        $event = $this->publishedWalk('Unavailable route walk', '+1 week');
+        $event->walk->forceFill([
+            'gpx_path' => 'walks/gpx/123e4567-e89b-12d3-a456-426614174000.gpx',
+        ])->save();
+
+        $this->get('/walks/'.$event->slug)
+            ->assertOk()
+            ->assertDontSee('Download GPX');
+
+        $event->walk->forceFill(['gpx_path' => '../private/route.gpx'])->save();
+
+        $this->get('/walks/'.$event->slug)
+            ->assertOk()
+            ->assertDontSee('Download GPX');
+    }
+
+    public function test_grade_colour_is_a_safe_decorative_accent_while_text_remains_authoritative(): void
+    {
+        $grade = Grade::query()->create([
+            'display_order' => 10,
+            'name' => 'Moderate',
+            'description' => 'Steady mixed terrain.',
+            'colour' => '#aa5500',
+        ]);
+        $event = $this->publishedWalk('Accent walk', '+1 week');
+        app(SaveWalkDetails::class)->handle($event, [
+            'primary_leader_id' => User::factory()->create()->id,
+            'grade_id' => $grade->id,
+        ]);
+
+        $this->get('/walks/'.$event->slug)
+            ->assertOk()
+            ->assertSee('style="--wm-grade-accent: #AA5500"', false)
+            ->assertSee('Moderate')
+            ->assertSee('Steady mixed terrain.');
+
+        $grade->forceFill(['colour' => 'not-a-colour'])->save();
+
+        $this->get('/walks/'.$event->slug)
+            ->assertOk()
+            ->assertDontSee('style="--wm-grade-accent:', false)
+            ->assertSee('Moderate')
+            ->assertSee('Steady mixed terrain.');
+    }
+
     public function test_homepage_uses_real_published_upcoming_walk_cards_without_requiring_a_site_profile(): void
     {
-        $walk = $this->publishedWalk('Real homepage walk', '+1 week');
+        $walk = $this->publishedWalk('Real homepage walk', 'next saturday');
 
         $this->get('/')
             ->assertOk()
@@ -186,6 +265,19 @@ final class PublicWalkPagesTest extends TestCase
             ->assertOk()
             ->assertSee('There are no upcoming walks to show right now.')
             ->assertDontSee('wm-card-rail', false);
+    }
+
+    public function test_homepage_cards_are_limited_to_upcoming_weekend_walks(): void
+    {
+        $weekday = $this->publishedWalk('Earlier weekday walk', 'next Monday');
+        $weekendOne = $this->publishedWalk('Saturday walk', 'next Saturday');
+        $weekendTwo = $this->publishedWalk('Sunday walk', 'next Sunday');
+        $weekendThree = $this->publishedWalk('Following Saturday walk', 'next Saturday +1 week');
+
+        $this->get('/')
+            ->assertOk()
+            ->assertDontSee($weekday->title)
+            ->assertSeeInOrder([$weekendOne->title, $weekendTwo->title, $weekendThree->title]);
     }
 
     /** @param array<string, mixed> $overrides */

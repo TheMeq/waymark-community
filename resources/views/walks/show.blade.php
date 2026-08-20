@@ -24,7 +24,7 @@
                 @foreach (['distance' => 'Distance', 'ascent' => 'Ascent', 'duration' => 'Estimated duration'] as $key => $label)
                     @if ($walk[$key])<div><dt class="text-xs font-semibold uppercase tracking-[0.1em] text-ink-muted">{{ $label }}</dt><dd class="mt-1 font-semibold text-ink">{{ $walk[$key] }}</dd></div>@endif
                 @endforeach
-                @if ($walk['grade'])<div><dt class="text-xs font-semibold uppercase tracking-[0.1em] text-ink-muted">Difficulty</dt><dd class="mt-1 font-semibold text-ink">{{ $walk['grade']['name'] }}</dd><dd class="mt-1 text-sm text-ink-muted">{{ $walk['grade']['description'] }}</dd></div>@endif
+                @if ($walk['grade'])<div style="{!! $walk['grade']['accent_style'] !!}" class="border-l-4 border-[var(--wm-grade-accent,var(--wm-border))] pl-3"><dt class="text-xs font-semibold uppercase tracking-[0.1em] text-ink-muted">Difficulty</dt><dd class="mt-1 font-semibold text-ink">{{ $walk['grade']['name'] }}</dd><dd class="mt-1 text-sm text-ink-muted">{{ $walk['grade']['description'] }}</dd></div>@endif
             </dl>
 
             @if ($walk['leaders'] !== [] || $walk['tags'] !== [])
@@ -51,6 +51,7 @@
             @endif
 
             @if (isset($walk['sections']['availability']))<section class="mt-8" aria-labelledby="availability-heading"><h2 id="availability-heading" class="text-2xl text-ink">Walk availability</h2><p class="mt-3 text-ink-muted">{{ $walk['sections']['availability']['status'] ?? null }}</p></section>@endif
+            @if ($walk['attachments'] !== [])<section class="wm-print-hidden mt-8" aria-labelledby="downloads-heading"><h2 id="downloads-heading" class="text-2xl text-ink">Downloads</h2><ul class="mt-3 grid gap-2">@foreach ($walk['attachments'] as $attachment)<li><a class="font-semibold text-brand underline" href="{{ route('walks.attachment', [$event->slug, $attachment['index']]) }}">{{ $attachment['name'] }}</a></li>@endforeach</ul></section>@endif
             @if ($walk['has_gpx'])<p class="wm-print-hidden mt-8"><x-public.button href="{{ route('walks.gpx', $event->slug) }}" variant="secondary">Download GPX</x-public.button></p>@endif
             @if ($walk['map'])<div class="wm-print-hidden mt-9"><x-public.walk-map :map="$walk['map']" /></div>@endif
         </div>

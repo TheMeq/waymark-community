@@ -50,6 +50,18 @@ final class PublicWalksQuery
     }
 
     /** @return Builder<Event> */
+    public function weekend(): Builder
+    {
+        $query = $this->upcoming();
+
+        if ($query->getModel()->getConnection()->getDriverName() === 'sqlite') {
+            return $query->whereRaw("strftime('%w', starts_at) in ('0', '6')");
+        }
+
+        return $query->whereRaw('WEEKDAY(starts_at) in (5, 6)');
+    }
+
+    /** @return Builder<Event> */
     public function filteredUpcoming(PublicWalkFilters $filters): Builder
     {
         $query = $this->upcoming();
