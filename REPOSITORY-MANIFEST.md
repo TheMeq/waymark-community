@@ -1,6 +1,8 @@
 # Repository Manifest
 
-This manifest describes the design-and-planning baseline handed to Codex. Generated Laravel/runtime files will expand it during implementation.
+This manifest describes the approved design baseline plus the Phase 1 application foundation. Generated dependencies, runtime state, published framework assets, test output, and release archives are intentionally excluded.
+
+## Root and framework foundation
 
 - `.env.example`
 - `.gitignore`
@@ -12,6 +14,28 @@ This manifest describes the design-and-planning baseline handed to Codex. Genera
 - `REPOSITORY-MANIFEST.md`
 - `SECURITY.md`
 - `START-HERE-FOR-CODEX.md`
+- `.github/workflows/ci.yml`
+- `app/`
+- `artisan`
+- `bootstrap/`
+- `composer.json`
+- `composer.lock`
+- `config/`
+- `database/`
+- `lang/en/`
+- `package.json`
+- `package-lock.json`
+- `phpunit.xml`
+- `playwright.config.ts`
+- `public/`
+- `resources/`
+- `routes/`
+- `scripts/`
+- `storage/`
+- `tests/`
+- `vite.config.js`
+
+## Approved documentation and references
 - `docs/architecture/domain-model.md`
 - `docs/architecture/media.md`
 - `docs/architecture/overview.md`
@@ -26,14 +50,13 @@ This manifest describes the design-and-planning baseline handed to Codex. Genera
 - `docs/deployment/staging.md`
 - `docs/deployment/updates-backups-recovery.md`
 - `docs/design/component-catalogue.md`
-- `docs/design/references/alternative-social-community.png`
-- `docs/design/references/alternative-topo-explorer.png`
 - `docs/design/references/approved-homepage-concept.png`
 - `docs/design/references/current-ndwg-site-reference.png`
 - `docs/design/responsive-design.md`
 - `docs/design/visual-system.md`
 - `docs/development/release-process.md`
 - `docs/development/repository-layout.md`
+- `docs/development/setup.md`
 - `docs/development/testing.md`
 - `docs/product/product-summary.md`
 - `docs/superpowers/plans/2026-08-20-waymark-master-roadmap.md`

@@ -4,9 +4,9 @@ Waymark Community is a reusable, self-hosted walking-group website platform. Int
 
 ## Status
 
-**Design approved. Implementation roadmap and Phase 1 foundation plan are included.**
+**Design approved. The Phase 1 foundation is implemented and stops at its acceptance/review gate.**
 
-No application code is intentionally included yet. Codex should begin with the approved Phase 1 foundation plan and must not skip the visual-fidelity gate before building later product modules.
+Phase 1 contains the Laravel application scaffold, dependency locks, domain boundaries, public-auth backend, Filament admin boundary, single-installation SiteProfile, localisation/error foundations, and developer verification tooling. It intentionally contains no Walks, Events, Gallery, CMS, or other product module implementation. Phase 2 must not begin until Phase 1 is reviewed, and Phase 2 itself retains the mandatory visual-fidelity gate before broader modules.
 
 ## Read first
 
@@ -43,4 +43,27 @@ A release pipeline will eventually produce a self-contained **Shared Hosting Rel
 
 ## Start implementation
 
-Codex should start with `START-HERE-FOR-CODEX.md`, then execute Phase 1 only. The Phase 2 public-visual milestone has a mandatory review gate against the approved concept art before broad feature implementation continues.
+Codex should always start with `START-HERE-FOR-CODEX.md` and the current approved phase plan. The Phase 2 public-visual milestone has a mandatory review gate against the approved concept art before broad feature implementation continues.
+
+## Developer setup
+
+See [`docs/development/setup.md`](docs/development/setup.md) for prerequisites and clean-clone commands. The shortest verification sequence after setup is:
+
+```shell
+composer test
+composer verify:repository
+npm ci
+npm run build
+```
+
+## Repository map
+
+- `app/Domain/` — approved product-domain roots; business behavior grows here in later phases.
+- `app/Http/` — HTTP delivery and coordination.
+- `app/Providers/` — Laravel, Fortify, and Filament integration boundaries.
+- `app/Support/` — narrowly scoped cross-cutting application support only.
+- `config/`, `database/`, `routes/` — framework configuration, schema, and route registration.
+- `resources/` — server-rendered views plus source CSS/JavaScript; the custom public visual system begins in Phase 2.
+- `tests/` — backend, architecture, and future browser/release tests.
+- `scripts/` — cross-platform repository verification tooling.
+- `docs/` — approved specification, roadmaps, phase plans, architecture decisions, visual references, and development/deployment guidance.
