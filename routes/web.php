@@ -13,6 +13,12 @@ if (app()->environment(['local', 'testing'])) {
         return view('dev.components', [
             'theme' => BrandTheme::fromSiteProfile(new SiteProfile),
             'site' => ['name' => 'Waymark Community'],
+            'banner' => [
+                'version' => 'component-story-v1',
+                'message' => 'Booking is open for the next weekend away.',
+                'action_label' => 'See the weekend',
+                'action_url' => '/weekends',
+            ],
             'event' => [
                 'title' => 'Ridge and reservoir',
                 'url' => '/walks/ridge-and-reservoir',

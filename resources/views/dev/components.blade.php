@@ -4,6 +4,7 @@
 
 @section('site-header')
     <x-public.site-header :site="$site" />
+    <x-public.site-banner :banner="$banner" />
 @endsection
 
 @section('content')

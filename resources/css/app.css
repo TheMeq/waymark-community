@@ -115,6 +115,14 @@
 }
 
 @layer components {
+    .wm-js-only {
+        display: none;
+    }
+
+    .js .wm-js-only {
+        display: inline-grid;
+    }
+
     .wm-container {
         width: min(calc(100% - 2rem), var(--wm-container));
         margin-inline: auto;
