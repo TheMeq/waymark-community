@@ -72,8 +72,6 @@ final readonly class UpdateWalk
                 'availability',
                 'featured_image_path',
                 'attachments',
-                'gpx_path',
-                'gpx_derived_metadata',
                 'private_organiser_notes',
                 'recap',
                 'highlights',

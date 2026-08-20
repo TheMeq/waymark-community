@@ -31,7 +31,7 @@ final readonly class WalkMapData
         $meetingPoint = MeetingLocation::fromWalk($walk)->coordinates();
         $routePoints = self::routePoints($walk->gpx_derived_metadata['route_points'] ?? null);
 
-        if ($meetingPoint === null && $routePoints === []) {
+        if ($meetingPoint === null && count($routePoints) < 2) {
             return null;
         }
 

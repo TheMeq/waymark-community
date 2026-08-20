@@ -26,4 +26,19 @@ final class WalkMapComponentTest extends TestCase
             ->assertSee('Use the meeting-point details above for directions.');
         $empty->assertDontSee('aria-label="Walk map"', false);
     }
+
+    public function test_walk_map_does_not_render_a_single_route_point_without_a_meeting_pin(): void
+    {
+        $view = $this->blade('<x-public.walk-map :map="$map" />', [
+            'map' => [
+                'tile_url' => 'https://tiles.example.test/{z}/{x}/{y}.png',
+                'attribution' => 'Example maps',
+                'meeting_point' => null,
+                'route_points' => [[52.95, -1.16]],
+                'bounds' => [[52.95, -1.16], [52.95, -1.16]],
+            ],
+        ]);
+
+        $view->assertDontSee('aria-label="Walk map"', false);
+    }
 }

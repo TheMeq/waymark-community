@@ -7,6 +7,13 @@ return [
         'max_bytes' => 5 * 1024 * 1024,
         'max_route_points' => 10000,
         'map_route_points' => 1000,
+        'allowed_mime_types' => [
+            'application/gpx',
+            'application/gpx+xml',
+            'application/xml',
+            'text/xml',
+            'text/plain',
+        ],
     ],
 
     'map' => [

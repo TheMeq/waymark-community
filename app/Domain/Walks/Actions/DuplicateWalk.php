@@ -6,6 +6,7 @@ use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Domain\Walks\Data\DuplicateWalkOptions;
+use App\Domain\Walks\Data\StoredGpx;
 use App\Domain\Walks\Enums\DuplicateWalkCopyGroup;
 use App\Domain\Walks\Models\Walk;
 use App\Models\User;
@@ -40,7 +41,11 @@ final readonly class DuplicateWalk
                 'organiser_id' => $actor->id,
             ]);
 
-            return $this->saveWalkDetails->handle($event, $this->walkAttributes($source, $actor, $options));
+            $storedGpx = $options->copies(DuplicateWalkCopyGroup::Gpx)
+                ? StoredGpx::fromWalk($source)
+                : null;
+
+            return $this->saveWalkDetails->handle($event, $this->walkAttributes($source, $actor, $options), $storedGpx);
         });
     }
 
@@ -84,13 +89,6 @@ final readonly class DuplicateWalk
                     'directions',
                     'parking_notes',
                 ]),
-            ];
-        }
-
-        if ($options->copies(DuplicateWalkCopyGroup::Gpx)) {
-            $attributes = [
-                ...$attributes,
-                ...$this->attributesFrom($source, ['gpx_path', 'gpx_derived_metadata']),
             ];
         }
 

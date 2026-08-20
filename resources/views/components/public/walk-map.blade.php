@@ -3,7 +3,7 @@
 @if (is_array($map)
     && filled($map['tile_url'] ?? null)
     && filled($map['attribution'] ?? null)
-    && (filled($map['meeting_point'] ?? null) || filled($map['route_points'] ?? null)))
+    && (filled($map['meeting_point'] ?? null) || count($map['route_points'] ?? []) >= 2))
     <section
         x-data="walkMap(@js($map))"
         x-init="initialise()"

@@ -20,7 +20,9 @@ final class WalkRoutePresentationTest extends TestCase
 
         $walk = app(SaveWalkDetails::class)->handle(Event::factory()->create(), [
             'primary_leader_id' => User::factory()->create()->id,
-            'gpx_path' => 'walks/gpx/route.gpx',
+        ]);
+        $walk->forceFill([
+            'gpx_path' => 'walks/gpx/123e4567-e89b-12d3-a456-426614174000.gpx',
             'gpx_derived_metadata' => [
                 'bounds' => [
                     'south_west' => [52.95, -1.16],
@@ -32,7 +34,7 @@ final class WalkRoutePresentationTest extends TestCase
                 ],
                 'distance_metres' => 1306,
             ],
-        ]);
+        ])->save();
 
         $route = WalkPublicDetails::from($walk)->sections()['route'];
 
@@ -56,5 +58,20 @@ final class WalkRoutePresentationTest extends TestCase
         $sections = WalkPublicDetails::from($walk->fresh())->sections();
 
         $this->assertArrayNotHasKey('route', $sections);
+    }
+
+    public function test_public_route_details_do_not_expose_a_map_for_a_single_route_point_without_a_meeting_pin(): void
+    {
+        $walk = app(SaveWalkDetails::class)->handle(Event::factory()->create(), [
+            'primary_leader_id' => User::factory()->create()->id,
+        ]);
+        $walk->forceFill([
+            'gpx_path' => 'walks/gpx/123e4567-e89b-12d3-a456-426614174000.gpx',
+            'gpx_derived_metadata' => ['route_points' => [[52.95, -1.16]]],
+        ])->save();
+
+        $route = WalkPublicDetails::from($walk->fresh())->sections()['route'];
+
+        $this->assertArrayNotHasKey('map', $route);
     }
 }

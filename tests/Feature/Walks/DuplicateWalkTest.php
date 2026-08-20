@@ -23,6 +23,8 @@ final class DuplicateWalkTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const GPX_PATH = 'walks/gpx/123e4567-e89b-12d3-a456-426614174000.gpx';
+
     public function test_an_organiser_can_open_the_duplicate_walk_review_action(): void
     {
         $organiser = User::factory()->create(['can_manage_walks' => true]);
@@ -151,7 +153,7 @@ final class DuplicateWalkTest extends TestCase
         return [
             'core details' => [DuplicateWalkCopyGroup::CoreDetails->value, 'distance', '9.25'],
             'location' => [DuplicateWalkCopyGroup::Location->value, 'meeting_location_name', 'North gate'],
-            'GPX route' => [DuplicateWalkCopyGroup::Gpx->value, 'gpx_path', 'walks/gpx/north-gate.gpx'],
+            'GPX route' => [DuplicateWalkCopyGroup::Gpx->value, 'gpx_path', self::GPX_PATH],
             'attachments' => [DuplicateWalkCopyGroup::Attachments->value, 'attachments', [[
                 'path' => 'walks/attachments/route-sheet.pdf',
                 'name' => 'Route sheet.pdf',
@@ -193,7 +195,7 @@ final class DuplicateWalkTest extends TestCase
             DuplicateWalkCopyGroup::Gpx->value,
         ]));
 
-        $this->assertSame('walks/gpx/north-gate.gpx', $duplicate->gpx_path);
+        $this->assertSame(self::GPX_PATH, $duplicate->gpx_path);
         $this->assertSame(['distance_metres' => 13680], $duplicate->gpx_derived_metadata);
     }
 
@@ -364,7 +366,7 @@ final class DuplicateWalkTest extends TestCase
             'completion_override' => true,
         ]);
 
-        return app(SaveWalkDetails::class)->handle($event, [
+        $walk = app(SaveWalkDetails::class)->handle($event, [
             'primary_leader_id' => $organiser->id,
             'co_leader_ids' => [$coLeader->id],
             'grade_id' => $grade->id,
@@ -383,8 +385,6 @@ final class DuplicateWalkTest extends TestCase
             'os_grid_reference' => 'SK 570 400',
             'directions' => 'Meet beside the noticeboard.',
             'parking_notes' => 'Use the council car park.',
-            'gpx_path' => 'walks/gpx/north-gate.gpx',
-            'gpx_derived_metadata' => ['distance_metres' => 13680],
             'attachments' => [[
                 'path' => 'walks/attachments/route-sheet.pdf',
                 'name' => 'Route sheet.pdf',
@@ -407,5 +407,12 @@ final class DuplicateWalkTest extends TestCase
             'recap' => 'Dry weather and good views.',
             'highlights' => 'Kingfisher sighting.',
         ]);
+
+        $walk->forceFill([
+            'gpx_path' => self::GPX_PATH,
+            'gpx_derived_metadata' => ['distance_metres' => 13680],
+        ])->save();
+
+        return $walk->fresh();
     }
 }

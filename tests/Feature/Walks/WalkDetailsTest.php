@@ -162,8 +162,6 @@ final class WalkDetailsTest extends TestCase
                 'mime_type' => 'application/pdf',
                 'size_bytes' => 2048,
             ]],
-            'gpx_path' => 'walks/gpx/north-gate.gpx',
-            'gpx_derived_metadata' => ['distance_metres' => 13680],
             'private_organiser_notes' => 'Check the gate is unlocked.',
             'recap' => 'Dry weather and good views.',
             'highlights' => 'Kingfisher sighting.',
@@ -182,8 +180,6 @@ final class WalkDetailsTest extends TestCase
         $this->assertSame('Spaces available', $walk->availability);
         $this->assertSame('walks/featured/north-gate.jpg', $walk->featured_image_path);
         $this->assertSame('walks/attachments/route-sheet.pdf', $walk->attachments[0]['path']);
-        $this->assertSame('walks/gpx/north-gate.gpx', $walk->gpx_path);
-        $this->assertSame(['distance_metres' => 13680], $walk->gpx_derived_metadata);
         $this->assertSame('Check the gate is unlocked.', $walk->private_organiser_notes);
         $this->assertSame('Dry weather and good views.', $walk->recap);
         $this->assertSame('Kingfisher sighting.', $walk->highlights);
@@ -300,14 +296,28 @@ final class WalkDetailsTest extends TestCase
                 'primary_leader_id' => $leader->id,
                 'public_transport_url' => $transportUrl,
                 'featured_image_path' => str_repeat('a', 256),
-                'gpx_path' => str_repeat('a', 256),
             ]);
 
             $this->fail('Values wider than the persistent string columns were accepted.');
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('public_transport_url', $exception->errors());
             $this->assertArrayHasKey('featured_image_path', $exception->errors());
+        }
+    }
+
+    public function test_rejects_raw_gpx_path_and_metadata_from_general_walk_detail_input(): void
+    {
+        try {
+            app(SaveWalkDetails::class)->handle(Event::factory()->create(), [
+                'primary_leader_id' => User::factory()->create()->id,
+                'gpx_path' => '../private/route.gpx',
+                'gpx_derived_metadata' => ['route_points' => [[52.95, -1.16]]],
+            ]);
+
+            $this->fail('General walk detail input accepted raw GPX storage fields.');
+        } catch (ValidationException $exception) {
             $this->assertArrayHasKey('gpx_path', $exception->errors());
+            $this->assertArrayHasKey('gpx_derived_metadata', $exception->errors());
         }
     }
 

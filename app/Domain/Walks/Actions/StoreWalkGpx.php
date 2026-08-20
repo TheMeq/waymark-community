@@ -2,13 +2,14 @@
 
 namespace App\Domain\Walks\Actions;
 
+use App\Domain\Walks\Data\GpxStoragePath;
+use App\Domain\Walks\Data\StoredGpx;
 use App\Domain\Walks\Exceptions\InvalidGpxException;
 use App\Domain\Walks\Models\Walk;
 use App\Domain\Walks\Services\GpxRouteParser;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -27,8 +28,7 @@ final readonly class StoreWalkGpx
         }
 
         $diskName = (string) config('walks.gpx.disk', 'local');
-        $directory = trim((string) config('walks.gpx.directory', 'walks/gpx'), '/');
-        $path = $directory.'/'.Str::uuid().'.gpx';
+        $path = GpxStoragePath::generate();
         $disk = Storage::disk($diskName);
         $stream = fopen((string) $upload->getRealPath(), 'rb');
 
@@ -47,11 +47,10 @@ final readonly class StoreWalkGpx
         $previousPath = $walk->gpx_path;
 
         try {
-            DB::transaction(function () use ($walk, $path, $metadata): void {
-                $walk->forceFill([
-                    'gpx_path' => $path,
-                    'gpx_derived_metadata' => $metadata,
-                ])->save();
+            $storedGpx = StoredGpx::fromGeneratedPath($path, $metadata);
+
+            DB::transaction(function () use ($walk, $storedGpx): void {
+                $walk->forceFill($storedGpx->persistenceAttributes())->save();
             });
         } catch (\Throwable $exception) {
             $disk->delete($path);
@@ -59,7 +58,9 @@ final readonly class StoreWalkGpx
             throw $exception;
         }
 
-        if ($previousPath !== null && $previousPath !== $path) {
+        if (GpxStoragePath::isGenerated($previousPath)
+            && $previousPath !== $path
+            && ! Walk::query()->whereKeyNot($walk->id)->where('gpx_path', $previousPath)->exists()) {
             $disk->delete($previousPath);
         }
 
@@ -83,9 +84,12 @@ final readonly class StoreWalkGpx
         $mimeType = $upload->getMimeType();
         $contentStart = ltrim((string) file_get_contents((string) $upload->getRealPath(), false, null, 0, 1024));
 
-        if (! in_array($mimeType, ['application/gpx+xml', 'application/xml', 'text/xml', 'text/plain'], true)
-            && ! str_starts_with($contentStart, '<')) {
-            throw ValidationException::withMessages(['gpx' => 'The uploaded file is not recognised as GPX or XML content.']);
+        if (! in_array($mimeType, config('walks.gpx.allowed_mime_types', []), true)) {
+            throw ValidationException::withMessages(['gpx' => 'The uploaded file has an unapproved MIME type.']);
+        }
+
+        if (! str_starts_with($contentStart, '<')) {
+            throw ValidationException::withMessages(['gpx' => 'The uploaded file does not contain XML content.']);
         }
     }
 }

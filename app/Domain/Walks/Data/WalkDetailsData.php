@@ -12,7 +12,6 @@ final readonly class WalkDetailsData
      * @param  array<int, int>  $tagIds
      * @param  array<int, string>|null  $kitChecklist
      * @param  array<int, array<string, mixed>>|null  $attachments
-     * @param  array<string, mixed>|null  $gpxDerivedMetadata
      */
     private function __construct(
         public int $primaryLeaderId,
@@ -46,8 +45,6 @@ final readonly class WalkDetailsData
         public ?string $availability,
         public ?string $featuredImagePath,
         public ?array $attachments,
-        public ?string $gpxPath,
-        public ?array $gpxDerivedMetadata,
         public ?string $privateOrganiserNotes,
         public ?string $recap,
         public ?string $highlights,
@@ -97,8 +94,8 @@ final readonly class WalkDetailsData
             'attachments.*.name' => ['required', 'string', 'max:255'],
             'attachments.*.mime_type' => ['nullable', 'string', 'max:255'],
             'attachments.*.size_bytes' => ['nullable', 'integer', 'min:0'],
-            'gpx_path' => ['nullable', 'string', 'max:255'],
-            'gpx_derived_metadata' => ['nullable', 'array', 'max:20'],
+            'gpx_path' => ['prohibited'],
+            'gpx_derived_metadata' => ['prohibited'],
             'private_organiser_notes' => ['nullable', 'string', 'max:10000'],
             'recap' => ['nullable', 'string', 'max:20000'],
             'highlights' => ['nullable', 'string', 'max:5000'],
@@ -158,8 +155,6 @@ final readonly class WalkDetailsData
             availability: $validated['availability'] ?? null,
             featuredImagePath: $validated['featured_image_path'] ?? null,
             attachments: $validated['attachments'] ?? null,
-            gpxPath: $validated['gpx_path'] ?? null,
-            gpxDerivedMetadata: $validated['gpx_derived_metadata'] ?? null,
             privateOrganiserNotes: $validated['private_organiser_notes'] ?? null,
             recap: $validated['recap'] ?? null,
             highlights: $validated['highlights'] ?? null,
@@ -199,8 +194,6 @@ final readonly class WalkDetailsData
             'availability' => $this->availability,
             'featured_image_path' => $this->featuredImagePath,
             'attachments' => $this->attachments,
-            'gpx_path' => $this->gpxPath,
-            'gpx_derived_metadata' => $this->gpxDerivedMetadata,
             'private_organiser_notes' => $this->privateOrganiserNotes,
             'recap' => $this->recap,
             'highlights' => $this->highlights,

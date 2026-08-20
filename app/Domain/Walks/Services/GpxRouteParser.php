@@ -12,6 +12,7 @@ final class GpxRouteParser
     {
         $reader = new XMLReader;
         $previousLibxmlErrors = libxml_use_internal_errors(true);
+        libxml_clear_errors();
 
         try {
             if (! $reader->open($path, null, LIBXML_NONET | LIBXML_COMPACT)) {
@@ -19,6 +20,10 @@ final class GpxRouteParser
             }
 
             $this->readRoute($reader);
+
+            if (libxml_get_errors() !== []) {
+                throw new InvalidGpxException('The GPX file is malformed.');
+            }
         } catch (InvalidGpxException $exception) {
             throw $exception;
         } catch (\Throwable) {
