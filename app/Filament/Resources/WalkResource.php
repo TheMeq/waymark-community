@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Domain\Walks\Models\Walk;
+use App\Filament\Actions\DuplicateWalkAction;
 use App\Filament\Resources\WalkResource\Pages\CreateWalk;
 use App\Filament\Resources\WalkResource\Pages\EditWalk;
 use App\Filament\Resources\WalkResource\Pages\ListWalks;
@@ -58,6 +59,7 @@ final class WalkResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
+                DuplicateWalkAction::make(),
             ]);
     }
 

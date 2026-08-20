@@ -25,4 +25,9 @@ final class WalkPolicy
     {
         return $this->update($user, $walk);
     }
+
+    public function duplicate(User $user, Walk $walk): bool
+    {
+        return $this->update($user, $walk);
+    }
 }
