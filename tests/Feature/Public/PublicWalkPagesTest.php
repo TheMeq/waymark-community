@@ -336,7 +336,7 @@ final class PublicWalkPagesTest extends TestCase
             ->assertSee('Moderate')
             ->assertSee('Steady mixed terrain.');
 
-        $grade->forceFill(['colour' => 'not-a-colour'])->save();
+        $grade->forceFill(['colour' => 'invalid'])->save();
 
         $this->get('/walks/'.$event->slug)
             ->assertOk()

@@ -98,6 +98,8 @@ final class DuplicateWalkTest extends TestCase
             $this->assertSame($source->estimated_duration_minutes, $duplicate->estimated_duration_minutes);
             $this->assertSame($source->capacity, $duplicate->capacity);
             $this->assertSame($source->availability, $duplicate->availability);
+        } elseif ($group === DuplicateWalkCopyGroup::Attachments->value) {
+            $this->assertEquals($expected, $duplicate->attachments);
         } else {
             $this->assertSame($expected, $duplicate->{$attribute});
         }
