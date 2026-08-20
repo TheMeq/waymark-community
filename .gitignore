@@ -1,0 +1,54 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# PHP dependencies
+/vendor/
+
+# Front-end dependencies and generated build outputs
+/node_modules/
+/public/build/
+
+# Runtime / Laravel-generated data
+/storage/app/private/*
+/storage/app/backups/*
+/storage/app/uploads/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/logs/*
+
+# Keep directory placeholders if/when created
+!/storage/app/private/.gitignore
+!/storage/app/backups/.gitignore
+!/storage/app/uploads/.gitignore
+!/storage/framework/cache/.gitignore
+!/storage/framework/sessions/.gitignore
+!/storage/framework/views/.gitignore
+!/storage/logs/.gitignore
+
+# Tests / reports
+.phpunit.result.cache
+/coverage/
+/playwright-report/
+/test-results/
+/.phpunit.cache/
+
+# Release artifacts
+/dist/
+/releases/
+*.zip
+*.sha256
+
+# IDE / OS
+/.idea/
+/.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local temporary files
+*.tmp
+*.swp
+*.swo
