@@ -288,4 +288,49 @@ final class WalkDetailsTest extends TestCase
             'primary_leader_id' => User::factory()->create()->id,
         ]);
     }
+
+    public function test_rejects_url_and_path_values_that_exceed_their_persistent_column_limit(): void
+    {
+        $event = Event::factory()->create();
+        $leader = User::factory()->create();
+        $transportUrl = 'https://example.test/'.str_repeat('a', 235);
+
+        try {
+            app(SaveWalkDetails::class)->handle($event, [
+                'primary_leader_id' => $leader->id,
+                'public_transport_url' => $transportUrl,
+                'featured_image_path' => str_repeat('a', 256),
+                'gpx_path' => str_repeat('a', 256),
+            ]);
+
+            $this->fail('Values wider than the persistent string columns were accepted.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('public_transport_url', $exception->errors());
+            $this->assertArrayHasKey('featured_image_path', $exception->errors());
+            $this->assertArrayHasKey('gpx_path', $exception->errors());
+        }
+    }
+
+    public function test_rejects_numeric_values_outside_the_walk_column_precision_and_integer_ranges(): void
+    {
+        $event = Event::factory()->create();
+        $leader = User::factory()->create();
+
+        try {
+            app(SaveWalkDetails::class)->handle($event, [
+                'primary_leader_id' => $leader->id,
+                'distance' => 1000000,
+                'ascent' => 123.456,
+                'estimated_duration_minutes' => 65536,
+                'capacity' => 65536,
+            ]);
+
+            $this->fail('Values outside the walk column bounds were accepted.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('distance', $exception->errors());
+            $this->assertArrayHasKey('ascent', $exception->errors());
+            $this->assertArrayHasKey('estimated_duration_minutes', $exception->errors());
+            $this->assertArrayHasKey('capacity', $exception->errors());
+        }
+    }
 }
