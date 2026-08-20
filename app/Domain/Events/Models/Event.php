@@ -4,6 +4,7 @@ namespace App\Domain\Events\Models;
 
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
+use App\Domain\Walks\Models\Walk;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Database\Factories\EventFactory;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'type',
@@ -41,6 +43,12 @@ final class Event extends Model
     public function organiser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'organiser_id');
+    }
+
+    /** @return HasOne<Walk, $this> */
+    public function walk(): HasOne
+    {
+        return $this->hasOne(Walk::class);
     }
 
     public function isPast(?CarbonInterface $at = null): bool
