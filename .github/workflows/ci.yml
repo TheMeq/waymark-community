@@ -67,3 +67,31 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+
+  browser:
+    name: Browser visual and accessibility checks
+    runs-on: ubuntu-latest
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:KBRoK9V5HuswYGJYIBr33RbHtZqfL/PZ/Rfij5fPeTc=
+      APP_DEBUG: 'false'
+      SESSION_DRIVER: array
+      CACHE_STORE: array
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ':memory:'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, sqlite3
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: composer install --no-interaction --prefer-dist
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

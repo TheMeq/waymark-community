@@ -1,18 +1,18 @@
 @props(['site'])
 
 <header {{ $attributes->class('border-b border-border bg-surface-raised') }}>
-    <div class="wm-container flex min-h-20 items-center justify-between gap-5 py-3">
-        <a class="inline-flex items-center gap-3 text-base font-semibold text-ink no-underline" href="/" aria-label="{{ $site['name'] }} home">
+    <div class="wm-container flex min-h-20 items-center justify-between gap-2 py-3 sm:gap-5">
+        <a class="inline-flex min-w-0 items-center gap-3 text-sm font-semibold text-ink no-underline sm:text-base" href="/" aria-label="{{ $site['name'] }} home">
             <span class="grid size-10 place-items-center rounded-full bg-brand text-lg font-semibold text-on-brand" aria-hidden="true">W</span>
-            <span class="leading-tight">
-                <span class="block">{{ $site['name'] }}</span>
+            <span class="min-w-0 leading-tight">
+                <span class="block break-words">{{ $site['name'] }}</span>
                 @if (! empty($site['strapline']))
                     <span class="mt-0.5 hidden text-[0.65rem] font-normal text-ink-muted sm:block">{{ $site['strapline'] }}</span>
                 @endif
             </span>
         </a>
 
-        <details class="group relative lg:hidden">
+        <details class="group relative shrink-0 lg:hidden">
             <summary class="grid min-h-11 min-w-11 cursor-pointer list-none place-items-center rounded-full border border-border bg-surface-raised text-ink [&::-webkit-details-marker]:hidden" aria-label="Open navigation">
                 <svg class="size-5 group-open:hidden" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                     <path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round" />

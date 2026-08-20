@@ -77,7 +77,6 @@
     }
 
     body {
-        min-width: 20rem;
         margin: 0;
         background: var(--wm-surface);
         color: var(--wm-text);
@@ -153,8 +152,7 @@
     }
 
     .wm-card-rail {
-        grid-auto-flow: column;
-        grid-auto-columns: minmax(16rem, 82vw);
+        grid-template-columns: repeat(3, 82vw);
         overflow-x: auto;
         overscroll-behavior-inline: contain;
         padding: 0.25rem 0.25rem 1rem;

@@ -8,6 +8,7 @@
         "test:e2e": "playwright test --pass-with-no-tests"
     },
     "devDependencies": {
+        "@axe-core/playwright": "^4.13.0",
         "@playwright/test": "^1.62.1",
         "@tailwindcss/vite": "^4.0.0",
         "alpinejs": "^3.16.2",

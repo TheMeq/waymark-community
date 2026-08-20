@@ -18,7 +18,7 @@
         <div class="wm-hero-shade absolute inset-0 -z-10"></div>
 
         <div class="wm-container flex min-h-[34rem] items-center py-10 sm:min-h-[38rem] lg:min-h-[22rem] lg:py-6">
-            <div class="max-w-[44rem] pt-24 sm:pt-14 lg:pt-0">
+            <div class="w-full min-w-0 max-w-[44rem] pt-24 sm:pt-14 lg:pt-0">
                 <p class="mb-4 text-xs font-semibold uppercase tracking-[0.17em] text-brand">{{ $homepage->hero['eyebrow'] }}</p>
                 <h1 class="text-[clamp(2.75rem,5vw,3.6rem)] text-ink">
                     {{ $homepage->hero['headline'] }}
@@ -69,9 +69,9 @@
             </div>
 
             <div>
-                <div class="flex items-end justify-between gap-4">
+                <div class="flex flex-wrap items-end justify-between gap-4">
                     <h2 class="text-2xl text-ink">Holidays &amp; Weekends Away</h2>
-                    <a class="shrink-0 text-sm font-semibold text-brand" href="/weekends">View all <span aria-hidden="true">&rarr;</span></a>
+                    <a class="text-sm font-semibold text-brand" href="/weekends">View all <span aria-hidden="true">&rarr;</span></a>
                 </div>
                 <article class="group mt-5 overflow-hidden rounded-[var(--wm-radius-md)] border border-border bg-surface-raised shadow-[var(--wm-shadow-card)] md:grid md:grid-cols-[1.55fr_1fr] lg:block">
                     <div class="relative overflow-hidden">
@@ -109,21 +109,21 @@
     <section class="bg-surface-raised py-6 sm:py-7">
         <div class="wm-container grid gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(18rem,1fr)]">
             <div class="rounded-[var(--wm-radius-md)] bg-surface-soft p-4 sm:p-5">
-                <div class="grid gap-5 md:grid-cols-[minmax(13rem,1fr)_2fr_auto] md:items-center">
-                    <div>
+                <div class="flex flex-col gap-5 md:flex-row md:flex-wrap md:items-center">
+                    <div class="md:flex-[1_1_10rem]">
                         <p class="text-xs font-semibold uppercase tracking-[0.15em] text-brand">New here?</p>
                         <h2 class="mt-2 text-3xl">Join us!</h2>
                         <p class="mt-3 text-sm text-ink-muted">A friendly, volunteer-led group for people who enjoy the outdoors.</p>
                         <blockquote class="mt-3 text-xs italic text-ink-muted">{{ $homepage->testimonial }}</blockquote>
                     </div>
 
-                    <div class="grid gap-4 sm:grid-cols-3">
+                    <div class="grid gap-4 sm:grid-cols-3 md:flex-[2_1_20rem]">
                         <p class="border-l-2 border-brand/25 pl-4 text-sm"><strong class="block">Everyone welcome</strong><span class="text-ink-muted">Come as you are.</span></p>
                         <p class="border-l-2 border-brand/25 pl-4 text-sm"><strong class="block">Try a walk</strong><span class="text-ink-muted">Find your pace.</span></p>
                         <p class="border-l-2 border-brand/25 pl-4 text-sm"><strong class="block">Good company</strong><span class="text-ink-muted">Share the day.</span></p>
                     </div>
 
-                    <x-public.button href="/join">Join the group</x-public.button>
+                    <x-public.button class="md:flex-[0_0_auto]" href="/join">Join the group</x-public.button>
                 </div>
             </div>
 
