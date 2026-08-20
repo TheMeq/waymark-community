@@ -166,6 +166,19 @@ final class WalkConfigurationAdminTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_forbidden_walk_leader_does_not_initialise_walk_field_settings(): void
+    {
+        $walkLeader = User::factory()->create(['can_manage_walks' => true]);
+
+        $this->assertSame(0, WalkFieldSettings::query()->count());
+
+        $this->actingAs($walkLeader)
+            ->get('/admin/walk-field-settings')
+            ->assertForbidden();
+
+        $this->assertSame(0, WalkFieldSettings::query()->count());
+    }
+
     public function test_administrator_can_access_all_global_configuration_resources(): void
     {
         $settings = app(UpdateWalkFieldSettings::class)->handle([]);

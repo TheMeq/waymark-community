@@ -12,6 +12,8 @@ final class ListWalkFieldSettings extends ListRecords
 
     public function mount(): void
     {
+        WalkFieldSettingsResource::authorizeViewAny();
+
         app(UpdateWalkFieldSettings::class)->handle([]);
 
         parent::mount();
