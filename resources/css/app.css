@@ -145,11 +145,76 @@
     .wm-skip-link:focus {
         translate: 0;
     }
+
+    .wm-hero-shade {
+        background:
+            linear-gradient(to top, rgb(255 255 255 / 0.98) 8%, rgb(255 255 255 / 0.82) 45%, rgb(255 255 255 / 0.08) 78%),
+            linear-gradient(to right, rgb(255 255 255 / 0.72), transparent 70%);
+    }
+
+    .wm-card-rail {
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(16rem, 82vw);
+        overflow-x: auto;
+        overscroll-behavior-inline: contain;
+        padding: 0.25rem 0.25rem 1rem;
+        scroll-padding-inline: 0.25rem;
+        scroll-snap-type: inline mandatory;
+        scrollbar-width: thin;
+    }
+
+    .wm-card-rail > * {
+        scroll-snap-align: start;
+    }
+
+    .wm-photo-band {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .wm-photo-band > :first-child,
+    .wm-photo-feature {
+        grid-column: 1 / -1;
+    }
 }
 
 @media (min-width: 48rem) {
     .wm-container {
         width: min(calc(100% - 4rem), var(--wm-container));
+    }
+
+    .wm-hero-shade {
+        background: linear-gradient(to right, rgb(255 255 255 / 0.98) 0%, rgb(255 255 255 / 0.9) 34%, rgb(255 255 255 / 0.16) 67%, transparent 80%);
+    }
+
+    .wm-photo-band {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .wm-photo-band > :first-child {
+        grid-column: 1 / -1;
+    }
+
+    .wm-photo-feature {
+        grid-column: auto;
+    }
+
+    .wm-card-rail {
+        grid-auto-flow: row;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        overflow: visible;
+        padding: 0;
+        scroll-snap-type: none;
+    }
+}
+
+@media (min-width: 64rem) {
+    .wm-photo-band {
+        grid-template-columns: 11.5rem repeat(6, minmax(0, 1fr));
+        align-items: stretch;
+    }
+
+    .wm-photo-band > :first-child {
+        grid-column: auto;
     }
 }
 

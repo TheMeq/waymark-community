@@ -4,7 +4,12 @@
     <div class="wm-container flex min-h-20 items-center justify-between gap-5 py-3">
         <a class="inline-flex items-center gap-3 text-base font-semibold text-ink no-underline" href="/" aria-label="{{ $site['name'] }} home">
             <span class="grid size-10 place-items-center rounded-full bg-brand text-lg font-semibold text-on-brand" aria-hidden="true">W</span>
-            <span>{{ $site['name'] }}</span>
+            <span class="leading-tight">
+                <span class="block">{{ $site['name'] }}</span>
+                @if (! empty($site['strapline']))
+                    <span class="mt-0.5 hidden text-[0.65rem] font-normal text-ink-muted sm:block">{{ $site['strapline'] }}</span>
+                @endif
+            </span>
         </a>
 
         <details class="group relative lg:hidden">
@@ -22,18 +27,21 @@
                     <li><x-public.button class="w-full" href="/walks" variant="secondary">Upcoming walks</x-public.button></li>
                     <li><x-public.button class="w-full" href="/join">Join us</x-public.button></li>
                     <li><x-public.button class="w-full" href="/account" variant="quiet">Account</x-public.button></li>
-                    <li class="mt-2 border-t border-border pt-3"><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="/about">About</a></li>
-                    <li><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="/photos">Photos</a></li>
+                    <li class="mt-2 border-t border-border pt-3"><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="/whats-on">What's on</a></li>
+                    <li><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="/weekends">Weekends away</a></li>
+                    <li><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="/photos">Gallery</a></li>
                 </ul>
             </nav>
         </details>
 
         <nav class="hidden lg:block" aria-label="Primary navigation">
             <ul class="flex items-center justify-end gap-x-6 text-sm font-medium">
-                <li><a class="hover:text-brand" href="/walks">Upcoming walks</a></li>
-                <li><a class="hover:text-brand" href="/about">About</a></li>
-                <li><a class="hover:text-brand" href="/photos">Photos</a></li>
-                <li><a class="hover:text-brand" href="/account">Account</a></li>
+                <li><a class="hover:text-brand" href="/walks">Walks</a></li>
+                <li><a class="hover:text-brand" href="/whats-on">What's on</a></li>
+                <li><a class="hover:text-brand" href="/weekends">Weekends</a></li>
+                <li><a class="hover:text-brand" href="/photos">Gallery</a></li>
+                <li><a class="hover:text-brand" href="/account">Members</a></li>
+                <li><a class="grid size-10 place-items-center rounded-full hover:bg-surface-soft" href="/search" aria-label="Search"><svg class="size-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" stroke-linecap="round" /></svg></a></li>
                 <li><x-public.button href="/join">Join us</x-public.button></li>
             </ul>
         </nav>
