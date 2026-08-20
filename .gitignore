@@ -9,6 +9,9 @@
 # Front-end dependencies and generated build outputs
 /node_modules/
 /public/build/
+/public/fonts-manifest.dev.json
+/public/hot
+/public/storage
 
 # Runtime / Laravel-generated data
 /storage/app/private/*
@@ -18,6 +21,8 @@
 /storage/framework/sessions/*
 /storage/framework/views/*
 /storage/logs/*
+/storage/*.key
+/storage/pail/
 
 # Keep directory placeholders if/when created
 !/storage/app/private/.gitignore
@@ -42,11 +47,22 @@
 *.sha256
 
 # IDE / OS
+/.codex/
+/.cursor/
 /.idea/
+/.nova/
 /.vscode/
+/.zed/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Local developer metadata
+.phpactor.json
+/auth.json
+_ide_helper.php
+Homestead.json
+Homestead.yaml
 
 # Local temporary files
 *.tmp
