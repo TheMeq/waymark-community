@@ -5,10 +5,10 @@ namespace App\Filament\Resources;
 use App\Domain\Walks\Models\WalkFieldSettings;
 use App\Filament\Resources\WalkFieldSettingsResource\Pages\EditWalkFieldSettings;
 use App\Filament\Resources\WalkFieldSettingsResource\Pages\ListWalkFieldSettings;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
