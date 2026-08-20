@@ -28,6 +28,12 @@ final readonly class PublicWalkDetailViewModel
             'starts_at' => $event->starts_at->format('l j F Y, H:i'),
             'ends_at' => $event->ends_at?->format('H:i'),
             'status' => self::status($event->status),
+            'recap' => $event->isPast() ? $walk->recap : null,
+            'highlights' => $event->isPast() ? $walk->highlights : null,
+            'updates' => $event->updates->map(fn ($update): array => [
+                'message' => $update->message,
+                'date' => $update->created_at->format('j F Y, H:i'),
+            ])->all(),
             'distance' => self::measurement($walk->distance, $siteProfile->distance_unit),
             'ascent' => self::measurement($walk->ascent, $siteProfile->ascent_unit),
             'duration' => $walk->estimated_duration_minutes === null ? null : self::duration($walk->estimated_duration_minutes),

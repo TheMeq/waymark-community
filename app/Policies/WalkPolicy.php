@@ -30,4 +30,9 @@ final class WalkPolicy
     {
         return $this->update($user, $walk);
     }
+
+    public function recap(User $user, Walk $walk): bool
+    {
+        return $this->update($user, $walk);
+    }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Domain\Walks\RelatedContent\RelatedWalks;
+use App\Domain\Walks\RelatedContent\SignalRelatedWalks;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\ServiceProvider;
 
@@ -12,7 +14,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(RelatedWalks::class, SignalRelatedWalks::class);
     }
 
     /**

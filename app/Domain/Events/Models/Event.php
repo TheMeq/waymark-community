@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
@@ -49,6 +50,12 @@ final class Event extends Model
     public function walk(): HasOne
     {
         return $this->hasOne(Walk::class);
+    }
+
+    /** @return HasMany<EventUpdate, $this> */
+    public function updates(): HasMany
+    {
+        return $this->hasMany(EventUpdate::class)->latest('created_at')->latest('id');
     }
 
     public function isPast(?CarbonInterface $at = null): bool

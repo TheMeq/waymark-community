@@ -17,6 +17,24 @@
                 <p class="mt-4 inline-flex rounded-[var(--wm-radius-pill)] bg-surface-soft px-3 py-1 text-sm font-semibold text-ink">{{ $walk['status'] }}</p>
             @endif
             <p class="mt-4 text-ink-muted"><time datetime="{{ $event->starts_at->toAtomString() }}">{{ $walk['starts_at'] }}</time>@if ($walk['ends_at']) – {{ $walk['ends_at'] }}@endif</p>
+            @if ($walk['updates'] !== [])
+                <section class="mt-6 rounded-[var(--wm-radius-md)] border border-border bg-surface-soft p-5" aria-labelledby="updates-heading">
+                    <h2 id="updates-heading" class="text-xl text-ink">Updates from the organiser</h2>
+                    <ol class="mt-3 grid gap-4">
+                        @foreach ($walk['updates'] as $update)
+                            <li><time class="text-xs font-semibold uppercase tracking-[0.1em] text-ink-muted">{{ $update['date'] }}</time><p class="mt-1 text-ink">{{ $update['message'] }}</p></li>
+                        @endforeach
+                    </ol>
+                </section>
+            @endif
+            @if ($walk['recap'] || $walk['highlights'])
+                <section class="mt-7 rounded-[var(--wm-radius-md)] border border-border bg-surface p-5" aria-labelledby="recap-heading">
+                    <h2 id="recap-heading" class="text-2xl text-ink">Walk recap</h2>
+                    @if ($walk['recap'])<div class="prose mt-3 max-w-none text-ink">{!! nl2br(e($walk['recap'])) !!}</div>@endif
+                    @if ($walk['highlights'])<h3 class="mt-5 text-lg text-ink">Highlights</h3><p class="mt-2 text-ink-muted">{{ $walk['highlights'] }}</p>@endif
+                </section>
+                <h2 class="mt-9 text-2xl text-ink">Original walk details</h2>
+            @endif
             @if ($walk['summary'])<p class="mt-6 text-lg text-ink-muted">{{ $walk['summary'] }}</p>@endif
             @if ($walk['description'])<div class="prose mt-6 max-w-none text-ink">{!! nl2br(e($walk['description'])) !!}</div>@endif
 
@@ -54,6 +72,12 @@
             @if ($walk['attachments'] !== [])<section class="wm-print-hidden mt-8" aria-labelledby="downloads-heading"><h2 id="downloads-heading" class="text-2xl text-ink">Downloads</h2><ul class="mt-3 grid gap-2">@foreach ($walk['attachments'] as $attachment)<li><a class="font-semibold text-brand underline" href="{{ route('walks.attachment', [$event->slug, $attachment['index']]) }}">{{ $attachment['name'] }}</a></li>@endforeach</ul></section>@endif
             @if ($walk['has_gpx'])<p class="wm-print-hidden mt-8"><x-public.button href="{{ route('walks.gpx', $event->slug) }}" variant="secondary">Download GPX</x-public.button></p>@endif
             @if ($walk['map'])<div class="wm-print-hidden mt-9"><x-public.walk-map :map="$walk['map']" /></div>@endif
+            @if ($relatedWalks->isNotEmpty())
+                <section class="mt-12" aria-labelledby="related-walks-heading">
+                    <h2 id="related-walks-heading" class="text-2xl text-ink">Related walks</h2>
+                    <div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">@foreach ($relatedWalks as $relatedWalk)<x-public.event-card :event="$relatedWalk" />@endforeach</div>
+                </section>
+            @endif
         </div>
     </article>
 @endsection
