@@ -224,6 +224,30 @@ final class WalkDetailsTest extends TestCase
         }
     }
 
+    public function test_rejects_response_unsafe_attachment_filenames_when_saving_walk_details(): void
+    {
+        $event = Event::factory()->create();
+        $leader = User::factory()->create();
+
+        try {
+            app(SaveWalkDetails::class)->handle($event, [
+                'primary_leader_id' => $leader->id,
+                'attachments' => [[
+                    'path' => 'walks/attachments/route-sheet.pdf',
+                    'name' => 'Route/sheet.pdf',
+                ], [
+                    'path' => 'walks/attachments/route-sheet.pdf',
+                    'name' => 'Route\\sheet.pdf',
+                ]],
+            ]);
+
+            $this->fail('Response-unsafe attachment filenames were accepted.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('attachments.0.name', $exception->errors());
+            $this->assertArrayHasKey('attachments.1.name', $exception->errors());
+        }
+    }
+
     public function test_measurement_data_uses_the_installation_wide_units(): void
     {
         $profile = app(UpdateSiteProfile::class)->handle([

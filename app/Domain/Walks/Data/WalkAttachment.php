@@ -74,11 +74,22 @@ final readonly class WalkAttachment
     {
         $name = trim($name);
 
-        if ($name === '' || strlen($name) > 255 || preg_match('/[\r\n\0]/', $name) === 1) {
+        if (! self::isResponseSafeName($name)) {
             return null;
         }
 
         return $name;
+    }
+
+    public static function isResponseSafeName(string $name): bool
+    {
+        $name = trim($name);
+
+        return $name !== ''
+            && strlen($name) <= 255
+            && ! str_contains($name, '/')
+            && ! str_contains($name, '\\')
+            && preg_match('/[\x00-\x1F\x7F]/', $name) !== 1;
     }
 
     private static function disk(): string

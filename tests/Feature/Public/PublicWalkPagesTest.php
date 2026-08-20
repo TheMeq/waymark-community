@@ -176,10 +176,14 @@ final class PublicWalkPagesTest extends TestCase
         config()->set('walks.attachments.disk', 'local');
         $event = $this->publishedWalk('Attachment walk', '+1 week');
         Storage::disk('local')->put('walks/attachments/route-sheet.pdf', 'route sheet');
+        Storage::disk('local')->put('walks/attachments/unsafe-slash.pdf', 'unsafe slash');
+        Storage::disk('local')->put('walks/attachments/unsafe-backslash.pdf', 'unsafe backslash');
         $event->walk->forceFill(['attachments' => [
             ['path' => 'walks/attachments/route-sheet.pdf', 'name' => 'Route sheet.pdf'],
             ['path' => 'walks/attachments/missing.pdf', 'name' => 'Missing sheet.pdf'],
             ['path' => '../private/notes.pdf', 'name' => 'Private notes.pdf'],
+            ['path' => 'walks/attachments/unsafe-slash.pdf', 'name' => 'Route/sheet.pdf'],
+            ['path' => 'walks/attachments/unsafe-backslash.pdf', 'name' => 'Route\\sheet.pdf'],
         ]])->save();
 
         $this->get('/walks/'.$event->slug)
@@ -189,6 +193,8 @@ final class PublicWalkPagesTest extends TestCase
             ->assertSee('href="'.route('walks.attachment', [$event->slug, 0]).'"', false)
             ->assertDontSee('Missing sheet.pdf')
             ->assertDontSee('Private notes.pdf')
+            ->assertDontSee('Route/sheet.pdf')
+            ->assertDontSee('Route\\sheet.pdf')
             ->assertDontSee('walks/attachments/route-sheet.pdf');
 
         $this->get('/walks/'.$event->slug.'/attachments/0')
@@ -197,6 +203,8 @@ final class PublicWalkPagesTest extends TestCase
 
         $this->get('/walks/'.$event->slug.'/attachments/1')->assertNotFound();
         $this->get('/walks/'.$event->slug.'/attachments/2')->assertNotFound();
+        $this->get('/walks/'.$event->slug.'/attachments/3')->assertNotFound();
+        $this->get('/walks/'.$event->slug.'/attachments/4')->assertNotFound();
     }
 
     public function test_public_walk_detail_hides_gpx_downloads_for_missing_or_invalid_storage_references(): void

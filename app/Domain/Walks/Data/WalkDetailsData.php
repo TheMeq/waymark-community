@@ -106,6 +106,12 @@ final readonly class WalkDetailsData
                 $validator->errors()->add('co_leader_ids', 'The primary leader cannot also be a co-leader.');
             }
 
+            foreach ($attributes['attachments'] ?? [] as $index => $attachment) {
+                if (is_string($attachment['name'] ?? null) && ! WalkAttachment::isResponseSafeName($attachment['name'])) {
+                    $validator->errors()->add("attachments.$index.name", 'Attachment filenames cannot contain path separators or control characters.');
+                }
+            }
+
             if (! ($attributes['is_public_transport_friendly'] ?? false)) {
                 return;
             }
