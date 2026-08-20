@@ -16,18 +16,12 @@ final readonly class WalkPublicDetails
     /** @return array<string, mixed> */
     public function sections(): array
     {
+        $location = MeetingLocation::fromWalk($this->walk);
+        $map = WalkMapData::fromWalk($this->walk);
+
         return array_filter([
             'terrain' => $this->walk->terrain_notes,
-            'location' => self::withoutEmptyValues([
-                'name' => $this->walk->meeting_location_name,
-                'address' => $this->walk->meeting_address,
-                'postcode' => $this->walk->meeting_postcode,
-                'latitude' => $this->walk->latitude,
-                'longitude' => $this->walk->longitude,
-                'what3words' => $this->walk->what3words,
-                'os_grid_reference' => $this->walk->os_grid_reference,
-                'directions' => $this->walk->directions,
-            ]),
+            'location' => $location->toArray(),
             'parking' => $this->walk->parking_notes,
             'public_transport' => $this->walk->is_public_transport_friendly ? self::withoutEmptyValues([
                 'station_stop' => $this->walk->public_transport_station_stop,
@@ -50,6 +44,7 @@ final readonly class WalkPublicDetails
             'route' => self::withoutEmptyValues([
                 'gpx_path' => $this->walk->gpx_path,
                 'metadata' => $this->walk->gpx_derived_metadata,
+                'map' => $map?->payload(),
             ]),
         ], fn (mixed $value): bool => $value !== null && $value !== [] && $value !== '');
     }
