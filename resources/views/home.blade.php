@@ -61,11 +61,15 @@
                     <h2 id="weekend-heading" class="text-3xl text-ink lg:text-2xl">This Weekend</h2>
                     <a class="text-sm font-semibold text-brand underline decoration-brand/30 underline-offset-4 sm:hidden" href="/walks">View all</a>
                 </div>
-                <div class="wm-card-rail mt-5 grid gap-4 lg:mt-3 lg:gap-3">
-                    @foreach ($homepage->weekendWalks as $walk)
-                        <x-public.event-card :event="$walk" />
-                    @endforeach
-                </div>
+                @if ($homepage->weekendWalks !== [])
+                    <div class="wm-card-rail mt-5 grid gap-4 lg:mt-3 lg:gap-3">
+                        @foreach ($homepage->weekendWalks as $walk)
+                            <x-public.event-card :event="$walk" />
+                        @endforeach
+                    </div>
+                @else
+                    <p class="mt-5 text-sm text-ink-muted">There are no upcoming walks to show right now.</p>
+                @endif
             </div>
 
             <div>

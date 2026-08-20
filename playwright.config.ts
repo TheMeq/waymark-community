@@ -1,4 +1,7 @@
 import { defineConfig } from '@playwright/test';
+import { resolve } from 'node:path';
+
+const browserDatabase = resolve('test-results/playwright-browser.sqlite');
 
 export default defineConfig({
     testDir: './tests/browser',
@@ -37,7 +40,16 @@ export default defineConfig({
         },
     ],
     webServer: {
-        command: 'php artisan serve --host=127.0.0.1 --port=8000',
+        command: 'node tests/browser/prepare-browser-db.mjs && php artisan serve --host=127.0.0.1 --port=8000',
+        env: {
+            APP_ENV: 'testing',
+            PHPRC: 'C:\\Users\\richa\\AppData\\Local\\Temp\\waymark-php84.ini',
+            DB_CONNECTION: 'sqlite',
+            DB_DATABASE: browserDatabase,
+            CACHE_STORE: 'array',
+            SESSION_DRIVER: 'array',
+            QUEUE_CONNECTION: 'sync',
+        },
         url: 'http://127.0.0.1:8000',
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,

@@ -3,11 +3,14 @@
 namespace Tests\Feature\Public;
 
 use App\ViewModels\HomepageViewModel;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 final class HomepageTest extends TestCase
 {
-    public function test_homepage_is_driven_by_the_phase_two_fixture_view_model(): void
+    use RefreshDatabase;
+
+    public function test_homepage_preserves_the_phase_two_view_model_outside_the_real_walk_card_source(): void
     {
         $homepage = HomepageViewModel::demo();
 
@@ -18,7 +21,7 @@ final class HomepageTest extends TestCase
         $this->get('/')
             ->assertOk()
             ->assertViewIs('home')
-            ->assertViewHas('homepage', $homepage);
+            ->assertViewHas('homepage', fn (HomepageViewModel $rendered): bool => $rendered->weekendWalks === [] && $rendered->gallery === $homepage->gallery);
     }
 
     public function test_homepage_preserves_the_approved_section_hierarchy(): void
@@ -52,7 +55,7 @@ final class HomepageTest extends TestCase
         $response->assertSee('src="/images/demo/hero-walkers.png"', false)
             ->assertSee('alt="Friends walking together across open moorland"', false)
             ->assertSee('src="/images/demo/woodland-walk.png"', false)
-            ->assertSee('alt="Walkers crossing a footbridge through green woodland"', false)
+            ->assertSee('alt="A footbridge winding through lush woodland"', false)
             ->assertSee('src="/images/demo/coastal-weekend.png"', false);
     }
 

@@ -24,7 +24,8 @@ final readonly class HomepageViewModel
         public string $testimonial,
     ) {}
 
-    public static function demo(): self
+    /** @param array<int, array<string, string>>|null $weekendWalks */
+    public static function demo(?array $weekendWalks = null): self
     {
         return new self(
             site: [
@@ -44,7 +45,7 @@ final readonly class HomepageViewModel
                 ['symbol' => 'route', 'title' => 'Scenic routes', 'detail' => 'A range of abilities'],
                 ['symbol' => 'calendar', 'title' => 'Weekends away', 'detail' => 'Memories that last'],
             ],
-            weekendWalks: [
+            weekendWalks: $weekendWalks ?? [
                 [
                     'title' => 'Ridge and reservoir',
                     'url' => '/walks/ridge-and-reservoir',

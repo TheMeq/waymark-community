@@ -238,3 +238,22 @@
         animation-iteration-count: 1 !important;
     }
 }
+
+@media print {
+    .wm-print-hidden,
+    .leaflet-control-container {
+        display: none !important;
+    }
+
+    body,
+    main,
+    article {
+        background: #fff !important;
+        color: #000 !important;
+    }
+
+    a {
+        color: inherit !important;
+        text-decoration: none !important;
+    }
+}

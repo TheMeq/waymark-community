@@ -1,0 +1,49 @@
+<?php
+
+namespace App\ViewModels;
+
+use App\Domain\Events\Models\Event;
+use App\Domain\Operations\Models\SiteProfile;
+
+final readonly class PublicWalkCardViewModel
+{
+    /** @return array<string, string> */
+    public static function fromEvent(Event $event, SiteProfile $siteProfile): array
+    {
+        $walk = $event->walk;
+
+        return array_filter([
+            'title' => $event->title,
+            'url' => route('walks.show', $event->slug),
+            'image_url' => self::imageUrl($walk?->featured_image_path),
+            'image_alt' => 'Walkers exploring a countryside trail',
+            'date' => $event->starts_at->format('l j F'),
+            'day' => $event->starts_at->format('D'),
+            'day_number' => $event->starts_at->format('j'),
+            'month' => $event->starts_at->format('M'),
+            'location' => $walk?->meeting_location_name,
+            'distance' => self::measurement($walk?->distance, $siteProfile->distance_unit),
+            'ascent' => self::measurement($walk?->ascent, $siteProfile->ascent_unit),
+            'difficulty' => $walk?->grade?->name,
+            'capacity' => $walk?->capacity === null ? null : ($walk->availability ?? (string) $walk->capacity),
+            'leader' => $walk?->primaryLeader?->name,
+            'status' => $walk?->availability,
+        ], static fn (mixed $value): bool => $value !== null && $value !== '');
+    }
+
+    private static function imageUrl(?string $path): string
+    {
+        return str_starts_with((string) $path, '/images/demo/')
+            ? $path
+            : '/images/demo/hero-walkers.png';
+    }
+
+    private static function measurement(?string $value, string $unit): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.').' '.$unit;
+    }
+}
