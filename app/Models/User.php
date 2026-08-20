@@ -15,7 +15,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'can_manage_walks'])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class User extends Authenticatable implements FilamentUser, MustVerifyEmail
 {
@@ -27,12 +27,13 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         'account_status' => 'active',
         'membership_status' => 'unverified',
         'is_admin' => false,
+        'can_manage_walks' => false,
     ];
 
     public function canAccessPanel(Panel $panel): bool
     {
         return $panel->getId() === 'admin'
-            && $this->is_admin
+            && ($this->is_admin || ($this->can_manage_walks && $this->hasVerifiedEmail()))
             && $this->account_status === AccountStatus::Active;
     }
 
@@ -47,6 +48,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
             'account_status' => AccountStatus::class,
             'membership_status' => MembershipStatus::class,
             'is_admin' => 'boolean',
+            'can_manage_walks' => 'boolean',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',

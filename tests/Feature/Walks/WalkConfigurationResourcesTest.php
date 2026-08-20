@@ -26,7 +26,7 @@ final class WalkConfigurationResourcesTest extends TestCase
         );
         $this->assertSame(['name'], $this->fieldNames(TagResource::form(Schema::make())));
         $this->assertSame(
-            ['field_configuration'],
+            ['field_configuration', 'leaders_can_publish_directly'],
             $this->fieldNames(WalkFieldSettingsResource::form(Schema::make())),
         );
     }

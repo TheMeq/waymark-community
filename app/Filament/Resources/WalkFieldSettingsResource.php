@@ -7,6 +7,7 @@ use App\Filament\Resources\WalkFieldSettingsResource\Pages\EditWalkFieldSettings
 use App\Filament\Resources\WalkFieldSettingsResource\Pages\ListWalkFieldSettings;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -38,6 +39,9 @@ final class WalkFieldSettingsResource extends Resource
                         );
                     })
                     ->helperText('Disabled fields are hidden from walk forms and public pages. Existing walk information is kept.'),
+                Toggle::make('leaders_can_publish_directly')
+                    ->label('Walk leaders can publish their own walks directly')
+                    ->helperText('When disabled, a leader submission is held for approval. Administrators can always publish.'),
             ]);
     }
 

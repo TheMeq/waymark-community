@@ -14,6 +14,9 @@ final class EditWalkFieldSettings extends EditRecord
     /** @param array<string, mixed> $data */
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
-        return app(UpdateWalkFieldSettings::class)->handle($data['field_configuration'] ?? []);
+        return app(UpdateWalkFieldSettings::class)->handle(
+            $data['field_configuration'] ?? [],
+            $data['leaders_can_publish_directly'] ?? null,
+        );
     }
 }

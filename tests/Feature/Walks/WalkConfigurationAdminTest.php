@@ -134,6 +134,22 @@ final class WalkConfigurationAdminTest extends TestCase
         $this->assertSame(1, WalkFieldSettings::query()->count());
     }
 
+    public function test_walk_field_settings_edit_saves_the_direct_publish_setting(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        $settings = app(UpdateWalkFieldSettings::class)->handle([]);
+
+        Livewire::test(EditWalkFieldSettings::class, ['record' => $settings->getKey()])
+            ->fillForm([
+                'field_configuration' => array_keys(WalkFieldSettings::OPTIONAL_FIELDS),
+                'leaders_can_publish_directly' => true,
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertTrue($settings->fresh()->leaders_can_publish_directly);
+    }
+
     public function test_tag_and_walk_field_settings_indexes_render_for_an_admin(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => true]));

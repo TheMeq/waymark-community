@@ -5,7 +5,7 @@ namespace App\Domain\Walks\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['field_configuration'])]
+#[Fillable(['field_configuration', 'leaders_can_publish_directly'])]
 final class WalkFieldSettings extends Model
 {
     public const int SINGLETON_ID = 1;
@@ -39,6 +39,7 @@ final class WalkFieldSettings extends Model
     protected $attributes = [
         'id' => self::SINGLETON_ID,
         'field_configuration' => '[]',
+        'leaders_can_publish_directly' => false,
     ];
 
     /** @return array<string, bool> */
@@ -57,6 +58,7 @@ final class WalkFieldSettings extends Model
     {
         return [
             'field_configuration' => 'array',
+            'leaders_can_publish_directly' => 'boolean',
         ];
     }
 }
