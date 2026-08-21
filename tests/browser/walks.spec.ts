@@ -34,6 +34,41 @@ test('public walk list and detail preserve the approved responsive rhythm', asyn
     await expect(page).toHaveScreenshot(`walk-detail-${testInfo.project.name}.png`, { fullPage: true });
 });
 
+test('public walk filter controls retain a visible accessible control surface', async ({ page }) => {
+    await page.goto('/walks');
+
+    for (const label of [
+        'From date',
+        'To date',
+        'Minimum distance',
+        'Maximum distance',
+        'Minimum ascent',
+        'Maximum ascent',
+        'Location',
+        'Time',
+        'Difficulty',
+        'Leader',
+    ]) {
+        const presentation = await page.getByLabel(label, { exact: true }).evaluate((control) => {
+            const style = getComputedStyle(control);
+
+            return {
+                backgroundColor: style.backgroundColor,
+                borderStyle: style.borderTopStyle,
+                borderWidth: Number.parseFloat(style.borderTopWidth),
+                height: control.getBoundingClientRect().height,
+                paddingInline: Number.parseFloat(style.paddingInlineStart) + Number.parseFloat(style.paddingInlineEnd),
+            };
+        });
+
+        expect(presentation.height, `${label} minimum height`).toBeGreaterThanOrEqual(44);
+        expect(presentation.borderStyle, `${label} border style`).toBe('solid');
+        expect(presentation.borderWidth, `${label} border width`).toBeGreaterThanOrEqual(1);
+        expect(presentation.backgroundColor, `${label} background`).not.toBe('rgba(0, 0, 0, 0)');
+        expect(presentation.paddingInline, `${label} horizontal padding`).toBeGreaterThanOrEqual(16);
+    }
+});
+
 test('walk list and detail have no detectable WCAG A or AA violations, support keyboard filtering, and remain within the viewport at 200 percent text size', async ({ page }) => {
     await page.goto('/walks');
 

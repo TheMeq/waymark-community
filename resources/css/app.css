@@ -127,6 +127,21 @@
         margin-inline: auto;
     }
 
+    .wm-form-control {
+        min-height: 44px;
+        width: 100%;
+        border: 1px solid var(--wm-border-strong);
+        border-radius: var(--wm-radius-sm);
+        background: var(--wm-surface-raised);
+        padding: 0.625rem 0.75rem;
+        color: var(--wm-text);
+        transition: border-color var(--wm-transition-fast), background-color var(--wm-transition-fast);
+    }
+
+    .wm-form-control:hover {
+        border-color: var(--wm-brand);
+    }
+
     .wm-skip-link {
         position: fixed;
         z-index: 100;
