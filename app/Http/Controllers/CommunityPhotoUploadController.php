@@ -53,6 +53,7 @@ final class CommunityPhotoUploadController
             'accept_photo_policy' => ['nullable', 'boolean'],
             'photographer_name' => ['nullable', 'string', 'max:255'],
             'caption' => ['nullable', 'string', 'max:65535'],
+            'defer_processing' => ['nullable', 'boolean'],
         ]);
 
         $results = [];
@@ -67,8 +68,9 @@ final class CommunityPhotoUploadController
                     $validated['photographer_name'] ?? null,
                     $validated['caption'] ?? null,
                     (bool) ($validated['accept_photo_policy'] ?? false),
+                    (bool) ($validated['defer_processing'] ?? false),
                 );
-                $results[] = ['index' => $index, 'name' => $photo->getClientOriginalName(), 'status' => 'uploaded', 'photo_id' => $communityPhoto->id];
+                $results[] = ['index' => $index, 'name' => $photo->getClientOriginalName(), 'status' => $communityPhoto->processing_status === 'complete' ? 'uploaded' : 'processing', 'photo_id' => $communityPhoto->id];
             } catch (ValidationException|\RuntimeException $exception) {
                 if ($exception instanceof \RuntimeException) {
                     report($exception);

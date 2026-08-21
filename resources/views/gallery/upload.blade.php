@@ -11,7 +11,7 @@
             <h1 class="mt-2 text-4xl text-ink sm:text-5xl">Share photos</h1>
             @if (session('status'))<p class="mt-6 rounded-[var(--wm-radius-md)] bg-surface-soft p-4 text-ink" role="status">{{ session('status') }}</p>@endif
             @if ($errors->any())<div class="mt-6 rounded-[var(--wm-radius-md)] border border-red-700 bg-surface p-4 text-ink" role="alert" tabindex="-1" autofocus><p class="font-semibold">Please review the photo upload.</p><ul class="mt-2 list-inside list-disc">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
-            @if (session('upload_results'))<section class="mt-6" aria-labelledby="upload-results"><h2 id="upload-results" class="text-xl text-ink">Upload results</h2><ul class="mt-3 grid gap-2">@foreach (session('upload_results') as $result)<li class="rounded-[var(--wm-radius-md)] bg-surface-soft p-3"><strong>{{ $result['name'] }}</strong>: {{ $result['status'] === 'uploaded' ? 'Submitted' : 'Not uploaded' }}@foreach ($result['errors'] ?? [] as $error)<p>{{ $error }}</p>@endforeach</li>@endforeach</ul></section>@endif
+            @if (session('upload_results'))<section class="mt-6" aria-labelledby="upload-results"><h2 id="upload-results" class="text-xl text-ink">Upload results</h2><ul class="mt-3 grid gap-2">@foreach (session('upload_results') as $result)<li class="rounded-[var(--wm-radius-md)] bg-surface-soft p-3"><strong>{{ $result['name'] }}</strong>: {{ $result['status'] === 'uploaded' ? 'Submitted' : ($result['status'] === 'processing' ? 'Processing' : 'Not uploaded') }}@foreach ($result['errors'] ?? [] as $error)<p>{{ $error }}</p>@endforeach</li>@endforeach</ul></section>@endif
             <form x-data="photoUpload" x-on:submit.prevent="uploadAll" class="mt-8 grid gap-6 rounded-[var(--wm-radius-lg)] border border-border bg-surface p-5 shadow-[var(--wm-shadow-card)] sm:p-7" action="{{ route('community-photos.upload.store') }}" method="post" enctype="multipart/form-data">
                 @csrf
                 <div>
@@ -54,6 +54,7 @@
                             <span class="text-sm text-ink-muted" x-show="item.status === 'ready'">Ready</span>
                             <span class="text-sm text-ink-muted" x-show="item.status === 'uploading'">Uploading</span>
                             <span class="text-sm text-ink-muted" x-show="item.status === 'uploaded'">Submitted</span>
+                            <span class="text-sm text-ink-muted" x-show="item.status === 'processing'">Processing</span>
                             <template x-if="item.status === 'failed'"><div class="flex items-center gap-3"><span class="text-sm text-red-700" x-text="item.error"></span><x-public.button type="button" variant="secondary" x-on:click="upload(item)">Retry</x-public.button></div></template>
                         </li>
                     </template>

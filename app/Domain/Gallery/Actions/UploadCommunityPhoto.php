@@ -5,6 +5,7 @@ namespace App\Domain\Gallery\Actions;
 use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Data\ProcessedCommunityPhoto;
 use App\Domain\Gallery\Models\CommunityPhoto;
+use App\Domain\Gallery\Models\CommunityPhotoProcessingJob;
 use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Gallery\PhotoUploadPolicyDecision;
 use App\Domain\Gallery\PhotoUploadPolicyGate;
@@ -13,6 +14,7 @@ use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 final readonly class UploadCommunityPhoto
@@ -22,6 +24,7 @@ final readonly class UploadCommunityPhoto
         private PhotoUploadPolicyGate $policyGate,
         private AcceptCurrentPhotoUploadPolicy $acceptPolicy,
         private UploadablePublicEvents $events,
+        private ProcessDeferredCommunityPhotos $deferredProcessor,
     ) {}
 
     public function handle(
@@ -31,9 +34,25 @@ final readonly class UploadCommunityPhoto
         ?string $photographerName,
         ?string $caption,
         bool $acceptCurrentPolicy,
+        bool $preferDeferredProcessing = false,
     ): CommunityPhoto {
         $this->ensureUploadAllowed($account, $acceptCurrentPolicy);
         [$event, $specialAlbum] = $this->resolveContext($context);
+
+        if ($this->shouldDefer($upload, $preferDeferredProcessing)) {
+            $photo = $this->stageForDeferredProcessing($account, $upload, $event, $specialAlbum, $photographerName, $caption);
+
+            if ((bool) config('gallery.deferred.manual_fallback', false)) {
+                $jobId = CommunityPhotoProcessingJob::query()->where('community_photo_id', $photo->id)->value('id');
+
+                if (is_numeric($jobId)) {
+                    $this->deferredProcessor->process((int) $jobId);
+                }
+            }
+
+            return $photo->fresh();
+        }
+
         $processed = $this->ingest->handle($upload);
 
         try {
@@ -57,6 +76,58 @@ final readonly class UploadCommunityPhoto
         } catch (\Throwable $exception) {
             Storage::disk((string) config('gallery.photos.disk', 'local'))
                 ->deleteDirectory(dirname($this->sourcePath($processed)));
+
+            throw $exception;
+        }
+    }
+
+    private function stageForDeferredProcessing(
+        User $account,
+        UploadedFile $upload,
+        ?Event $event,
+        ?SpecialAlbum $specialAlbum,
+        ?string $photographerName,
+        ?string $caption,
+    ): CommunityPhoto {
+        $this->ingest->validateForDeferredProcessing($upload);
+        $diskName = (string) config('gallery.photos.disk', 'local');
+        $directory = trim((string) config('gallery.photos.directory', 'community-photos'), '/').'/'.Str::uuid()->toString();
+        $path = $directory.'/staged.'.$this->stagedExtension($upload);
+        $source = fopen((string) $upload->getRealPath(), 'rb');
+
+        if (! is_resource($source)) {
+            throw ValidationException::withMessages(['photo' => 'The uploaded photo could not be read.']);
+        }
+
+        try {
+            if (! Storage::disk($diskName)->put($path, $source)) {
+                throw new \RuntimeException('The photo could not be staged for processing.');
+            }
+        } finally {
+            fclose($source);
+        }
+
+        try {
+            return DB::transaction(function () use ($account, $event, $specialAlbum, $diskName, $path, $upload, $photographerName, $caption): CommunityPhoto {
+                $photo = CommunityPhoto::query()->create([
+                    'event_id' => $event?->id, 'special_album_id' => $specialAlbum?->id,
+                    'uploader_id' => $account->id, 'media_type' => 'image',
+                    'processing_status' => 'queued', 'storage_disk' => $diskName,
+                    'source_path' => $path, 'processed_variants' => [],
+                    'file_size_bytes' => $upload->getSize() ?: null,
+                    'caption' => $this->nullableTrimmed($caption),
+                    'photographer_name' => $this->nullableTrimmed($photographerName) ?? $account->publicDisplayName(),
+                    'moderation_status' => 'pending',
+                ]);
+                CommunityPhotoProcessingJob::query()->create([
+                    'community_photo_id' => $photo->id, 'status' => 'queued', 'attempts' => 0,
+                    'staged_source_path' => $path, 'available_at' => now(),
+                ]);
+
+                return $photo;
+            });
+        } catch (\Throwable $exception) {
+            Storage::disk($diskName)->delete($path);
 
             throw $exception;
         }
@@ -141,5 +212,22 @@ final readonly class UploadCommunityPhoto
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function shouldDefer(UploadedFile $upload, bool $preferDeferredProcessing): bool
+    {
+        if (! (bool) config('gallery.deferred.enabled', true)) {
+            return false;
+        }
+
+        return $preferDeferredProcessing || ($upload->getSize() ?? 0) > (int) config('gallery.deferred.size_threshold_bytes', 0);
+    }
+
+    private function stagedExtension(UploadedFile $upload): string
+    {
+        return match (strtolower((string) $upload->getClientMimeType())) {
+            'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/avif' => 'avif',
+            default => throw ValidationException::withMessages(['photo' => 'The uploaded photo has an unapproved MIME type.']),
+        };
     }
 }

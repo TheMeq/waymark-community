@@ -14,6 +14,15 @@ return [
         'max_files' => (int) env('GALLERY_PHOTO_MAX_FILES', 10),
     ],
 
+    'deferred' => [
+        'enabled' => (bool) env('GALLERY_DEFERRED_PROCESSING_ENABLED', true),
+        'size_threshold_bytes' => (int) env('GALLERY_DEFERRED_PROCESSING_SIZE_THRESHOLD', 5 * 1024 * 1024),
+        'max_attempts' => (int) env('GALLERY_DEFERRED_PROCESSING_MAX_ATTEMPTS', 3),
+        'retry_delay_seconds' => (int) env('GALLERY_DEFERRED_PROCESSING_RETRY_DELAY', 60),
+        'lease_minutes' => (int) env('GALLERY_DEFERRED_PROCESSING_LEASE_MINUTES', 15),
+        'manual_fallback' => (bool) env('GALLERY_DEFERRED_PROCESSING_MANUAL_FALLBACK', false),
+    ],
+
     'processing' => [
         'allowed_mime_types' => ['image/jpeg', 'image/png', 'image/webp', 'image/avif'],
         'max_upload_bytes' => (int) env('GALLERY_PHOTO_MAX_UPLOAD_BYTES', 10 * 1024 * 1024),

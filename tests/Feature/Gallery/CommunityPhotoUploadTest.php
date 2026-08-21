@@ -220,6 +220,60 @@ final class CommunityPhotoUploadTest extends TestCase
         $this->assertSame(1, CommunityPhoto::query()->count());
     }
 
+    public function test_upload_above_the_deferred_threshold_is_queued_with_a_private_staged_source(): void
+    {
+        Storage::fake('local');
+        $this->useUploadProcessorDouble();
+        config()->set('gallery.deferred.enabled', true);
+        config()->set('gallery.deferred.size_threshold_bytes', 1);
+        $account = User::factory()->create();
+        $event = $this->uploadableEvent();
+
+        $this->actingAs($account)->postJson(route('community-photos.upload.store'), [
+            'context' => 'event:'.$event->id,
+            'accept_photo_policy' => true,
+            'photos' => [$this->pngUpload('queued.png')],
+        ])->assertCreated()
+            ->assertJsonPath('photos.0.status', 'processing');
+
+        $photo = CommunityPhoto::query()->sole();
+
+        $this->assertSame('queued', $photo->processing_status);
+        $this->assertSame([], $photo->processed_variants);
+        $this->assertStringContainsString('/staged.', $photo->source_path);
+        Storage::disk('local')->assertExists($photo->source_path);
+        $this->assertDatabaseHas('community_photo_processing_jobs', [
+            'community_photo_id' => $photo->id,
+            'status' => 'queued',
+            'attempts' => 0,
+        ]);
+    }
+
+    public function test_manual_fallback_processes_a_durable_deferred_job_when_cron_is_unavailable(): void
+    {
+        Storage::fake('local');
+        $this->useUploadProcessorDouble();
+        config()->set('gallery.deferred.enabled', true);
+        config()->set('gallery.deferred.size_threshold_bytes', 1);
+        config()->set('gallery.deferred.manual_fallback', true);
+        $account = User::factory()->create();
+        $event = $this->uploadableEvent();
+
+        $this->actingAs($account)->postJson(route('community-photos.upload.store'), [
+            'context' => 'event:'.$event->id,
+            'accept_photo_policy' => true,
+            'photos' => [$this->pngUpload('fallback.png')],
+        ])->assertCreated()
+            ->assertJsonPath('photos.0.status', 'uploaded');
+
+        $photo = CommunityPhoto::query()->sole();
+        $this->assertSame('complete', $photo->processing_status);
+        $this->assertDatabaseHas('community_photo_processing_jobs', [
+            'community_photo_id' => $photo->id,
+            'status' => 'completed',
+        ]);
+    }
+
     public function test_upload_requires_the_current_policy_when_no_explicit_acceptance_is_supplied(): void
     {
         Storage::fake('local');

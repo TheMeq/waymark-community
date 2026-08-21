@@ -87,6 +87,16 @@ final readonly class IngestCommunityPhoto
         }
     }
 
+    public function validateForDeferredProcessing(UploadedFile $upload): void
+    {
+        $configuration = ImageProcessingConfiguration::from((array) config('gallery.processing', []), $this->transformer);
+        [, $decodedMimeType] = $this->inspect($upload, $configuration);
+
+        if (! $this->transformer->supportsInput($decodedMimeType)) {
+            throw ValidationException::withMessages(['photo' => 'The uploaded photo format is not supported by this server.']);
+        }
+    }
+
     /** @return array{string, string, int, int} */
     private function inspect(UploadedFile $upload, ImageProcessingConfiguration $configuration): array
     {

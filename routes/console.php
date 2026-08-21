@@ -2,6 +2,7 @@
 
 use App\Domain\Accounts\Actions\FlagStaleAccountsForReview;
 use App\Domain\Accounts\Actions\ProcessPersonalDataExports;
+use App\Domain\Gallery\Actions\ProcessDeferredCommunityPhotos;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 
@@ -16,3 +17,7 @@ Artisan::command('accounts:process-personal-data-exports {--limit=25}', function
 Artisan::command('accounts:flag-stale {--days=365} {--limit=100}', function (FlagStaleAccountsForReview $accounts): void {
     $this->info((string) $accounts->handle((int) $this->option('days'), (int) $this->option('limit')).' account(s) flagged for review.');
 })->purpose('Flag inactive accounts for manual review without changing them');
+
+Artisan::command('gallery:process-deferred-photos {--limit=25}', function (ProcessDeferredCommunityPhotos $photos): void {
+    $this->info((string) $photos->handle((int) $this->option('limit')).' photo processing job(s) handled.');
+})->purpose('Process deferred community photos without a permanent worker');
