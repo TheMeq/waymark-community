@@ -281,6 +281,34 @@ final class PublicWalkPagesTest extends TestCase
             ->assertDontSee('Private access code: 1234.');
     }
 
+    public function test_public_walk_detail_renders_a_resolved_featured_image_with_alt_text(): void
+    {
+        $event = $this->publishedWalk('Featured route', '+1 week');
+        $event->walk->forceFill(['featured_image_path' => '/images/demo/hero-walkers.png'])->save();
+
+        $this->get('/walks/'.$event->slug)
+            ->assertOk()
+            ->assertSee('data-walk-featured-image', false)
+            ->assertSee('src="/images/demo/hero-walkers.png"', false)
+            ->assertSee('alt="A group walking together across open moorland"', false);
+    }
+
+    public function test_public_walk_detail_cleanly_omits_an_invalid_or_absent_featured_image(): void
+    {
+        $invalid = $this->publishedWalk('Invalid featured route', '+1 week');
+        $invalid->walk->forceFill(['featured_image_path' => '/images/demo/../private/member-photo.png'])->save();
+        $absent = $this->publishedWalk('No featured route', '+2 weeks');
+
+        $this->get('/walks/'.$invalid->slug)
+            ->assertOk()
+            ->assertDontSee('data-walk-featured-image', false)
+            ->assertDontSee('/private/member-photo.png', false);
+
+        $this->get('/walks/'.$absent->slug)
+            ->assertOk()
+            ->assertDontSee('data-walk-featured-image', false);
+    }
+
     public function test_grading_guide_is_a_public_text_first_reference_ordered_by_grade(): void
     {
         Grade::query()->create([

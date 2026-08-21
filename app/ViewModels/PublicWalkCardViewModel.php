@@ -4,6 +4,7 @@ namespace App\ViewModels;
 
 use App\Domain\Events\Models\Event;
 use App\Domain\Operations\Models\SiteProfile;
+use App\Domain\Walks\Data\WalkFeaturedImage;
 
 final readonly class PublicWalkCardViewModel
 {
@@ -11,12 +12,13 @@ final readonly class PublicWalkCardViewModel
     public static function fromEvent(Event $event, SiteProfile $siteProfile): array
     {
         $walk = $event->walk;
+        $image = WalkFeaturedImage::resolve($walk?->featured_image_path);
 
         return array_filter([
             'title' => $event->title,
             'url' => route('walks.show', $event->slug),
-            'image_url' => self::imageUrl($walk?->featured_image_path),
-            'image_alt' => 'Walkers exploring a countryside trail',
+            'image_url' => $image?->url ?? '/images/demo/hero-walkers.png',
+            'image_alt' => $image?->alt ?? 'A group walking together across open moorland',
             'date' => $event->starts_at->format('l j F'),
             'day' => $event->starts_at->format('D'),
             'day_number' => $event->starts_at->format('j'),
@@ -29,13 +31,6 @@ final readonly class PublicWalkCardViewModel
             'leader' => $walk?->primaryLeader?->name,
             'status' => $walk?->availability,
         ], static fn (mixed $value): bool => $value !== null && $value !== '');
-    }
-
-    private static function imageUrl(?string $path): string
-    {
-        return str_starts_with((string) $path, '/images/demo/')
-            ? $path
-            : '/images/demo/hero-walkers.png';
     }
 
     private static function measurement(?string $value, string $unit): ?string

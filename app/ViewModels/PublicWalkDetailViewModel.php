@@ -8,6 +8,7 @@ use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Walks\Data\GpxStoragePath;
 use App\Domain\Walks\Data\GradeAccent;
 use App\Domain\Walks\Data\WalkAttachment;
+use App\Domain\Walks\Data\WalkFeaturedImage;
 use App\Domain\Walks\Data\WalkPublicDetails;
 use App\Domain\Walks\Models\WalkFieldSettings;
 
@@ -20,6 +21,7 @@ final readonly class PublicWalkDetailViewModel
         $settings = WalkFieldSettings::current();
         $sections = WalkPublicDetails::from($walk)->sections();
         $route = $sections['route'] ?? [];
+        $featuredImage = WalkFeaturedImage::resolve($walk->featured_image_path);
 
         unset($sections['route'], $sections['attachments']);
 
@@ -27,6 +29,7 @@ final readonly class PublicWalkDetailViewModel
             'title' => $event->title,
             'summary' => $event->summary,
             'description' => $event->description,
+            'featured_image' => $featuredImage?->toArray(),
             'starts_at' => $event->starts_at->format('l j F Y, H:i'),
             'ends_at' => $event->ends_at?->format('H:i'),
             'status' => self::status($event->status),

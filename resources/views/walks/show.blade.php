@@ -17,6 +17,11 @@
                 <p class="mt-4 inline-flex rounded-[var(--wm-radius-pill)] bg-surface-soft px-3 py-1 text-sm font-semibold text-ink">{{ $walk['status'] }}</p>
             @endif
             <p class="mt-4 text-ink-muted"><time datetime="{{ $event->starts_at->toAtomString() }}">{{ $walk['starts_at'] }}</time>@if ($walk['ends_at']) – {{ $walk['ends_at'] }}@endif</p>
+            @if ($walk['featured_image'])
+                <figure data-walk-featured-image class="mt-6 overflow-hidden rounded-[var(--wm-radius-md)] bg-surface-soft shadow-[var(--wm-shadow-card)]">
+                    <img class="aspect-[16/8] w-full object-cover" src="{{ $walk['featured_image']['url'] }}" alt="{{ $walk['featured_image']['alt'] }}">
+                </figure>
+            @endif
             @if ($walk['updates'] !== [])
                 <section class="mt-6 rounded-[var(--wm-radius-md)] border border-border bg-surface-soft p-5" aria-labelledby="updates-heading">
                     <h2 id="updates-heading" class="text-xl text-ink">Updates from the organiser</h2>
