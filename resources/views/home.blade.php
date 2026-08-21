@@ -28,7 +28,7 @@
 
                 <div class="mt-5 flex flex-wrap gap-3 lg:mt-3">
                     <x-public.button href="/walks">Upcoming walks <span aria-hidden="true">&rarr;</span></x-public.button>
-                    <x-public.button href="/join" variant="secondary">Join us</x-public.button>
+                    <x-public.button :href="route('new-here')" variant="secondary">Join us</x-public.button>
                 </div>
 
                 <ul class="mt-6 grid gap-3 border-t border-ink/10 pt-4 sm:grid-cols-3 lg:mt-4 lg:max-w-[38rem] lg:gap-2 lg:pt-3" aria-label="Community highlights">
@@ -132,7 +132,7 @@
                         <p class="border-l-2 border-brand/25 pl-4 text-sm lg:pl-3 lg:text-xs"><strong class="block">Good company</strong><span class="text-ink-muted">Share the day.</span></p>
                     </div>
 
-                    <x-public.button class="md:flex-[0_0_auto]" href="/join">Join the group</x-public.button>
+                    <x-public.button class="md:flex-[0_0_auto]" :href="route('new-here')">Join the group</x-public.button>
                 </div>
             </div>
 

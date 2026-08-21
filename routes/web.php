@@ -4,6 +4,7 @@ use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\NewHereController;
 use App\Http\Controllers\PublicHolidayAttachmentDownloadController;
 use App\Http\Controllers\PublicHolidayIndexController;
 use App\Http\Controllers\PublicHolidayShowController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\WhatsOnController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
+Route::get('/new-here', NewHereController::class)->name('new-here');
 Route::get('/walks', PublicWalkIndexController::class)->name('walks.index');
 Route::get('/walks/grading-guide', WalkGradingGuideController::class)->name('walks.grading-guide');
 Route::get('/walks/{slug}/attachments/{attachment}', PublicWalkAttachmentDownloadController::class)->whereNumber('attachment')->name('walks.attachment');
