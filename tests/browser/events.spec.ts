@@ -40,6 +40,9 @@ test('combined list and month calendar expose the same event identities', async 
 
     await page.goto('/whats-on/calendar?month=2026-09');
     await expect(page.getByRole('link', { name: /Coast and moor long weekend/ }).first()).toBeVisible();
+    await expect(page.getByText('16:00 · Holiday', { exact: true })).toBeVisible();
+    await expect(page.getByText('Holiday · continues', { exact: true })).toHaveCount(2);
+    await expect(page.getByText('Holiday · until 10:00', { exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: /Clifftop circuit/ })).toBeVisible();
     await expect(page.getByRole('link', { name: /Saturday lodge supper/ })).toBeVisible();
     await expect(page.getByRole('link', { name: 'View September events as a list' }).first()).toBeVisible();
