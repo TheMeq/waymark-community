@@ -36,7 +36,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        RateLimiter::for('photo-upload', fn (Request $request) => Limit::perMinute(12)->by(($request->user()?->id ?? 'guest').'|'.$request->ip()));
+        RateLimiter::for('photo-upload', fn (Request $request) => [
+            Limit::perMinute(12)->by('photo-upload:account:'.($request->user()?->id ?? 'guest')),
+            Limit::perMinute(30)->by('photo-upload:ip:'.$request->ip()),
+        ]);
         Gate::policy(InstallationOwnership::class, InstallationOwnershipPolicy::class);
         Livewire::addPersistentMiddleware([RequireSensitiveActionAssurance::class]);
 
