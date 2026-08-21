@@ -1,14 +1,15 @@
 <x-filament-panels::page>
     <div class="space-y-4">
         <div class="flex flex-wrap gap-2">
-            <x-filament::button size="sm" wire:click="bulkApprove">Approve selected</x-filament::button>
-            <x-filament::button size="sm" color="gray" wire:click="bulkReject">Reject selected</x-filament::button>
+            <x-filament::button size="md" style="min-width: 24px; min-height: 24px;" wire:click="bulkApprove">Approve selected</x-filament::button>
+            <x-filament::button size="md" style="min-width: 24px; min-height: 24px;" color="gray" wire:click="bulkReject">Reject selected</x-filament::button>
         </div>
-        @forelse ($this->pendingPhotos() as $photo)
+        @php($pendingPhotos = $this->pendingPhotos())
+        @forelse ($pendingPhotos as $photo)
             <article class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
                 <div class="flex flex-wrap items-start justify-between gap-4">
                     <div class="flex gap-3">
-                        <input wire:model.live="selectedPhotoIds" value="{{ $photo->id }}" type="checkbox" aria-label="Select {{ $photo->caption ?: 'photo' }} for bulk moderation" />
+                        <input wire:model.live="selectedPhotoIds" value="{{ $photo->id }}" type="checkbox" style="width: 24px; height: 24px;" aria-label="Select {{ $photo->caption ?: 'photo' }} for bulk moderation" />
                         <div>
                         @if ($photo->processed_variants['master'] ?? false)
                             <img src="{{ route('admin.photo-moderation.preview', $photo) }}" alt="" class="mb-3 h-28 w-40 rounded-lg object-cover" style="{{ $photo->presentationRotationStyle() }}" />
@@ -22,10 +23,10 @@
                         </div>
                     </div>
                     <div class="flex gap-2">
-                        <x-filament::button size="sm" wire:click="approve({{ $photo->id }})">Approve</x-filament::button>
-                        <x-filament::button size="sm" color="gray" wire:click="reject({{ $photo->id }})">Reject</x-filament::button>
-                        <x-filament::button size="sm" color="gray" wire:click="rotate({{ $photo->id }}, 90)">Rotate</x-filament::button>
-                        <x-filament::button size="sm" color="gray" wire:click="beginEditing({{ $photo->id }})">Edit</x-filament::button>
+                        <x-filament::button size="md" style="min-width: 24px; min-height: 24px;" wire:click="approve({{ $photo->id }})">Approve</x-filament::button>
+                        <x-filament::button size="md" style="min-width: 24px; min-height: 24px;" color="gray" wire:click="reject({{ $photo->id }})">Reject</x-filament::button>
+                        <x-filament::button size="md" style="min-width: 24px; min-height: 24px;" color="gray" wire:click="rotate({{ $photo->id }}, 90)">Rotate</x-filament::button>
+                        <x-filament::button size="md" style="min-width: 24px; min-height: 24px;" color="gray" wire:click="beginEditing({{ $photo->id }})">Edit</x-filament::button>
                     </div>
                 </div>
             </article>
@@ -34,19 +35,48 @@
                 No photos are waiting for moderation.
             </p>
         @endforelse
-        {{ $this->pendingPhotos()->links() }}
+        @if ($pendingPhotos->hasPages())
+            <nav class="flex items-center justify-between gap-3" aria-label="Pending photo pagination">
+                @if ($pendingPhotos->onFirstPage())
+                    <span aria-disabled="true">Previous</span>
+                @else
+                    <a class="underline" href="{{ request()->fullUrlWithQuery(['page' => $pendingPhotos->currentPage() - 1]) }}">Previous</a>
+                @endif
+                <span>Page {{ $pendingPhotos->currentPage() }} of {{ $pendingPhotos->lastPage() }}</span>
+                @if ($pendingPhotos->hasMorePages())
+                    <a class="underline" href="{{ request()->fullUrlWithQuery(['page' => $pendingPhotos->currentPage() + 1]) }}">Next</a>
+                @else
+                    <span aria-disabled="true">Next</span>
+                @endif
+            </nav>
+        @endif
         <section class="space-y-3" aria-labelledby="published-photos">
             <h2 id="published-photos" class="text-lg font-semibold">Published photos</h2>
-            @foreach ($this->approvedPhotos() as $photo)
+            @php($approvedPhotos = $this->approvedPhotos())
+            @foreach ($approvedPhotos as $photo)
                 <div class="flex items-center justify-between rounded-xl border border-gray-200 p-3 dark:border-gray-700">
                     <span>{{ $photo->caption ?: 'Untitled photo' }}</span>
                     <span class="flex gap-2">
-                        <x-filament::button size="sm" color="gray" wire:click="feature({{ $photo->id }})">Feature</x-filament::button>
-                        <x-filament::button size="sm" color="danger" wire:click="remove({{ $photo->id }})">Remove</x-filament::button>
+                        <x-filament::button size="md" style="min-width: 24px; min-height: 24px;" color="gray" wire:click="feature({{ $photo->id }})">Feature</x-filament::button>
+                        <x-filament::button size="md" style="min-width: 24px; min-height: 24px;" color="danger" wire:click="remove({{ $photo->id }})">Remove</x-filament::button>
                     </span>
                 </div>
             @endforeach
-            {{ $this->approvedPhotos()->links() }}
+            @if ($approvedPhotos->hasPages())
+                <nav class="flex items-center justify-between gap-3" aria-label="Published photo pagination">
+                    @if ($approvedPhotos->onFirstPage())
+                        <span aria-disabled="true">Previous</span>
+                    @else
+                        <a class="underline" href="{{ request()->fullUrlWithQuery(['publishedPage' => $approvedPhotos->currentPage() - 1]) }}">Previous</a>
+                    @endif
+                    <span>Page {{ $approvedPhotos->currentPage() }} of {{ $approvedPhotos->lastPage() }}</span>
+                    @if ($approvedPhotos->hasMorePages())
+                        <a class="underline" href="{{ request()->fullUrlWithQuery(['publishedPage' => $approvedPhotos->currentPage() + 1]) }}">Next</a>
+                    @else
+                        <span aria-disabled="true">Next</span>
+                    @endif
+                </nav>
+            @endif
         </section>
         @if ($editingPhotoId)
             <form wire:submit="saveEditing" class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">

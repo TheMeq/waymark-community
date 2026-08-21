@@ -4,10 +4,11 @@ use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
+use App\Domain\Gallery\Actions\AcceptCurrentPhotoUploadPolicy;
+use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Holidays\Actions\AssignHolidayChild;
 use App\Domain\Holidays\Actions\SaveHolidayDetails;
 use App\Domain\Operations\Actions\UpdateSiteProfile;
-use App\Domain\Gallery\Actions\AcceptCurrentPhotoUploadPolicy;
 use App\Domain\Socials\Actions\SaveSocialDetails;
 use App\Domain\Walks\Actions\SaveWalkDetails;
 use App\Domain\Walks\Models\Grade;
@@ -38,6 +39,47 @@ $leader = User::factory()->create([
     'profile_photo_reference' => '/images/demo/lakeside-friends.png',
 ]);
 app(AcceptCurrentPhotoUploadPolicy::class)->handle($leader);
+
+$moderationEvent = Event::query()->create([
+    'type' => EventType::Walk,
+    'title' => 'Browser moderation walk',
+    'slug' => 'browser-moderation-walk',
+    'summary' => 'A deterministic moderation fixture.',
+    'description' => 'A deterministic moderation fixture.',
+    'starts_at' => CarbonImmutable::parse('2026-08-21 09:30:00'),
+    'ends_at' => CarbonImmutable::parse('2026-08-21 15:30:00'),
+    'status' => EventStatus::Published,
+    'is_public' => true,
+    'published_at' => CarbonImmutable::parse('2026-08-19 12:00:00'),
+    'organiser_id' => $leader->id,
+]);
+
+foreach (range(1, 21) as $number) {
+    CommunityPhoto::query()->create([
+        'event_id' => $moderationEvent->id,
+        'uploader_id' => $leader->id,
+        'media_type' => 'image',
+        'processing_status' => 'complete',
+        'storage_disk' => 'local',
+        'source_path' => 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/browser-'.$number.'.jpg',
+        'processed_variants' => ['master' => 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/browser-'.$number.'.jpg'],
+        'moderation_status' => 'pending',
+        'caption' => 'Browser moderation photo '.$number,
+    ]);
+}
+
+CommunityPhoto::query()->create([
+    'event_id' => $moderationEvent->id,
+    'uploader_id' => $leader->id,
+    'media_type' => 'image',
+    'processing_status' => 'complete',
+    'storage_disk' => 'local',
+    'source_path' => 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/browser-published.jpg',
+    'processed_variants' => ['master' => 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/browser-published.jpg'],
+    'moderation_status' => 'approved',
+    'published_at' => CarbonImmutable::parse('2026-08-20 10:00:00'),
+    'caption' => 'Browser published moderation photo',
+]);
 
 $securityUser = User::factory()->create([
     'name' => 'Security Walker',

@@ -67,6 +67,50 @@ final class PhotoModerationPageTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_livewire_rejects_forged_out_of_scope_ids_for_each_mutation_without_audit_or_photo_changes(): void
+    {
+        $leader = User::factory()->create(['role' => AccountRole::WalkLeader]);
+        $own = $this->photoFor(Event::factory()->for($leader, 'organiser')->create());
+        $other = $this->photoFor(Event::factory()->create());
+        $original = $other->fresh()->only(['caption', 'event_id', 'moderation_status', 'presentation_rotation', 'is_featured']);
+
+        foreach ([
+            fn () => Livewire::actingAs($leader)->test(PhotoModeration::class)->call('edit', $other->id, 'Forged', 'Forged'),
+            fn () => Livewire::actingAs($leader)->test(PhotoModeration::class)->call('move', $other->id, 'event:'.$own->event_id),
+            fn () => Livewire::actingAs($leader)->test(PhotoModeration::class)->call('rotate', $other->id, 90),
+            fn () => Livewire::actingAs($leader)->test(PhotoModeration::class)->call('remove', $other->id),
+            fn () => Livewire::actingAs($leader)->test(PhotoModeration::class)->call('feature', $other->id),
+            fn () => Livewire::actingAs($leader)->test(PhotoModeration::class)->set('selectedPhotoIds', [$own->id, $other->id])->call('bulkApprove'),
+        ] as $attempt) {
+            $attempt();
+        }
+
+        $this->assertSame($original, $other->fresh()->only(array_keys($original)));
+        $this->assertSame('pending', $own->fresh()->moderation_status);
+        $this->assertDatabaseCount('community_photo_moderation_audits', 0);
+    }
+
+    public function test_livewire_edit_and_move_is_atomic_when_the_destination_is_out_of_scope(): void
+    {
+        $leader = User::factory()->create(['role' => AccountRole::WalkLeader]);
+        $own = $this->photoFor(Event::factory()->for($leader, 'organiser')->create());
+        $otherEvent = Event::factory()->create();
+
+        Livewire::actingAs($leader)
+            ->test(PhotoModeration::class)
+            ->set('editingPhotoId', $own->id)
+            ->set('caption', 'This must not persist')
+            ->set('photographerName', 'Wrong destination')
+            ->set('targetContext', 'event:'.$otherEvent->id)
+            ->call('saveEditing');
+
+        $fresh = $own->fresh();
+        $this->assertSame($own->caption, $fresh->caption);
+        $this->assertSame($own->photographer_name, $fresh->photographer_name);
+        $this->assertSame($own->event_id, $fresh->event_id);
+        $this->assertDatabaseCount('community_photo_moderation_audits', 0);
+    }
+
     private function photoFor(Event $event): CommunityPhoto
     {
         return CommunityPhoto::query()->create([
