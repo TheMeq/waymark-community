@@ -190,9 +190,13 @@ final class DeferredCommunityPhotoProcessingTest extends TestCase
         ]);
         $blockedPhoto->update(['processing_status' => 'processing']);
         $defaultConnection = DB::getDefaultConnection();
+        $originalConnection = DB::connection();
         $connection = $this->useRecordingMySqlConnection();
         $this->assertSame($connection, DB::connection());
         $this->assertSame('mysql', DB::connection()->getDriverName());
+        $this->assertSame($originalConnection->getQueryGrammar(), $connection->getQueryGrammar());
+        $this->assertSame($originalConnection->getSchemaGrammar(), $connection->getSchemaGrammar());
+        $this->assertSame($originalConnection->getPostProcessor(), $connection->getPostProcessor());
         $configuredBeforeContention = false;
         $hasContended = false;
 
@@ -453,6 +457,11 @@ final class DeferredCommunityPhotoProcessingTest extends TestCase
             $original->getPdo(), $original->getDatabaseName(), $original->getTablePrefix(), $original->getConfig(),
         );
         $connection->adoptTransactionLevel($original->transactionLevel());
+        $connection->setQueryGrammar($original->getQueryGrammar());
+        if ($original->getSchemaGrammar() !== null) {
+            $connection->setSchemaGrammar($original->getSchemaGrammar());
+        }
+        $connection->setPostProcessor($original->getPostProcessor());
 
         DB::extend('recording-mysql', fn (): RecordingMySqlConnection => $connection);
         config()->set('database.connections.recording-mysql', ['driver' => 'recording-mysql']);
