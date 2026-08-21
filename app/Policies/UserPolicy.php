@@ -9,7 +9,7 @@ class UserPolicy
 {
     public function updateProfile(User $user, User $profile): bool
     {
-        return $user->is($profile);
+        return $user->is($profile) && $user->isActive() && $profile->isActive();
     }
 
     public function manageLeaderHub(User $user, User $profile): bool

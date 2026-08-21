@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\RecordAccountActivity;
+use App\Http\Middleware\RequireActiveAccount;
 use App\Http\Middleware\RequireSensitiveActionAssurance;
 use App\Http\Middleware\RequireSensitivePasswordConfirmation;
 use Illuminate\Foundation\Application;
@@ -15,7 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->web(append: [RecordAccountActivity::class]);
+        $middleware->web(append: [RecordAccountActivity::class, RequireActiveAccount::class]);
         $middleware->alias([
             'sensitive.confirmed' => RequireSensitiveActionAssurance::class,
             'sensitive.password-confirmed' => RequireSensitivePasswordConfirmation::class,

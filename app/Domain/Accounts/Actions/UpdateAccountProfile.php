@@ -5,12 +5,17 @@ namespace App\Domain\Accounts\Actions;
 use App\Domain\Accounts\Data\AccountProfileData;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 final class UpdateAccountProfile
 {
     public function handle(User $user, AccountProfileData $profile): void
     {
         DB::transaction(function () use ($user, $profile): void {
+            $user = User::query()->lockForUpdate()->findOrFail($user->id);
+            if (! $user->isActive()) {
+                throw ValidationException::withMessages(['account' => 'Disabled accounts cannot update profile details.']);
+            }
             $user->forceFill([
                 'name' => $profile->name,
                 'display_name' => $profile->displayName,

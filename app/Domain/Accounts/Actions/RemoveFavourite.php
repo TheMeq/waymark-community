@@ -7,6 +7,7 @@ use App\Domain\Accounts\Queries\FavouriteablePublicEventsQuery;
 use App\Domain\Events\Models\Event;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Validation\ValidationException;
 
 final readonly class RemoveFavourite
 {
@@ -14,6 +15,9 @@ final readonly class RemoveFavourite
 
     public function handle(User $user, Event $event): void
     {
+        if (! $user->isActive()) {
+            throw ValidationException::withMessages(['account' => 'Disabled accounts cannot change favourites.']);
+        }
         if (! $this->events->isEligible($event)) {
             throw (new ModelNotFoundException)->setModel(Event::class, [$event->getKey()]);
         }

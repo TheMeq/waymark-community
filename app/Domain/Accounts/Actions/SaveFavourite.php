@@ -9,6 +9,7 @@ use App\Models\User;
 use Closure;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Validation\ValidationException;
 
 final readonly class SaveFavourite
 {
@@ -20,6 +21,9 @@ final readonly class SaveFavourite
 
     public function handle(User $user, Event $event): Favourite
     {
+        if (! $user->isActive()) {
+            throw ValidationException::withMessages(['account' => 'Disabled accounts cannot save favourites.']);
+        }
         if (! $this->events->isEligible($event)) {
             throw (new ModelNotFoundException)->setModel(Event::class, [$event->getKey()]);
         }

@@ -53,7 +53,8 @@ final class AccountLifecycleSecurityCorrectionTest extends TestCase
         $export = $this->export($account, 'ready', now()->addDay());
         Storage::disk('local')->put($export->storage_path, '{}');
 
-        $this->actingAs($account)->get($export->downloadUrl())->assertForbidden();
+        $this->actingAs($account)->get($export->downloadUrl())->assertRedirect(route('login'));
+        $this->assertGuest();
     }
 
     public function test_processor_revokes_an_export_when_the_account_is_disabled_before_a_claim_is_processed(): void
