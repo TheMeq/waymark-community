@@ -4,6 +4,7 @@ namespace App\Domain\Events\Models;
 
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
+use App\Domain\Holidays\Models\Holiday;
 use App\Domain\Socials\Models\Social;
 use App\Domain\Walks\Models\Walk;
 use App\Models\User;
@@ -57,6 +58,12 @@ final class Event extends Model
     public function social(): HasOne
     {
         return $this->hasOne(Social::class);
+    }
+
+    /** @return HasOne<Holiday, $this> */
+    public function holiday(): HasOne
+    {
+        return $this->hasOne(Holiday::class);
     }
 
     /** @return HasMany<EventUpdate, $this> */

@@ -3,6 +3,9 @@
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\PublicHolidayIndexController;
+use App\Http\Controllers\PublicHolidayShowController;
+use App\Http\Controllers\PublicHolidayAttachmentDownloadController;
 use App\Http\Controllers\PublicSocialAttachmentDownloadController;
 use App\Http\Controllers\PublicSocialIndexController;
 use App\Http\Controllers\PublicSocialShowController;
@@ -22,6 +25,9 @@ Route::get('/walks/{slug}', PublicWalkShowController::class)->name('walks.show')
 Route::get('/socials', PublicSocialIndexController::class)->name('socials.index');
 Route::get('/socials/{slug}/attachments/{attachment}', PublicSocialAttachmentDownloadController::class)->whereNumber('attachment')->name('socials.attachment');
 Route::get('/socials/{slug}', PublicSocialShowController::class)->name('socials.show');
+Route::get('/weekends', PublicHolidayIndexController::class)->name('holidays.index');
+Route::get('/weekends/{slug}/attachments/{attachment}', PublicHolidayAttachmentDownloadController::class)->whereNumber('attachment')->name('holidays.attachment');
+Route::get('/weekends/{slug}', PublicHolidayShowController::class)->name('holidays.show');
 
 if (app()->environment(['local', 'testing'])) {
     Route::get('/_dev/components', function () {

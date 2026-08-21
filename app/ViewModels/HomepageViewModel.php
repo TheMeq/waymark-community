@@ -25,7 +25,7 @@ final readonly class HomepageViewModel
     ) {}
 
     /** @param array<int, array<string, string>>|null $weekendWalks */
-    public static function demo(?array $weekendWalks = null): self
+    public static function demo(?array $weekendWalks = null, ?array $holiday = null): self
     {
         return new self(
             site: [
@@ -98,7 +98,7 @@ final readonly class HomepageViewModel
                     'status' => '6 spaces left',
                 ],
             ],
-            holiday: [
+            holiday: $holiday ?? [
                 'title' => 'Coast and moor long weekend',
                 'url' => '/weekends/coast-and-moor',
                 'image_url' => '/images/demo/coastal-weekend.png',
