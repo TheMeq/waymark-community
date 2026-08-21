@@ -11,6 +11,7 @@ use App\Domain\Accounts\Models\InstallationOwnership;
 use App\Domain\Accounts\Models\PersonalDataExport;
 use App\Domain\Accounts\Models\RoleCapability;
 use App\Domain\Gallery\Models\CommunityPhoto;
+use App\Domain\Gallery\Models\PhotoPolicyAcceptance;
 use App\Domain\Membership\Enums\AccountStatus;
 use App\Domain\Membership\Enums\MembershipStatus;
 use Database\Factories\UserFactory;
@@ -169,6 +170,12 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     public function uploadedCommunityPhotos(): HasMany
     {
         return $this->hasMany(CommunityPhoto::class, 'uploader_id');
+    }
+
+    /** @return HasMany<PhotoPolicyAcceptance, $this> */
+    public function photoPolicyAcceptances(): HasMany
+    {
+        return $this->hasMany(PhotoPolicyAcceptance::class);
     }
 
     /**
