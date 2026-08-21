@@ -18,6 +18,12 @@ final class PhotoModerationPageTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Storage::fake('local');
+    }
+
     public function test_bespoke_page_shows_only_an_organisers_pending_event_queue_and_can_approve_a_photo(): void
     {
         $leader = User::factory()->create(['role' => AccountRole::WalkLeader]);
@@ -132,18 +138,23 @@ final class PhotoModerationPageTest extends TestCase
         $response->assertSee(route('admin.photo-moderation.preview', $complete), false);
         $this->assertSame(1, substr_count($response->getContent(), 'wire:click="approve('));
         $this->assertSame(1, substr_count($response->getContent(), 'wire:click="rotate('));
+        $this->assertSame(1, substr_count($response->getContent(), 'wire:model.live="selectedPhotoIds"'));
+        $this->assertGreaterThanOrEqual(2, substr_count($response->getContent(), 'disabled'));
     }
 
     private function photoFor(Event $event): CommunityPhoto
     {
+        $path = 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c'.str_pad((string) (CommunityPhoto::query()->count() + 1), 4, '0', STR_PAD_LEFT).'/master.jpg';
+        Storage::disk('local')->put($path, 'preview');
+
         return CommunityPhoto::query()->create([
             'event_id' => $event->id,
             'uploader_id' => User::factory()->create()->id,
             'media_type' => 'image',
             'processing_status' => 'complete',
             'storage_disk' => 'local',
-            'source_path' => 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/master.jpg',
-            'processed_variants' => ['master' => 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/master.jpg'],
+            'source_path' => $path,
+            'processed_variants' => ['master' => $path],
             'moderation_status' => 'pending',
             'caption' => 'Queue photo '.$event->id,
         ]);

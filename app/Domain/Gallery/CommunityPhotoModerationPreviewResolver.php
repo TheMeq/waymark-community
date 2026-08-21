@@ -13,20 +13,13 @@ final class CommunityPhotoModerationPreviewResolver
 {
     public function resolve(User $actor, CommunityPhoto $photo): ?CommunityPhotoModerationPreview
     {
-        if ($photo->processing_status !== 'complete'
-            || ! $this->canAccess($actor, $photo)) {
+        if (! $this->isReady($actor, $photo)) {
             return null;
         }
 
         $disk = (string) $photo->storage_disk;
         $path = $photo->processed_variants['master'] ?? null;
-        if (! is_string($path)
-            || ! array_key_exists($disk, (array) config('filesystems.disks'))
-            || ! PhotoStorageReference::isSafe($disk, $path)
-            || ! Storage::disk($disk)->exists($path)) {
-            return null;
-        }
-
+        /** @var string $path */
         $description = $photo->caption ?: ($photo->event?->title ?? $photo->specialAlbum?->title ?? 'Community photo');
 
         return new CommunityPhotoModerationPreview(
@@ -40,5 +33,20 @@ final class CommunityPhotoModerationPreviewResolver
     public function canAccess(User $actor, CommunityPhoto $photo): bool
     {
         return app(ModeratableCommunityPhotos::class)->for($actor, ['pending', 'approved'])->whereKey($photo->id)->exists();
+    }
+
+    public function isReady(User $actor, CommunityPhoto $photo): bool
+    {
+        if ($photo->processing_status !== 'complete' || ! $this->canAccess($actor, $photo)) {
+            return false;
+        }
+
+        $disk = (string) $photo->storage_disk;
+        $path = $photo->processed_variants['master'] ?? null;
+
+        return is_string($path)
+            && array_key_exists($disk, (array) config('filesystems.disks'))
+            && PhotoStorageReference::isSafe($disk, $path)
+            && Storage::disk($disk)->exists($path);
     }
 }

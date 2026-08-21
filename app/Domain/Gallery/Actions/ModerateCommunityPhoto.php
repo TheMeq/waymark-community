@@ -4,6 +4,7 @@ namespace App\Domain\Gallery\Actions;
 
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Events\Models\Event;
+use App\Domain\Gallery\CommunityPhotoModerationPreviewResolver;
 use App\Domain\Gallery\Data\CommunityPhotoModerationRequest;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\CommunityPhotoModerationAudit;
@@ -15,10 +16,12 @@ use Illuminate\Validation\ValidationException;
 
 final class ModerateCommunityPhoto
 {
+    public function __construct(private readonly CommunityPhotoModerationPreviewResolver $readiness) {}
+
     public function approve(User $actor, CommunityPhoto $photo): CommunityPhoto
     {
-        return $this->mutate($actor, $photo, 'approved', function (CommunityPhoto $locked): bool {
-            $this->assertProcessed($locked);
+        return $this->mutate($actor, $photo, 'approved', function (CommunityPhoto $locked) use ($actor): bool {
+            $this->assertReady($actor, $locked);
             if ($locked->moderation_status !== 'pending') {
                 if ($locked->moderation_status === 'approved') {
                     return false;
@@ -33,7 +36,8 @@ final class ModerateCommunityPhoto
 
     public function reject(User $actor, CommunityPhoto $photo): CommunityPhoto
     {
-        return $this->mutate($actor, $photo, 'rejected', function (CommunityPhoto $locked): bool {
+        return $this->mutate($actor, $photo, 'rejected', function (CommunityPhoto $locked) use ($actor): bool {
+            $this->assertReady($actor, $locked);
             if ($locked->moderation_status !== 'pending') {
                 if ($locked->moderation_status === 'rejected') {
                     return false;
@@ -207,6 +211,7 @@ final class ModerateCommunityPhoto
             }
             foreach ($ids as $id) {
                 $this->authorize($actor, $photos[$id]);
+                $this->assertReady($actor, $photos[$id]);
                 if ($photos[$id]->moderation_status !== 'pending') {
                     throw ValidationException::withMessages(['photo' => 'Bulk moderation accepts pending photos only.']);
                 }
@@ -254,6 +259,13 @@ final class ModerateCommunityPhoto
     {
         if ($photo->processing_status !== 'complete' || ! is_array($photo->processed_variants) || $photo->processed_variants === []) {
             throw ValidationException::withMessages(['photo' => 'Only safely processed photos can be approved or featured.']);
+        }
+    }
+
+    private function assertReady(User $actor, CommunityPhoto $photo): void
+    {
+        if (! $this->readiness->isReady($actor, $photo)) {
+            throw ValidationException::withMessages(['photo' => 'Only photos with a safe processed preview can be moderated.']);
         }
     }
 

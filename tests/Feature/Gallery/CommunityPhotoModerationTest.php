@@ -14,12 +14,19 @@ use App\Domain\Gallery\Queries\ModeratableCommunityPhotos;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 final class CommunityPhotoModerationTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Storage::fake('local');
+    }
 
     public function test_default_leader_can_moderate_only_photos_for_their_own_event(): void
     {
@@ -242,8 +249,37 @@ final class CommunityPhotoModerationTest extends TestCase
         $this->assertFalse($audit->after['is_featured']);
     }
 
+    public function test_unready_individual_and_mixed_bulk_moderation_are_atomic_for_approve_and_reject(): void
+    {
+        $moderator = User::factory()->create(['role' => AccountRole::Moderator]);
+        $event = Event::factory()->create();
+        $ready = $this->photoFor($event);
+        $queued = $this->photoFor($event, ['processing_status' => 'queued', 'processed_variants' => null]);
+        $action = app(ModerateCommunityPhoto::class);
+
+        foreach ([
+            fn () => $action->reject($moderator, $queued),
+            fn () => $action->bulkApprove($moderator, [$ready->id, $queued->id]),
+            fn () => $action->bulkReject($moderator, [$ready->id, $queued->id]),
+        ] as $attempt) {
+            try {
+                $attempt();
+                $this->fail('Unready moderation was accepted.');
+            } catch (ValidationException $exception) {
+                $this->assertArrayHasKey('photo', $exception->errors());
+            }
+        }
+
+        $this->assertSame('pending', $ready->fresh()->moderation_status);
+        $this->assertSame('pending', $queued->fresh()->moderation_status);
+        $this->assertDatabaseCount('community_photo_moderation_audits', 0);
+    }
+
     private function photoFor(Event|SpecialAlbum $context, array $overrides = []): CommunityPhoto
     {
+        $path = $overrides['source_path'] ?? 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/master.jpg';
+        Storage::disk('local')->put($path, 'preview');
+
         return CommunityPhoto::query()->create(array_merge([
             'event_id' => $context instanceof Event ? $context->id : null,
             'special_album_id' => $context instanceof SpecialAlbum ? $context->id : null,
@@ -251,8 +287,8 @@ final class CommunityPhotoModerationTest extends TestCase
             'media_type' => 'image',
             'processing_status' => 'complete',
             'storage_disk' => 'local',
-            'source_path' => 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/master.jpg',
-            'processed_variants' => ['master' => 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/master.jpg'],
+            'source_path' => $path,
+            'processed_variants' => ['master' => $path],
             'moderation_status' => 'pending',
         ], $overrides));
     }

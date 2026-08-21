@@ -1,8 +1,8 @@
 <x-filament-panels::page>
     <div class="space-y-4">
         <div class="flex flex-wrap gap-2">
-            <x-filament::button size="md" style="min-width: 24px; min-height: 24px;" wire:click="bulkApprove">Approve selected</x-filament::button>
-            <x-filament::button size="md" style="min-width: 24px; min-height: 24px;" color="gray" wire:click="bulkReject">Reject selected</x-filament::button>
+            <x-filament::button size="md" style="min-width: 24px; min-height: 24px;" wire:click="bulkApprove" :disabled="empty($selectedPhotoIds)">Approve selected</x-filament::button>
+            <x-filament::button size="md" style="min-width: 24px; min-height: 24px;" color="gray" wire:click="bulkReject" :disabled="empty($selectedPhotoIds)">Reject selected</x-filament::button>
         </div>
         @php($pendingPhotos = $this->pendingPhotos())
         @forelse ($pendingPhotos as $photo)
@@ -10,7 +10,7 @@
             <article class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
                 <div class="flex flex-wrap items-start justify-between gap-4">
                     <div class="flex gap-3">
-                        <input wire:model.live="selectedPhotoIds" value="{{ $photo->id }}" type="checkbox" style="width: 24px; height: 24px;" aria-label="Select {{ $photo->caption ?: 'photo' }} for bulk moderation" />
+                        @if ($preview)<input wire:model.live="selectedPhotoIds" value="{{ $photo->id }}" type="checkbox" style="width: 24px; height: 24px;" aria-label="Select {{ $photo->caption ?: 'photo' }} for bulk moderation" />@endif
                         <div>
                         @if ($preview)<img src="{{ $preview->url }}" alt="{{ $preview->alt }}" class="mb-3 h-28 w-40 rounded-lg object-cover" style="{{ $photo->presentationRotationStyle() }}" />@endif
                         <p class="font-semibold text-gray-950 dark:text-white">{{ $photo->caption ?: 'Untitled photo' }}</p>
