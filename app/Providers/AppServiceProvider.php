@@ -3,6 +3,10 @@
 namespace App\Providers;
 
 use App\Domain\Accounts\Models\InstallationOwnership;
+use App\Domain\Gallery\Contracts\ImageMetadataReader;
+use App\Domain\Gallery\Contracts\RasterImageTransformer;
+use App\Domain\Gallery\Services\GdRasterImageTransformer;
+use App\Domain\Gallery\Services\PhpExifImageMetadataReader;
 use App\Domain\Walks\RelatedContent\RelatedWalks;
 use App\Domain\Walks\RelatedContent\SignalRelatedWalks;
 use App\Http\Middleware\RequireSensitiveActionAssurance;
@@ -20,6 +24,8 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(RelatedWalks::class, SignalRelatedWalks::class);
+        $this->app->bind(ImageMetadataReader::class, PhpExifImageMetadataReader::class);
+        $this->app->bind(RasterImageTransformer::class, GdRasterImageTransformer::class);
     }
 
     /**
