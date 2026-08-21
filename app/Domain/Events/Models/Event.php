@@ -4,6 +4,7 @@ namespace App\Domain\Events\Models;
 
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
+use App\Domain\Socials\Models\Social;
 use App\Domain\Walks\Models\Walk;
 use App\Models\User;
 use Carbon\CarbonInterface;
@@ -50,6 +51,12 @@ final class Event extends Model
     public function walk(): HasOne
     {
         return $this->hasOne(Walk::class);
+    }
+
+    /** @return HasOne<Social, $this> */
+    public function social(): HasOne
+    {
+        return $this->hasOne(Social::class);
     }
 
     /** @return HasMany<EventUpdate, $this> */

@@ -53,7 +53,7 @@
         @if (filled($event['leader'] ?? null) || filled($event['status'] ?? null))
             <div class="mt-auto flex min-h-8 flex-wrap items-end justify-between gap-x-2 gap-y-1 border-t border-border pt-2 text-[0.65rem]">
                 @if (filled($event['leader'] ?? null))
-                    <span class="font-medium text-ink-muted">Led by {{ $event['leader'] }}</span>
+                    <span class="font-medium text-ink-muted">{{ $event['leader_label'] ?? 'Led by' }} {{ $event['leader'] }}</span>
                 @endif
                 @if (filled($event['status'] ?? null))
                     <span class="font-semibold text-brand"><span aria-hidden="true">✓</span> {{ $event['status'] }}</span>

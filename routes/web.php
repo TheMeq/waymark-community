@@ -3,6 +3,9 @@
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\PublicSocialAttachmentDownloadController;
+use App\Http\Controllers\PublicSocialIndexController;
+use App\Http\Controllers\PublicSocialShowController;
 use App\Http\Controllers\PublicWalkAttachmentDownloadController;
 use App\Http\Controllers\PublicWalkGpxDownloadController;
 use App\Http\Controllers\PublicWalkIndexController;
@@ -16,6 +19,9 @@ Route::get('/walks/grading-guide', WalkGradingGuideController::class)->name('wal
 Route::get('/walks/{slug}/attachments/{attachment}', PublicWalkAttachmentDownloadController::class)->whereNumber('attachment')->name('walks.attachment');
 Route::get('/walks/{slug}/route.gpx', PublicWalkGpxDownloadController::class)->name('walks.gpx');
 Route::get('/walks/{slug}', PublicWalkShowController::class)->name('walks.show');
+Route::get('/socials', PublicSocialIndexController::class)->name('socials.index');
+Route::get('/socials/{slug}/attachments/{attachment}', PublicSocialAttachmentDownloadController::class)->whereNumber('attachment')->name('socials.attachment');
+Route::get('/socials/{slug}', PublicSocialShowController::class)->name('socials.show');
 
 if (app()->environment(['local', 'testing'])) {
     Route::get('/_dev/components', function () {
