@@ -13,7 +13,7 @@ use App\Models\User;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Panel;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 final class PhotoModeration extends Page
 {
@@ -49,13 +49,22 @@ final class PhotoModeration extends Page
             || $user->hasCapability(ModuleCapability::ModerateAllCommunityPhotos));
     }
 
-    /** @return Collection<int, CommunityPhoto> */
-    public function pendingPhotos(): Collection
+    /** @return LengthAwarePaginator<int, CommunityPhoto> */
+    public function pendingPhotos(): LengthAwarePaginator
     {
         /** @var User $actor */
         $actor = auth()->user();
 
-        return app(ModeratableCommunityPhotos::class)->for($actor)->get();
+        return app(ModeratableCommunityPhotos::class)->for($actor)->paginate(20);
+    }
+
+    /** @return LengthAwarePaginator<int, CommunityPhoto> */
+    public function approvedPhotos(): LengthAwarePaginator
+    {
+        /** @var User $actor */
+        $actor = auth()->user();
+
+        return app(ModeratableCommunityPhotos::class)->for($actor, ['approved'])->paginate(10, ['*'], 'publishedPage');
     }
 
     public function approve(int $photoId): void
@@ -148,9 +157,7 @@ final class PhotoModeration extends Page
         /** @var User $actor */
         $actor = auth()->user();
         $photo = CommunityPhoto::query()->findOrFail($this->editingPhotoId);
-        $action = app(ModerateCommunityPhoto::class);
-        $action->edit($actor, $photo, new CommunityPhotoModerationRequest($this->caption, $this->photographerName));
-        $action->move($actor, $photo, $this->targetContext);
+        app(ModerateCommunityPhoto::class)->editAndMove($actor, $photo, new CommunityPhotoModerationRequest($this->caption, $this->photographerName), $this->targetContext);
         $this->editingPhotoId = null;
         Notification::make()->success()->title('Photo details saved')->send();
     }
@@ -158,7 +165,13 @@ final class PhotoModeration extends Page
     /** @return array<string, string> */
     public function contextOptions(): array
     {
-        return Event::query()->orderBy('starts_at')->pluck('title', 'id')->mapWithKeys(fn (string $title, int $id): array => ['event:'.$id => 'Event: '.$title])
-            ->merge(SpecialAlbum::query()->orderBy('title')->pluck('title', 'id')->mapWithKeys(fn (string $title, int $id): array => ['album:'.$id => 'Album: '.$title]))->all();
+        /** @var User $actor */
+        $actor = auth()->user();
+        $events = Event::query()->when(! $actor->hasCapability(ModuleCapability::ModerateAllCommunityPhotos), fn ($query) => $query->where('organiser_id', $actor->id))->orderBy('starts_at')->limit(100)->pluck('title', 'id')->mapWithKeys(fn (string $title, int $id): array => ['event:'.$id => 'Event: '.$title]);
+        if (! $actor->hasCapability(ModuleCapability::ModerateAllCommunityPhotos)) {
+            return $events->all();
+        }
+
+        return $events->merge(SpecialAlbum::query()->orderBy('title')->limit(100)->pluck('title', 'id')->mapWithKeys(fn (string $title, int $id): array => ['album:'.$id => 'Album: '.$title]))->all();
     }
 }

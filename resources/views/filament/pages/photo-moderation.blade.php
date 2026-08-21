@@ -11,7 +11,7 @@
                         <input wire:model.live="selectedPhotoIds" value="{{ $photo->id }}" type="checkbox" aria-label="Select {{ $photo->caption ?: 'photo' }} for bulk moderation" />
                         <div>
                         @if ($photo->processed_variants['master'] ?? false)
-                            <img src="{{ \Illuminate\Support\Facades\Storage::disk($photo->storage_disk)->url($photo->processed_variants['master']) }}" alt="" class="mb-3 h-28 w-40 rounded-lg object-cover" style="{{ $photo->presentationRotationStyle() }}" />
+                            <img src="{{ route('admin.photo-moderation.preview', $photo) }}" alt="" class="mb-3 h-28 w-40 rounded-lg object-cover" style="{{ $photo->presentationRotationStyle() }}" />
                         @endif
                         <p class="font-semibold text-gray-950 dark:text-white">{{ $photo->caption ?: 'Untitled photo' }}</p>
                         <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
@@ -34,6 +34,20 @@
                 No photos are waiting for moderation.
             </p>
         @endforelse
+        {{ $this->pendingPhotos()->links() }}
+        <section class="space-y-3" aria-labelledby="published-photos">
+            <h2 id="published-photos" class="text-lg font-semibold">Published photos</h2>
+            @foreach ($this->approvedPhotos() as $photo)
+                <div class="flex items-center justify-between rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+                    <span>{{ $photo->caption ?: 'Untitled photo' }}</span>
+                    <span class="flex gap-2">
+                        <x-filament::button size="sm" color="gray" wire:click="feature({{ $photo->id }})">Feature</x-filament::button>
+                        <x-filament::button size="sm" color="danger" wire:click="remove({{ $photo->id }})">Remove</x-filament::button>
+                    </span>
+                </div>
+            @endforeach
+            {{ $this->approvedPhotos()->links() }}
+        </section>
         @if ($editingPhotoId)
             <form wire:submit="saveEditing" class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
                 <label class="block text-sm font-medium" for="moderation-caption">Caption</label>

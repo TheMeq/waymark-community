@@ -6,6 +6,7 @@ use App\Http\Controllers\AccountPrivacyController;
 use App\Http\Controllers\AccountProfileController;
 use App\Http\Controllers\AccountSecurityController;
 use App\Http\Controllers\CalendarFeedController;
+use App\Http\Controllers\CommunityPhotoModerationPreviewController;
 use App\Http\Controllers\CommunityPhotoUploadController;
 use App\Http\Controllers\FavouriteController;
 use App\Http\Controllers\HomeController;
@@ -34,6 +35,7 @@ Route::get('/', HomeController::class)->name('home');
 Route::get('/new-here', NewHereController::class)->name('new-here');
 Route::get('/leaders/{slug}', PublicLeaderProfileController::class)->name('leaders.show');
 Route::middleware('auth')->group(function (): void {
+    Route::get('/admin/photo-moderation/{photo}/preview', CommunityPhotoModerationPreviewController::class)->name('admin.photo-moderation.preview');
     Route::get('/photos/upload', [CommunityPhotoUploadController::class, 'create'])->name('community-photos.upload.create');
     Route::post('/photos/upload', [CommunityPhotoUploadController::class, 'store'])->middleware('throttle:photo-upload')->name('community-photos.upload.store');
     Route::get('/account/profile', [AccountProfileController::class, 'edit'])->name('account.profile.edit');

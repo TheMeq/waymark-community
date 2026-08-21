@@ -82,6 +82,24 @@ final class ModerateCommunityPhoto
             $locked->forceFill(['event_id' => $event?->id, 'special_album_id' => $album?->id])->save();
 
             return true;
+        }, ['destination' => $target]);
+    }
+
+    public function editAndMove(User $actor, CommunityPhoto $photo, CommunityPhotoModerationRequest $request, string $target): CommunityPhoto
+    {
+        return DB::transaction(function () use ($actor, $photo, $request, $target): CommunityPhoto {
+            $locked = CommunityPhoto::query()->lockForUpdate()->findOrFail($photo->id);
+            $this->authorize($actor, $locked);
+            $this->assertEditable($locked);
+            [$event, $album] = $this->target($target);
+            $this->assertTargetScope($actor, $event, $album);
+            $caption = $this->nullableText($request->caption, 2000, 'caption');
+            $photographer = $this->nullableText($request->photographerName, 255, 'photographer_name');
+            $before = $this->snapshot($locked);
+            $locked->forceFill(['caption' => $caption, 'photographer_name' => $photographer, 'event_id' => $event?->id, 'special_album_id' => $album?->id])->save();
+            $this->audit($actor, $locked, 'edited_and_moved', $before, $this->snapshot($locked), ['destination' => $target]);
+
+            return $locked;
         });
     }
 
@@ -96,7 +114,7 @@ final class ModerateCommunityPhoto
             $locked->forceFill(['presentation_rotation' => ((int) $locked->presentation_rotation + $degrees) % 360])->save();
 
             return true;
-        });
+        }, ['degrees' => $degrees]);
     }
 
     public function feature(User $actor, CommunityPhoto $photo): CommunityPhoto
@@ -140,14 +158,15 @@ final class ModerateCommunityPhoto
         return $this->bulk($actor, $photoIds, 'rejected');
     }
 
-    private function mutate(User $actor, CommunityPhoto $photo, string $action, \Closure $mutation): CommunityPhoto
+    /** @param array<string, int|string> $context */
+    private function mutate(User $actor, CommunityPhoto $photo, string $action, \Closure $mutation, array $context = []): CommunityPhoto
     {
-        return DB::transaction(function () use ($actor, $photo, $action, $mutation): CommunityPhoto {
+        return DB::transaction(function () use ($actor, $photo, $action, $mutation, $context): CommunityPhoto {
             $locked = CommunityPhoto::query()->lockForUpdate()->findOrFail($photo->id);
             $this->authorize($actor, $locked);
             $before = $this->snapshot($locked);
             if ($mutation($locked)) {
-                $this->audit($actor, $locked, $action, $before, $this->snapshot($locked));
+                $this->audit($actor, $locked, $action, $before, $this->snapshot($locked), $context);
             }
 
             return $locked;
@@ -255,7 +274,8 @@ final class ModerateCommunityPhoto
     }
 
     /** @param array<string, mixed> $before @param array<string, mixed> $after */
-    private function audit(User $actor, CommunityPhoto $photo, string $action, array $before, array $after): void
+    /** @param array<string, int|string> $context */
+    private function audit(User $actor, CommunityPhoto $photo, string $action, array $before, array $after, array $context = []): void
     {
         CommunityPhotoModerationAudit::query()->create([
             'community_photo_id' => $photo->id,
@@ -263,7 +283,7 @@ final class ModerateCommunityPhoto
             'action' => $action,
             'before' => $before,
             'after' => $after,
-            'context' => [],
+            'context' => $context,
         ]);
     }
 }
