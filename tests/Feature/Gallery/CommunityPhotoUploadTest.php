@@ -1,0 +1,275 @@
+<?php
+
+namespace Tests\Feature\Gallery;
+
+use App\Domain\Events\Enums\EventType;
+use App\Domain\Events\Models\Event;
+use App\Domain\Gallery\Actions\UploadCommunityPhoto;
+use App\Domain\Gallery\Contracts\DecodedRasterImage;
+use App\Domain\Gallery\Contracts\ImageMetadataReader;
+use App\Domain\Gallery\Contracts\RasterImageTransformer;
+use App\Domain\Gallery\Data\ImageMetadata;
+use App\Domain\Gallery\Data\ImageVariantDefinition;
+use App\Domain\Gallery\Data\TransformedRasterImage;
+use App\Domain\Gallery\Models\CommunityPhoto;
+use App\Domain\Gallery\Models\SpecialAlbum;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Tests\TestCase;
+
+final class CommunityPhotoUploadTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_direct_upload_page_requires_an_authenticated_account(): void
+    {
+        $this->get(route('community-photos.upload.create'))
+            ->assertRedirect(route('login'));
+    }
+
+    public function test_direct_upload_page_prioritises_recent_events_and_offers_special_albums(): void
+    {
+        $account = User::factory()->create();
+        $recent = Event::factory()->create([
+            'type' => EventType::Walk,
+            'title' => 'Yesterday on the ridge',
+            'starts_at' => now()->subDay(),
+        ]);
+        $upcoming = Event::factory()->create([
+            'type' => EventType::Social,
+            'title' => 'Next month social',
+            'starts_at' => now()->addMonth(),
+        ]);
+        $album = SpecialAlbum::query()->create([
+            'title' => 'Volunteer day',
+            'slug' => 'volunteer-day',
+        ]);
+
+        $response = $this->actingAs($account)->get(route('community-photos.upload.create'));
+
+        $response->assertOk()
+            ->assertSee('Share photos')
+            ->assertSee($recent->title)
+            ->assertSee($upcoming->title)
+            ->assertSee($album->title)
+            ->assertSeeInOrder([$recent->title, $upcoming->title])
+            ->assertSee('name="photos[]"', false)
+            ->assertSee('multiple', false)
+            ->assertSee('method="post"', false);
+    }
+
+    public function test_verified_active_account_can_upload_one_photo_to_an_event_after_accepting_the_current_policy(): void
+    {
+        Storage::fake('local');
+        $this->useUploadProcessorDouble();
+        $account = User::factory()->create(['display_name' => 'Taylor W.']);
+        $event = Event::factory()->create(['type' => EventType::Walk]);
+
+        $response = $this->actingAs($account)->postJson(route('community-photos.upload.store'), [
+            'context' => 'event:'.$event->id,
+            'accept_photo_policy' => true,
+            'photos' => [$this->pngUpload('ridge.png')],
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('photos.0.status', 'uploaded');
+        $this->assertDatabaseHas('photo_policy_acceptances', [
+            'user_id' => $account->id,
+            'policy_version' => (string) config('gallery.photo_policy.current_version'),
+        ]);
+        $this->assertDatabaseHas('community_photos', [
+            'event_id' => $event->id,
+            'uploader_id' => $account->id,
+            'photographer_name' => 'Taylor W.',
+            'processing_status' => 'complete',
+            'moderation_status' => 'pending',
+        ]);
+        $this->assertSame(1, CommunityPhoto::query()->count());
+    }
+
+    public function test_upload_requires_the_current_policy_when_no_explicit_acceptance_is_supplied(): void
+    {
+        Storage::fake('local');
+        $this->useUploadProcessorDouble();
+        $account = User::factory()->create();
+        $event = Event::factory()->create();
+
+        $this->actingAs($account)->postJson(route('community-photos.upload.store'), [
+            'context' => 'event:'.$event->id,
+            'photos' => [$this->pngUpload('policy.png')],
+        ])->assertUnprocessable()
+            ->assertJsonPath('photos.0.status', 'failed')
+            ->assertJsonPath('photos.0.errors.0', 'Accept the current photo policy before uploading photos.');
+
+        $this->assertDatabaseCount('community_photos', 0);
+    }
+
+    public function test_upload_rejects_a_dual_context_supplied_outside_the_normal_context_chooser(): void
+    {
+        Storage::fake('local');
+        $this->useUploadProcessorDouble();
+        $account = User::factory()->create();
+        $event = Event::factory()->create();
+        $album = SpecialAlbum::query()->create(['title' => 'Committee archive', 'slug' => 'committee-archive']);
+
+        $this->actingAs($account)->postJson(route('community-photos.upload.store'), [
+            'context' => 'event:'.$event->id,
+            'event_id' => $event->id,
+            'special_album_id' => $album->id,
+            'accept_photo_policy' => true,
+            'photos' => [$this->pngUpload('dual-context.png')],
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors(['event_id', 'special_album_id']);
+
+        $this->assertDatabaseCount('community_photos', 0);
+    }
+
+    public function test_mixed_batch_keeps_the_successful_photo_when_another_file_fails_and_retry_only_creates_the_replacement(): void
+    {
+        Storage::fake('local');
+        $this->useUploadProcessorDouble();
+        $account = User::factory()->create();
+        $event = Event::factory()->create();
+
+        $this->actingAs($account)->postJson(route('community-photos.upload.store'), [
+            'context' => 'event:'.$event->id,
+            'accept_photo_policy' => true,
+            'photos' => [
+                $this->pngUpload('kept.png'),
+                UploadedFile::fake()->createWithContent('broken.png', 'not a raster')->mimeType('image/png'),
+            ],
+        ])->assertUnprocessable()
+            ->assertJsonPath('photos.0.status', 'uploaded')
+            ->assertJsonPath('photos.1.status', 'failed');
+
+        $this->assertDatabaseCount('community_photos', 1);
+
+        $this->actingAs($account)->postJson(route('community-photos.upload.store'), [
+            'context' => 'event:'.$event->id,
+            'photos' => [$this->pngUpload('replacement.png')],
+        ])->assertCreated()
+            ->assertJsonPath('photos.0.status', 'uploaded');
+
+        $this->assertDatabaseCount('community_photos', 2);
+    }
+
+    public function test_upload_uses_the_explicit_photographer_credit_for_a_special_album(): void
+    {
+        Storage::fake('local');
+        $this->useUploadProcessorDouble();
+        $account = User::factory()->create(['display_name' => 'Taylor W.']);
+        $album = SpecialAlbum::query()->create(['title' => 'Committee archive', 'slug' => 'committee-archive']);
+
+        $this->actingAs($account)->postJson(route('community-photos.upload.store'), [
+            'context' => 'album:'.$album->id,
+            'accept_photo_policy' => true,
+            'photographer_name' => 'Jordan P.',
+            'caption' => 'A bright afternoon.',
+            'photos' => [$this->pngUpload('album.png')],
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('community_photos', [
+            'special_album_id' => $album->id,
+            'event_id' => null,
+            'uploader_id' => $account->id,
+            'photographer_name' => 'Jordan P.',
+            'caption' => 'A bright afternoon.',
+        ]);
+    }
+
+    public function test_persistence_failure_removes_only_the_processed_files_for_that_upload(): void
+    {
+        Storage::fake('local');
+        $this->useUploadProcessorDouble();
+        $account = User::factory()->create();
+        $event = Event::factory()->create();
+        $failPersistence = true;
+
+        CommunityPhoto::creating(function () use (&$failPersistence): void {
+            if ($failPersistence) {
+                throw new \RuntimeException('Database write failed.');
+            }
+        });
+
+        try {
+            app(UploadCommunityPhoto::class)->handle(
+                $account,
+                $this->pngUpload('persistence-failure.png'),
+                'event:'.$event->id,
+                null,
+                null,
+                true,
+            );
+            $this->fail('The persistence failure was not rethrown.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('Database write failed.', $exception->getMessage());
+        } finally {
+            $failPersistence = false;
+        }
+
+        $this->assertSame([], Storage::disk('local')->allFiles('community-photos'));
+        $this->assertDatabaseCount('community_photos', 0);
+    }
+
+    private function useUploadProcessorDouble(): void
+    {
+        app()->bind(RasterImageTransformer::class, fn (): UploadTestRasterTransformer => new UploadTestRasterTransformer);
+        app()->bind(ImageMetadataReader::class, fn (): UploadTestMetadataReader => new UploadTestMetadataReader);
+    }
+
+    private function pngUpload(string $name): UploadedFile
+    {
+        return UploadedFile::fake()->createWithContent(
+            $name,
+            base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL82QAAAABJRU5ErkJggg==', true),
+        )->mimeType('image/png');
+    }
+}
+
+final class UploadTestRasterTransformer implements RasterImageTransformer
+{
+    public function supportsInput(string $mimeType): bool
+    {
+        return in_array($mimeType, ['image/jpeg', 'image/png'], true);
+    }
+
+    public function supportsOutput(string $mimeType): bool
+    {
+        return $mimeType === 'image/jpeg';
+    }
+
+    public function decode(string $sourcePath, string $mimeType, int $orientation): DecodedRasterImage
+    {
+        return new UploadTestDecodedRaster;
+    }
+
+    public function transform(DecodedRasterImage $source, ImageVariantDefinition $variant, string $mimeType): TransformedRasterImage
+    {
+        return new TransformedRasterImage('safe-raster', 1, 1, $mimeType);
+    }
+}
+
+final class UploadTestDecodedRaster implements DecodedRasterImage
+{
+    public function width(): int
+    {
+        return 1;
+    }
+
+    public function height(): int
+    {
+        return 1;
+    }
+
+    public function release(): void {}
+}
+
+final class UploadTestMetadataReader implements ImageMetadataReader
+{
+    public function read(string $path, string $mimeType): ImageMetadata
+    {
+        return new ImageMetadata(1, null);
+    }
+}

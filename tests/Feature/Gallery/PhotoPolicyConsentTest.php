@@ -98,4 +98,13 @@ final class PhotoPolicyConsentTest extends TestCase
 
         $this->assertSame(PhotoUploadPolicyDecision::EmailVerificationRequired, $decision);
     }
+
+    public function test_inactive_account_is_blocked_before_email_or_policy_checks(): void
+    {
+        $account = User::factory()->create(['account_status' => 'suspended']);
+
+        $decision = app(PhotoUploadPolicyGate::class)->for($account);
+
+        $this->assertSame(PhotoUploadPolicyDecision::AccountInactive, $decision);
+    }
 }

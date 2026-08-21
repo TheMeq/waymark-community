@@ -14,6 +14,7 @@
             @if ($social['status'])<p class="mt-4 inline-flex rounded-[var(--wm-radius-pill)] bg-surface-soft px-3 py-1 text-sm font-semibold text-ink">{{ $social['status'] }}</p>@endif
             <p class="mt-4 text-ink-muted"><time datetime="{{ $event->starts_at->toAtomString() }}">{{ $social['starts_at'] }}</time>@if ($social['ends_at']) – {{ $social['ends_at'] }}@endif</p>
             <x-account.favourite-control :favourite="$favourite" />
+            @auth<p class="mt-5"><x-public.button :href="route('community-photos.upload.create', ['event' => $event->id])" variant="secondary">Share photos</x-public.button></p>@endauth
             @if ($social['summary'])<p class="mt-6 text-lg text-ink-muted">{{ $social['summary'] }}</p>@endif
             @if ($social['description'])<div class="prose mt-6 max-w-none text-ink">{!! nl2br(e($social['description'])) !!}</div>@endif
 

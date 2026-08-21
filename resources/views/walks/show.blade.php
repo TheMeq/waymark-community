@@ -18,6 +18,7 @@
             @endif
             <p class="mt-4 text-ink-muted"><time datetime="{{ $event->starts_at->toAtomString() }}">{{ $walk['starts_at'] }}</time>@if ($walk['ends_at']) – {{ $walk['ends_at'] }}@endif</p>
             <x-account.favourite-control :favourite="$favourite" />
+            @auth<p class="mt-5"><x-public.button :href="route('community-photos.upload.create', ['event' => $event->id])" variant="secondary">Share photos</x-public.button></p>@endauth
             @if ($walk['featured_image'])
                 <figure data-walk-featured-image class="mt-6 overflow-hidden rounded-[var(--wm-radius-md)] bg-surface-soft shadow-[var(--wm-shadow-card)]">
                     <img class="aspect-[16/8] w-full object-cover" src="{{ $walk['featured_image']['url'] }}" alt="{{ $walk['featured_image']['alt'] }}">

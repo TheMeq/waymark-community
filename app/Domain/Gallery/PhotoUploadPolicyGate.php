@@ -9,6 +9,10 @@ final class PhotoUploadPolicyGate
 {
     public function for(User $account): PhotoUploadPolicyDecision
     {
+        if (! $account->isActive()) {
+            return PhotoUploadPolicyDecision::AccountInactive;
+        }
+
         if (! $account->hasVerifiedEmail()) {
             return PhotoUploadPolicyDecision::EmailVerificationRequired;
         }

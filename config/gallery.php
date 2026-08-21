@@ -10,6 +10,10 @@ return [
         'directory' => 'community-photos',
     ],
 
+    'upload' => [
+        'max_files' => (int) env('GALLERY_PHOTO_MAX_FILES', 10),
+    ],
+
     'processing' => [
         'allowed_mime_types' => ['image/jpeg', 'image/png', 'image/webp', 'image/avif'],
         'max_upload_bytes' => (int) env('GALLERY_PHOTO_MAX_UPLOAD_BYTES', 10 * 1024 * 1024),

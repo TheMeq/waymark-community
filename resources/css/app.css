@@ -65,6 +65,10 @@
 }
 
 @layer base {
+    [x-cloak] {
+        display: none !important;
+    }
+
     *,
     ::before,
     ::after {

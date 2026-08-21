@@ -3,11 +3,13 @@ import Alpine from 'alpinejs';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import siteBanner from './site-banner';
+import photoUpload from './photo-upload';
 
 window.Alpine = Alpine;
 document.documentElement.classList.add('js');
 
 Alpine.data('siteBanner', siteBanner);
+Alpine.data('photoUpload', photoUpload);
 Alpine.data('walkMap', (payload) => ({
     initialise() {
         const map = L.map(this.$refs.canvas, { scrollWheelZoom: false });
