@@ -16,6 +16,10 @@ return new class extends Migration
             $table->dateTime('membership_verified_at')->nullable()->after('membership_verified_by_user_id');
             $table->string('membership_verification_source', 255)->nullable()->after('membership_verified_at');
             $table->date('membership_review_due_at')->nullable()->index()->after('membership_verification_source');
+            $table->foreign('membership_verified_by_user_id')
+                ->references('id')
+                ->on('users')
+                ->restrictOnDelete();
         });
 
         DB::table('role_capabilities')->insertOrIgnore([
@@ -33,6 +37,7 @@ return new class extends Migration
             ->delete();
 
         Schema::table('users', function (Blueprint $table): void {
+            $table->dropForeign(['membership_verified_by_user_id']);
             $table->dropIndex(['membership_verified_by_user_id']);
             $table->dropIndex(['membership_review_due_at']);
             $table->dropColumn([
