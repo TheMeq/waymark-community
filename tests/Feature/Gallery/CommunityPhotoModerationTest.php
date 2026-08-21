@@ -14,6 +14,7 @@ use App\Domain\Gallery\Queries\ModeratableCommunityPhotos;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -272,6 +273,56 @@ final class CommunityPhotoModerationTest extends TestCase
 
         $this->assertSame('pending', $ready->fresh()->moderation_status);
         $this->assertSame('pending', $queued->fresh()->moderation_status);
+        $this->assertDatabaseCount('community_photo_moderation_audits', 0);
+    }
+
+    public function test_repeated_approve_and_reject_remain_noop_after_preview_file_disappears(): void
+    {
+        $moderator = User::factory()->create(['role' => AccountRole::Moderator]);
+        $event = Event::factory()->create();
+        $approved = $this->photoFor($event);
+        $rejected = $this->photoFor($event);
+        $action = app(ModerateCommunityPhoto::class);
+
+        $action->approve($moderator, $approved);
+        $action->reject($moderator, $rejected);
+        Storage::disk('local')->delete([$approved->processed_variants['master'], $rejected->processed_variants['master']]);
+        $action->approve($moderator, $approved);
+        $action->reject($moderator, $rejected);
+
+        $this->assertSame(['approved', 'rejected'], CommunityPhotoModerationAudit::query()->orderBy('id')->pluck('action')->all());
+    }
+
+    public function test_first_feature_rejects_missing_and_unsafe_preview_without_mutation_or_audit(): void
+    {
+        $moderator = User::factory()->create(['role' => AccountRole::Moderator]);
+        $event = Event::factory()->create();
+        $missing = $this->photoFor($event, ['moderation_status' => 'approved', 'published_at' => now()]);
+        $unsafe = $this->photoFor($event, ['moderation_status' => 'approved', 'published_at' => now()]);
+        $alreadyFeatured = $this->photoFor(Event::factory()->create(), [
+            'moderation_status' => 'approved',
+            'published_at' => now(),
+            'is_featured' => true,
+        ]);
+        Storage::disk('local')->delete($missing->processed_variants['master']);
+        Storage::disk('local')->delete($alreadyFeatured->processed_variants['master']);
+        DB::table('community_photos')->where('id', $unsafe->id)->update([
+            'processed_variants' => json_encode(['master' => '../.env'], JSON_THROW_ON_ERROR),
+        ]);
+
+        foreach ([$missing, $unsafe->fresh()] as $photo) {
+            try {
+                app(ModerateCommunityPhoto::class)->feature($moderator, $photo);
+                $this->fail('An unready photo was featured.');
+            } catch (ValidationException $exception) {
+                $this->assertArrayHasKey('photo', $exception->errors());
+            }
+        }
+        app(ModerateCommunityPhoto::class)->feature($moderator, $alreadyFeatured);
+
+        $this->assertFalse($missing->fresh()->is_featured);
+        $this->assertFalse($unsafe->fresh()->is_featured);
+        $this->assertTrue($alreadyFeatured->fresh()->is_featured);
         $this->assertDatabaseCount('community_photo_moderation_audits', 0);
     }
 

@@ -21,13 +21,13 @@ final class ModerateCommunityPhoto
     public function approve(User $actor, CommunityPhoto $photo): CommunityPhoto
     {
         return $this->mutate($actor, $photo, 'approved', function (CommunityPhoto $locked) use ($actor): bool {
-            $this->assertReady($actor, $locked);
             if ($locked->moderation_status !== 'pending') {
                 if ($locked->moderation_status === 'approved') {
                     return false;
                 }
                 throw ValidationException::withMessages(['photo' => 'Only pending photos can be approved.']);
             }
+            $this->assertReady($actor, $locked);
             $locked->forceFill(['moderation_status' => 'approved', 'published_at' => now()])->save();
 
             return true;
@@ -37,13 +37,13 @@ final class ModerateCommunityPhoto
     public function reject(User $actor, CommunityPhoto $photo): CommunityPhoto
     {
         return $this->mutate($actor, $photo, 'rejected', function (CommunityPhoto $locked) use ($actor): bool {
-            $this->assertReady($actor, $locked);
             if ($locked->moderation_status !== 'pending') {
                 if ($locked->moderation_status === 'rejected') {
                     return false;
                 }
                 throw ValidationException::withMessages(['photo' => 'Only pending photos can be rejected.']);
             }
+            $this->assertReady($actor, $locked);
             $locked->forceFill(['moderation_status' => 'rejected', 'published_at' => null, 'is_featured' => false])->save();
 
             return true;
@@ -148,13 +148,13 @@ final class ModerateCommunityPhoto
                 throw ValidationException::withMessages(['photo' => 'The photo context changed. Try again.']);
             }
             $this->authorize($actor, $locked);
-            $this->assertProcessed($locked);
             if ($locked->moderation_status !== 'approved') {
                 throw ValidationException::withMessages(['photo' => 'Only approved photos can be featured.']);
             }
             if ($locked->is_featured) {
                 return $locked;
             }
+            $this->assertReady($actor, $locked);
             $before = $this->snapshot($locked);
             $displaced = $contextPhotos->filter(fn (CommunityPhoto $item): bool => $item->id !== $locked->id && $item->is_featured);
             foreach ($displaced as $previous) {

@@ -4,6 +4,7 @@ namespace Tests\Feature\Gallery;
 
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Events\Models\Event;
+use App\Domain\Gallery\CommunityPhotoModerationPreviewResolver;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Filament\Pages\PhotoModeration;
 use App\Models\User;
@@ -140,6 +141,27 @@ final class PhotoModerationPageTest extends TestCase
         $this->assertSame(1, substr_count($response->getContent(), 'wire:click="rotate('));
         $this->assertSame(1, substr_count($response->getContent(), 'wire:model.live="selectedPhotoIds"'));
         $this->assertGreaterThanOrEqual(2, substr_count($response->getContent(), 'disabled'));
+    }
+
+    public function test_livewire_feature_rejects_approved_missing_and_unsafe_previews_without_audit(): void
+    {
+        $moderator = User::factory()->create(['role' => AccountRole::Moderator]);
+        $event = Event::factory()->create();
+        $missing = $this->photoFor($event);
+        $missing->update(['moderation_status' => 'approved', 'published_at' => now()]);
+        Storage::disk('local')->delete($missing->processed_variants['master']);
+        $unsafe = $this->photoFor($event);
+        $unsafe->update(['moderation_status' => 'approved', 'published_at' => now()]);
+        DB::table('community_photos')->where('id', $unsafe->id)->update(['processed_variants' => json_encode(['master' => '../.env'], JSON_THROW_ON_ERROR)]);
+
+        $this->assertFalse(Storage::disk('local')->exists($missing->processed_variants['master']));
+        $this->assertFalse(app(CommunityPhotoModerationPreviewResolver::class)->isReady($moderator, $unsafe->fresh()));
+        Livewire::actingAs($moderator)->test(PhotoModeration::class)->call('feature', $missing->id);
+        $this->assertFalse($missing->fresh()->is_featured, 'Missing preview was featured.');
+        Livewire::actingAs($moderator)->test(PhotoModeration::class)->call('feature', $unsafe->id);
+
+        $this->assertFalse($unsafe->fresh()->is_featured, 'Unsafe preview was featured.');
+        $this->assertDatabaseCount('community_photo_moderation_audits', 0);
     }
 
     private function photoFor(Event $event): CommunityPhoto
