@@ -39,7 +39,7 @@ final class WhatsOnCalendarController
             $weeks[$week][] = [
                 'date' => $cursor,
                 'in_month' => $cursor->month === $month->month,
-                'events' => $byDate->get($cursor->format('Y-m-d'), collect())->map(fn ($event) => PublicEventCardViewModel::calendar($event))->all(),
+                'events' => $byDate->get($cursor->format('Y-m-d'), collect())->map(fn ($event) => PublicEventCardViewModel::calendar($event, $cursor))->all(),
             ];
         }
         $siteProfile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;

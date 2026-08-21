@@ -27,7 +27,7 @@
                                 @foreach ($week as $day)
                                     <td class="h-32 w-[14.285%] border-b border-r border-border p-2 align-top {{ $day['in_month'] ? '' : 'bg-surface-soft text-ink-muted' }}">
                                         <time class="text-xs font-semibold" datetime="{{ $day['date']->format('Y-m-d') }}">{{ $day['date']->format('j') }}</time>
-                                        @if ($day['events'] !== [])<ul class="mt-2 grid gap-2">@foreach ($day['events'] as $event)<li><a class="block rounded-[var(--wm-radius-sm)] bg-surface-soft p-2 text-xs font-semibold text-ink hover:text-brand" href="{{ $event['url'] }}"><span class="block text-[0.65rem] font-normal text-brand">{{ $event['date'] }} &middot; {{ $event['type'] }}@if ($event['status']) &middot; {{ $event['status'] }}@endif</span>{{ $event['title'] }}</a></li>@endforeach</ul>@endif
+                                        @if ($day['events'] !== [])<ul class="mt-2 grid gap-2">@foreach ($day['events'] as $event)<li><a class="block rounded-[var(--wm-radius-sm)] bg-surface-soft p-2 text-xs font-semibold text-ink hover:text-brand" href="{{ $event['url'] }}"><span class="block text-[0.65rem] font-normal text-brand">{{ $event['label'] }}@if ($event['status']) &middot; {{ $event['status'] }}@endif</span>{{ $event['title'] }}</a></li>@endforeach</ul>@endif
                                     </td>
                                 @endforeach
                             </tr>

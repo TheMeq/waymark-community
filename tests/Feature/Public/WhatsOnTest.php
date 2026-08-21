@@ -160,6 +160,10 @@ final class WhatsOnTest extends TestCase
 
         $response = $this->get('/whats-on/calendar?month=2026-10')->assertOk();
         $this->assertSame(2, substr_count($response->getContent(), 'Month-spanning holiday'));
+        $response
+            ->assertSee('Holiday · continues')
+            ->assertSee('Holiday · until 10:00')
+            ->assertDontSee('16:00 &middot; Holiday', false);
     }
 
     private function event(EventType $type, string $title, string $startsAt, EventStatus $status = EventStatus::Published, bool $public = true): Event
