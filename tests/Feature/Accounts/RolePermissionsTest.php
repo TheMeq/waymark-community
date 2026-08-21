@@ -64,6 +64,8 @@ final class RolePermissionsTest extends TestCase
             'event_configuration.manage',
             'accounts.manage_membership_verification',
             'accounts.manage',
+            'gallery.moderate_own_event_photos',
+            'gallery.moderate_all_community_photos',
         ], array_map(static fn (ModuleCapability $capability): string => $capability->value, ModuleCapability::cases()));
     }
 
@@ -77,11 +79,13 @@ final class RolePermissionsTest extends TestCase
             AccountRole::WalkLeader->value => [
                 'admin.access',
                 'event_updates.manage_own',
+                'gallery.moderate_own_event_photos',
                 'walks.create',
                 'walks.manage_own',
             ],
             AccountRole::Moderator->value => [
                 'admin.access',
+                'gallery.moderate_all_community_photos',
                 'socials.manage',
             ],
             AccountRole::Administrator->value => [
@@ -92,6 +96,8 @@ final class RolePermissionsTest extends TestCase
                 'event_configuration.manage',
                 'event_updates.manage_all',
                 'event_updates.manage_own',
+                'gallery.moderate_all_community_photos',
+                'gallery.moderate_own_event_photos',
                 'holidays.manage',
                 'socials.manage',
                 'walks.create',
@@ -127,10 +133,12 @@ final class RolePermissionsTest extends TestCase
                 ModuleCapability::CreateWalks,
                 ModuleCapability::ManageOwnWalks,
                 ModuleCapability::ManageOwnEventUpdates,
+                ModuleCapability::ModerateOwnEventPhotos,
             ],
             AccountRole::Moderator->value => [
                 ModuleCapability::AccessAdministration,
                 ModuleCapability::ManageSocials,
+                ModuleCapability::ModerateAllCommunityPhotos,
             ],
             AccountRole::Administrator->value => ModuleCapability::cases(),
         ];
@@ -521,6 +529,7 @@ final class RolePermissionsTest extends TestCase
 
         $this->assertSame([
             ModuleCapability::AccessAdministration->value,
+            ModuleCapability::ModerateAllCommunityPhotos->value,
             ModuleCapability::ManageSocials->value,
         ], $this->capabilitiesFor(AccountRole::Moderator));
     }

@@ -29,6 +29,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'focal_point_x',
     'focal_point_y',
     'is_featured',
+    'presentation_rotation',
 ])]
 final class CommunityPhoto extends Model
 {
@@ -71,6 +72,7 @@ final class CommunityPhoto extends Model
             'focal_point_x' => 'decimal:4',
             'focal_point_y' => 'decimal:4',
             'is_featured' => 'boolean',
+            'presentation_rotation' => 'integer',
         ];
     }
 

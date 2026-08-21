@@ -20,10 +20,12 @@ final class DefaultRoleCapabilityMatrix
                 ModuleCapability::CreateWalks,
                 ModuleCapability::ManageOwnWalks,
                 ModuleCapability::ManageOwnEventUpdates,
+                ModuleCapability::ModerateOwnEventPhotos,
             ],
             AccountRole::Moderator->value => [
                 ModuleCapability::AccessAdministration,
                 ModuleCapability::ManageSocials,
+                ModuleCapability::ModerateAllCommunityPhotos,
             ],
             AccountRole::Administrator->value => ModuleCapability::cases(),
         ];
