@@ -71,3 +71,25 @@ test('no-JavaScript upload fallback returns focus to its error summary', async (
     await expect(alert).toBeFocused();
     await context.close();
 });
+
+test('forced deferred upload remains processing without a retry or duplicate request', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/photos/upload?event=1');
+    let requests = 0;
+    await page.route('**/photos/upload', async (route) => {
+        requests++;
+        await route.fulfill({
+            status: 201,
+            contentType: 'application/json',
+            body: JSON.stringify({ photos: [{ status: 'processing', photo_id: 42 }] }),
+        });
+    });
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADElEQVQImWNgYGAAAAAEAAGjChXjAAAAAElFTkSuQmCC', 'base64');
+    await page.getByLabel('Photos', { exact: true }).setInputFiles({ name: 'deferred.png', mimeType: 'image/png', buffer: png });
+
+    await page.getByRole('button', { name: 'Upload photos' }).click();
+
+    await expect(page.getByText('deferred.png').locator('..')).toContainText('Processing');
+    await expect(page.getByRole('button', { name: 'Retry' })).toHaveCount(0);
+    expect(requests).toBe(1);
+});

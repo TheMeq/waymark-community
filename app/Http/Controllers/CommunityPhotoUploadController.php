@@ -54,6 +54,7 @@ final class CommunityPhotoUploadController
             'photographer_name' => ['nullable', 'string', 'max:255'],
             'caption' => ['nullable', 'string', 'max:65535'],
             'defer_processing' => ['nullable', 'boolean'],
+            'batch_size' => ['nullable', 'integer', 'min:1', 'max:'.(int) config('gallery.upload.max_files', 10)],
         ]);
 
         $results = [];
@@ -68,9 +69,18 @@ final class CommunityPhotoUploadController
                     $validated['photographer_name'] ?? null,
                     $validated['caption'] ?? null,
                     (bool) ($validated['accept_photo_policy'] ?? false),
-                    (bool) ($validated['defer_processing'] ?? false),
+                    (bool) ($validated['defer_processing'] ?? false)
+                        || count($validated['photos']) >= max(1, (int) config('gallery.deferred.batch_threshold_files', 3)),
                 );
-                $results[] = ['index' => $index, 'name' => $photo->getClientOriginalName(), 'status' => $communityPhoto->processing_status === 'complete' ? 'uploaded' : 'processing', 'photo_id' => $communityPhoto->id];
+                $status = match ($communityPhoto->processing_status) {
+                    'complete' => 'uploaded',
+                    'queued', 'processing', 'retry', 'staging' => 'processing',
+                    default => 'failed',
+                };
+                $results[] = array_filter([
+                    'index' => $index, 'name' => $photo->getClientOriginalName(), 'status' => $status, 'photo_id' => $communityPhoto->id,
+                    'errors' => $status === 'failed' ? ['This photo could not be processed.'] : null,
+                ]);
             } catch (ValidationException|\RuntimeException $exception) {
                 if ($exception instanceof \RuntimeException) {
                     report($exception);

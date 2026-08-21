@@ -24,7 +24,7 @@ final readonly class IngestCommunityPhoto
         private ImageMetadataReader $metadataReader,
     ) {}
 
-    public function handle(UploadedFile $upload): ProcessedCommunityPhoto
+    public function handle(UploadedFile $upload, ?string $reservedDirectory = null): ProcessedCommunityPhoto
     {
         $configuration = ImageProcessingConfiguration::from((array) config('gallery.processing', []), $this->transformer);
         [$path, $decodedMimeType, $width, $height] = $this->inspect($upload, $configuration);
@@ -46,7 +46,8 @@ final readonly class IngestCommunityPhoto
 
         try {
             $diskName = (string) config('gallery.photos.disk', 'local');
-            $directory = trim((string) config('gallery.photos.directory', 'community-photos'), '/').'/'.Str::uuid()->toString();
+            $directory = $reservedDirectory ?? trim((string) config('gallery.photos.directory', 'community-photos'), '/').'/'.Str::uuid()->toString();
+            PhotoStorageReference::from($diskName, $directory.'/master.jpg');
             $disk = Storage::disk($diskName);
 
             try {
@@ -78,7 +79,9 @@ final readonly class IngestCommunityPhoto
 
                 return new ProcessedCommunityPhoto($retainedSource, $variants, $width, $height, $metadata->capturedAt);
             } catch (\Throwable $exception) {
-                $disk->deleteDirectory($directory);
+                if ($reservedDirectory === null) {
+                    $disk->deleteDirectory($directory);
+                }
 
                 throw $exception;
             }

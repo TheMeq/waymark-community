@@ -9,6 +9,8 @@ use App\Domain\Gallery\Contracts\ImageMetadataReader;
 use App\Domain\Gallery\Contracts\RasterImageTransformer;
 use App\Domain\Gallery\Data\ImageMetadata;
 use App\Domain\Gallery\Data\ImageVariantDefinition;
+use App\Domain\Gallery\Data\ProcessedCommunityPhoto;
+use App\Domain\Gallery\Data\ProcessedPhotoVariant;
 use App\Domain\Gallery\Data\TransformedRasterImage;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\CommunityPhotoProcessingJob;
@@ -61,6 +63,7 @@ final class DeferredCommunityPhotoProcessingTest extends TestCase
         [$photo, $job] = $this->queuedJob('not a photo');
 
         app(ProcessDeferredCommunityPhotos::class)->handle(1);
+        app(ProcessDeferredCommunityPhotos::class)->handle(1);
 
         $this->assertSame('failed', $photo->fresh()->processing_status);
         $this->assertSame('terminal_failed', $job->fresh()->status);
@@ -78,7 +81,7 @@ final class DeferredCommunityPhotoProcessingTest extends TestCase
         foreach ([$first, $second] as $job) {
             $job->update([
                 'status' => 'processing', 'attempts' => 1,
-                'claimed_at' => now()->subMinutes(20), 'lease_expires_at' => now()->subMinute(),
+                'claimed_at' => now()->subMinutes(20), 'lease_expires_at' => now()->subMinute(), 'claim_token' => 'stale-'.$job->id,
             ]);
             $job->photo->update(['processing_status' => 'processing']);
         }
@@ -104,6 +107,23 @@ final class DeferredCommunityPhotoProcessingTest extends TestCase
 
         $this->assertSame(1, $job->fresh()->attempts);
         $this->assertSame('completed', $job->fresh()->status);
+    }
+
+    public function test_a_stale_claim_token_cannot_finalise_or_fail_a_reclaimed_job(): void
+    {
+        Storage::fake('local');
+        [$photo, $job] = $this->queuedJob();
+        $job->update(['status' => 'processing', 'claim_token' => 'new-claim', 'output_directory' => 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c9999']);
+        $photo->update(['processing_status' => 'processing']);
+        $processed = new ProcessedCommunityPhoto(null, [
+            'master' => new ProcessedPhotoVariant('community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c9999/master.jpg', 'image/jpeg', 1, 1, 1),
+        ], 1, 1, null);
+        $processor = app(ProcessDeferredCommunityPhotos::class);
+
+        $this->assertFalse($processor->finalise($job->id, 'old-claim', $processed));
+        $this->assertFalse($processor->fail($job->id, 'old-claim'));
+        $this->assertSame('processing', $job->fresh()->status);
+        $this->assertSame('new-claim', $job->fresh()->claim_token);
     }
 
     public function test_streamed_disk_sources_are_copied_to_a_temporary_file_and_cleaned_after_processing(): void

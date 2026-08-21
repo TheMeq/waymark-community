@@ -93,44 +93,43 @@ final readonly class UploadCommunityPhoto
         $diskName = (string) config('gallery.photos.disk', 'local');
         $directory = trim((string) config('gallery.photos.directory', 'community-photos'), '/').'/'.Str::uuid()->toString();
         $path = $directory.'/staged.'.$this->stagedExtension($upload);
-        $source = fopen((string) $upload->getRealPath(), 'rb');
+        $photo = DB::transaction(function () use ($account, $event, $specialAlbum, $diskName, $path, $upload, $photographerName, $caption): CommunityPhoto {
+            $photo = CommunityPhoto::query()->create([
+                'event_id' => $event?->id, 'special_album_id' => $specialAlbum?->id,
+                'uploader_id' => $account->id, 'media_type' => 'image',
+                'processing_status' => 'staging', 'storage_disk' => $diskName,
+                'source_path' => $path, 'processed_variants' => [],
+                'file_size_bytes' => $upload->getSize() ?: null,
+                'caption' => $this->nullableTrimmed($caption),
+                'photographer_name' => $this->nullableTrimmed($photographerName) ?? $account->publicDisplayName(),
+                'moderation_status' => 'pending',
+            ]);
+            CommunityPhotoProcessingJob::query()->create([
+                'community_photo_id' => $photo->id, 'status' => 'staging', 'attempts' => 0,
+                'staged_source_path' => $path, 'available_at' => now(),
+            ]);
 
+            return $photo;
+        });
+
+        $source = fopen((string) $upload->getRealPath(), 'rb');
         if (! is_resource($source)) {
             throw ValidationException::withMessages(['photo' => 'The uploaded photo could not be read.']);
         }
-
         try {
-            if (! Storage::disk($diskName)->put($path, $source)) {
-                throw new \RuntimeException('The photo could not be staged for processing.');
-            }
+            DB::transaction(function () use ($photo, $diskName, $path, $source): void {
+                $job = CommunityPhotoProcessingJob::query()->lockForUpdate()->where('community_photo_id', $photo->id)->firstOrFail();
+                if ($job->status !== 'staging' || ! Storage::disk($diskName)->put($path, $source)) {
+                    throw new \RuntimeException('The photo could not be staged for processing.');
+                }
+                $job->update(['status' => 'queued', 'available_at' => now()]);
+                CommunityPhoto::query()->lockForUpdate()->findOrFail($photo->id)->update(['processing_status' => 'queued']);
+            });
         } finally {
             fclose($source);
         }
 
-        try {
-            return DB::transaction(function () use ($account, $event, $specialAlbum, $diskName, $path, $upload, $photographerName, $caption): CommunityPhoto {
-                $photo = CommunityPhoto::query()->create([
-                    'event_id' => $event?->id, 'special_album_id' => $specialAlbum?->id,
-                    'uploader_id' => $account->id, 'media_type' => 'image',
-                    'processing_status' => 'queued', 'storage_disk' => $diskName,
-                    'source_path' => $path, 'processed_variants' => [],
-                    'file_size_bytes' => $upload->getSize() ?: null,
-                    'caption' => $this->nullableTrimmed($caption),
-                    'photographer_name' => $this->nullableTrimmed($photographerName) ?? $account->publicDisplayName(),
-                    'moderation_status' => 'pending',
-                ]);
-                CommunityPhotoProcessingJob::query()->create([
-                    'community_photo_id' => $photo->id, 'status' => 'queued', 'attempts' => 0,
-                    'staged_source_path' => $path, 'available_at' => now(),
-                ]);
-
-                return $photo;
-            });
-        } catch (\Throwable $exception) {
-            Storage::disk($diskName)->delete($path);
-
-            throw $exception;
-        }
+        return $photo->fresh();
     }
 
     private function ensureUploadAllowed(User $account, bool $acceptCurrentPolicy): void

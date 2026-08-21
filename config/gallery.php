@@ -20,7 +20,8 @@ return [
         'max_attempts' => (int) env('GALLERY_DEFERRED_PROCESSING_MAX_ATTEMPTS', 3),
         'retry_delay_seconds' => (int) env('GALLERY_DEFERRED_PROCESSING_RETRY_DELAY', 60),
         'lease_minutes' => (int) env('GALLERY_DEFERRED_PROCESSING_LEASE_MINUTES', 15),
-        'manual_fallback' => (bool) env('GALLERY_DEFERRED_PROCESSING_MANUAL_FALLBACK', false),
+        'batch_threshold_files' => (int) env('GALLERY_DEFERRED_PROCESSING_BATCH_THRESHOLD', 3),
+        'manual_fallback' => (bool) env('GALLERY_DEFERRED_PROCESSING_MANUAL_FALLBACK', true),
     ],
 
     'processing' => [

@@ -226,6 +226,7 @@ final class CommunityPhotoUploadTest extends TestCase
         $this->useUploadProcessorDouble();
         config()->set('gallery.deferred.enabled', true);
         config()->set('gallery.deferred.size_threshold_bytes', 1);
+        config()->set('gallery.deferred.manual_fallback', false);
         $account = User::factory()->create();
         $event = $this->uploadableEvent();
 
@@ -272,6 +273,28 @@ final class CommunityPhotoUploadTest extends TestCase
             'community_photo_id' => $photo->id,
             'status' => 'completed',
         ]);
+    }
+
+    public function test_no_javascript_batch_size_routes_small_files_through_durable_processing(): void
+    {
+        Storage::fake('local');
+        $this->useUploadProcessorDouble();
+        config()->set('gallery.deferred.enabled', true);
+        config()->set('gallery.deferred.manual_fallback', false);
+        config()->set('gallery.deferred.size_threshold_bytes', 999999);
+        config()->set('gallery.deferred.batch_threshold_files', 2);
+        $account = User::factory()->create();
+        $event = $this->uploadableEvent();
+
+        $this->actingAs($account)->postJson(route('community-photos.upload.store'), [
+            'context' => 'event:'.$event->id,
+            'accept_photo_policy' => true,
+            'photos' => [$this->pngUpload('one.png'), $this->pngUpload('two.png')],
+        ])->assertCreated()
+            ->assertJsonPath('photos.0.status', 'processing')
+            ->assertJsonPath('photos.1.status', 'processing');
+
+        $this->assertDatabaseCount('community_photo_processing_jobs', 2);
     }
 
     public function test_upload_requires_the_current_policy_when_no_explicit_acceptance_is_supplied(): void

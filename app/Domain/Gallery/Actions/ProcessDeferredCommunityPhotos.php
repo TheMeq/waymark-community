@@ -10,6 +10,7 @@ use App\Domain\Gallery\Models\CommunityPhotoProcessingJob;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Throwable;
 
 final readonly class ProcessDeferredCommunityPhotos
@@ -19,7 +20,8 @@ final readonly class ProcessDeferredCommunityPhotos
     public function handle(int $limit = 25): int
     {
         $limit = max(1, min($limit, 100));
-        $handled = $this->recoverStaleClaims($limit);
+        $handled = $this->cleanUp($limit);
+        $handled += $this->recoverStaleClaims($limit - $handled);
         $remaining = $limit - $handled;
 
         if ($remaining < 1) {
@@ -54,15 +56,16 @@ final readonly class ProcessDeferredCommunityPhotos
 
         try {
             $temporaryPath = $this->copyStagedSourceToTemporaryFile($job);
-            $processed = $this->ingest->handle($this->temporaryUpload($temporaryPath));
-            $this->finalise($job->id, $processed);
+            $processed = $this->ingest->handle($this->temporaryUpload($temporaryPath), $job->output_directory);
+            $this->finalise($job->id, $job->claim_token, $processed);
         } catch (Throwable $exception) {
             if ($processed instanceof ProcessedCommunityPhoto) {
                 $this->cleanProcessedDirectory($job, $processed);
             }
 
             report($exception);
-            $this->fail($job->id);
+            $this->fail($job->id, $job->claim_token);
+            $this->cleanUp(1);
 
             return true;
         } finally {
@@ -71,11 +74,7 @@ final readonly class ProcessDeferredCommunityPhotos
             }
         }
 
-        try {
-            Storage::disk($job->photo->storage_disk)->delete($job->staged_source_path);
-        } catch (Throwable $exception) {
-            report($exception);
-        }
+        $this->cleanUp(1);
 
         return true;
     }
@@ -93,13 +92,15 @@ final readonly class ProcessDeferredCommunityPhotos
 
             $photo = CommunityPhoto::query()->lockForUpdate()->find($job->community_photo_id);
 
-            if (! $photo instanceof CommunityPhoto || ! $this->hasSafeStagedSource($job, $photo)) {
+            if (! $photo instanceof CommunityPhoto || ! $this->hasSafeStagedSource($job, $photo) || $job->output_directory !== null) {
                 return null;
             }
 
             $job->update([
                 'status' => 'processing', 'attempts' => $job->attempts + 1,
                 'claimed_at' => now(), 'lease_expires_at' => now()->addMinutes($this->leaseMinutes()),
+                'claim_token' => Str::uuid()->toString(),
+                'output_directory' => trim((string) config('gallery.photos.directory', 'community-photos'), '/').'/'.Str::uuid()->toString(),
                 'failure_reason' => null,
             ]);
             $photo->update(['processing_status' => 'processing']);
@@ -108,14 +109,14 @@ final readonly class ProcessDeferredCommunityPhotos
         });
     }
 
-    private function finalise(int $jobId, ProcessedCommunityPhoto $processed): void
+    public function finalise(int $jobId, ?string $claimToken, ProcessedCommunityPhoto $processed): bool
     {
-        DB::transaction(function () use ($jobId, $processed): void {
+        return DB::transaction(function () use ($jobId, $claimToken, $processed): bool {
             $job = CommunityPhotoProcessingJob::query()->lockForUpdate()->findOrFail($jobId);
             $photo = CommunityPhoto::query()->lockForUpdate()->findOrFail($job->community_photo_id);
 
-            if ($job->status !== 'processing' || ! $this->hasSafeStagedSource($job, $photo)) {
-                throw new \RuntimeException('The photo processing claim is no longer current.');
+            if ($job->status !== 'processing' || $job->claim_token !== $claimToken || ! $this->hasSafeStagedSource($job, $photo)) {
+                return false;
             }
 
             $photo->update([
@@ -126,57 +127,52 @@ final readonly class ProcessDeferredCommunityPhotos
                 'file_size_bytes' => $this->sourceFileSize($processed), 'captured_at' => $processed->capturedAt,
             ]);
             $job->update([
-                'status' => 'completed', 'staged_source_path' => null, 'available_at' => null,
+                'status' => 'completed', 'available_at' => null,
                 'claimed_at' => null, 'lease_expires_at' => null, 'failure_reason' => null,
+                'claim_token' => null, 'output_directory' => null,
             ]);
+
+            return true;
         });
     }
 
-    private function fail(int $jobId): void
+    public function fail(int $jobId, ?string $claimToken): bool
     {
-        $terminalSource = DB::transaction(function () use ($jobId): ?array {
+        return DB::transaction(function () use ($jobId, $claimToken): bool {
             $job = CommunityPhotoProcessingJob::query()->lockForUpdate()->find($jobId);
 
             if (! $job instanceof CommunityPhotoProcessingJob || $job->status !== 'processing') {
-                return null;
+                return false;
             }
 
             $photo = CommunityPhoto::query()->lockForUpdate()->find($job->community_photo_id);
 
-            if (! $photo instanceof CommunityPhoto || ! $this->hasSafeStagedSource($job, $photo)) {
-                return null;
+            if (! $photo instanceof CommunityPhoto || $job->claim_token !== $claimToken || ! $this->hasSafeStagedSource($job, $photo)) {
+                return false;
             }
 
             if ($job->attempts >= $this->maxAttempts()) {
-                $path = $job->staged_source_path;
-                $disk = $photo->storage_disk;
                 $photo->update(['processing_status' => 'failed', 'processed_variants' => []]);
                 $job->update([
-                    'status' => 'terminal_failed', 'staged_source_path' => null, 'available_at' => null,
+                    'status' => 'terminal_failed', 'available_at' => null,
                     'claimed_at' => null, 'lease_expires_at' => null,
+                    'claim_token' => null,
                     'failure_reason' => 'Photo processing failed. It needs a manual retry.',
                 ]);
 
-                return [$disk, $path];
+                return true;
             }
 
             $photo->update(['processing_status' => 'retry']);
             $job->update([
                 'status' => 'retry', 'available_at' => now()->addSeconds($this->backoffSeconds($job->attempts)),
                 'claimed_at' => null, 'lease_expires_at' => null,
+                'claim_token' => null,
                 'failure_reason' => 'Photo processing failed. It will be retried automatically.',
             ]);
 
-            return null;
+            return true;
         });
-
-        if (is_array($terminalSource)) {
-            try {
-                Storage::disk($terminalSource[0])->delete($terminalSource[1]);
-            } catch (Throwable $exception) {
-                report($exception);
-            }
-        }
     }
 
     private function recoverStaleClaims(int $limit): int
@@ -185,14 +181,118 @@ final readonly class ProcessDeferredCommunityPhotos
         CommunityPhotoProcessingJob::query()->where('status', 'processing')->where('lease_expires_at', '<=', now())
             ->orderBy('id')->limit($limit)->pluck('id')->each(function (int $jobId) use (&$recovered): void {
                 try {
-                    $this->fail($jobId);
-                    $recovered++;
+                    $token = CommunityPhotoProcessingJob::query()->whereKey($jobId)->value('claim_token');
+                    if (is_string($token) && $this->fail($jobId, $token)) {
+                        $recovered++;
+                    }
                 } catch (Throwable $exception) {
                     report($exception);
                 }
             });
 
         return $recovered;
+    }
+
+    private function cleanUp(int $limit): int
+    {
+        if ($limit < 1) {
+            return 0;
+        }
+
+        $handled = 0;
+        CommunityPhotoProcessingJob::query()->where('status', 'staging')->orderBy('id')->limit($limit)->pluck('id')
+            ->each(function (int $jobId) use (&$handled): void {
+                if ($this->recoverStaging($jobId)) {
+                    $handled++;
+                }
+            });
+        if ($handled >= $limit) {
+            return $handled;
+        }
+
+        CommunityPhotoProcessingJob::query()->whereNotNull('output_directory')->where('status', '!=', 'processing')->orderBy('id')->limit($limit - $handled)->pluck('id')
+            ->each(function (int $jobId) use (&$handled): void {
+                if ($this->deleteOutputDirectory($jobId)) {
+                    $handled++;
+                }
+            });
+        if ($handled >= $limit) {
+            return $handled;
+        }
+
+        CommunityPhotoProcessingJob::query()->whereIn('status', ['completed', 'terminal_failed'])->whereNotNull('staged_source_path')->orderBy('id')->limit($limit - $handled)->pluck('id')
+            ->each(function (int $jobId) use (&$handled): void {
+                if ($this->deleteStagedSource($jobId)) {
+                    $handled++;
+                }
+            });
+
+        return $handled;
+    }
+
+    private function recoverStaging(int $jobId): bool
+    {
+        return DB::transaction(function () use ($jobId): bool {
+            $job = CommunityPhotoProcessingJob::query()->lockForUpdate()->find($jobId);
+            if (! $job instanceof CommunityPhotoProcessingJob || $job->status !== 'staging') {
+                return false;
+            }
+            $photo = CommunityPhoto::query()->lockForUpdate()->find($job->community_photo_id);
+            if (! $photo instanceof CommunityPhoto || ! is_string($job->staged_source_path)) {
+                return false;
+            }
+            if (Storage::disk($photo->storage_disk)->exists($job->staged_source_path)) {
+                $job->update(['status' => 'queued', 'available_at' => now()]);
+                $photo->update(['processing_status' => 'queued']);
+            } else {
+                $job->update(['status' => 'terminal_failed', 'staged_source_path' => null, 'failure_reason' => 'Photo staging did not complete.']);
+                $photo->update(['processing_status' => 'failed']);
+            }
+
+            return true;
+        });
+    }
+
+    private function deleteOutputDirectory(int $jobId): bool
+    {
+        $job = CommunityPhotoProcessingJob::query()->with('photo')->find($jobId);
+        if (! $job instanceof CommunityPhotoProcessingJob || ! $job->photo instanceof CommunityPhoto || ! is_string($job->output_directory)) {
+            return false;
+        }
+        if (! Storage::disk($job->photo->storage_disk)->deleteDirectory($job->output_directory)) {
+            return false;
+        }
+
+        return DB::transaction(function () use ($job): bool {
+            $locked = CommunityPhotoProcessingJob::query()->lockForUpdate()->find($job->id);
+            if (! $locked instanceof CommunityPhotoProcessingJob || $locked->output_directory !== $job->output_directory) {
+                return false;
+            }
+            $locked->update(['output_directory' => null]);
+
+            return true;
+        });
+    }
+
+    private function deleteStagedSource(int $jobId): bool
+    {
+        $job = CommunityPhotoProcessingJob::query()->with('photo')->find($jobId);
+        if (! $job instanceof CommunityPhotoProcessingJob || ! $job->photo instanceof CommunityPhoto || ! is_string($job->staged_source_path)) {
+            return false;
+        }
+        if (! Storage::disk($job->photo->storage_disk)->delete($job->staged_source_path)) {
+            return false;
+        }
+
+        return DB::transaction(function () use ($job): bool {
+            $locked = CommunityPhotoProcessingJob::query()->lockForUpdate()->find($job->id);
+            if (! $locked instanceof CommunityPhotoProcessingJob || $locked->staged_source_path !== $job->staged_source_path) {
+                return false;
+            }
+            $locked->update(['staged_source_path' => null]);
+
+            return true;
+        });
     }
 
     private function copyStagedSourceToTemporaryFile(CommunityPhotoProcessingJob $job): string

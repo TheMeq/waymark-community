@@ -5,6 +5,7 @@ use App\Domain\Accounts\Actions\ProcessPersonalDataExports;
 use App\Domain\Gallery\Actions\ProcessDeferredCommunityPhotos;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -21,3 +22,5 @@ Artisan::command('accounts:flag-stale {--days=365} {--limit=100}', function (Fla
 Artisan::command('gallery:process-deferred-photos {--limit=25}', function (ProcessDeferredCommunityPhotos $photos): void {
     $this->info((string) $photos->handle((int) $this->option('limit')).' photo processing job(s) handled.');
 })->purpose('Process deferred community photos without a permanent worker');
+
+Schedule::command('gallery:process-deferred-photos --limit=25')->everyMinute()->withoutOverlapping();
