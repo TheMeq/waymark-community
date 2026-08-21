@@ -10,6 +10,7 @@ use App\Domain\Accounts\Models\Favourite;
 use App\Domain\Accounts\Models\InstallationOwnership;
 use App\Domain\Accounts\Models\PersonalDataExport;
 use App\Domain\Accounts\Models\RoleCapability;
+use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Membership\Enums\AccountStatus;
 use App\Domain\Membership\Enums\MembershipStatus;
 use Database\Factories\UserFactory;
@@ -162,6 +163,12 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     public function deletionRequests(): HasMany
     {
         return $this->hasMany(AccountDeletionRequest::class);
+    }
+
+    /** @return HasMany<CommunityPhoto, $this> */
+    public function uploadedCommunityPhotos(): HasMany
+    {
+        return $this->hasMany(CommunityPhoto::class, 'uploader_id');
     }
 
     /**

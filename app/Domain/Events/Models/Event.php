@@ -5,6 +5,7 @@ namespace App\Domain\Events\Models;
 use App\Domain\Accounts\Models\Favourite;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
+use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Holidays\Models\Holiday;
 use App\Domain\Socials\Models\Social;
 use App\Domain\Walks\Models\Walk;
@@ -112,6 +113,12 @@ final class Event extends Model
     public function favourites(): HasMany
     {
         return $this->hasMany(Favourite::class);
+    }
+
+    /** @return HasMany<CommunityPhoto, $this> */
+    public function communityPhotos(): HasMany
+    {
+        return $this->hasMany(CommunityPhoto::class);
     }
 
     public function isPast(?CarbonInterface $at = null): bool
