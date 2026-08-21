@@ -97,6 +97,21 @@ final class CommunityPhotoUploadTest extends TestCase
         $this->assertDatabaseCount('community_photos', 0);
     }
 
+    public function test_public_holiday_child_event_with_its_own_walk_record_is_uploadable(): void
+    {
+        Storage::fake('local');
+        $this->useUploadProcessorDouble();
+        $account = User::factory()->create();
+        $holiday = $this->uploadableEvent(['type' => EventType::Holiday]);
+        $child = $this->uploadableEvent(['type' => EventType::Walk, 'parent_event_id' => $holiday->id]);
+
+        $this->actingAs($account)->postJson(route('community-photos.upload.store'), [
+            'context' => 'event:'.$child->id, 'accept_photo_policy' => true, 'photos' => [$this->pngUpload('holiday-child.png')],
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('community_photos', ['event_id' => $child->id]);
+    }
+
     public function test_html_fallback_renders_individual_mixed_batch_outcomes_after_redirect(): void
     {
         Storage::fake('local');
