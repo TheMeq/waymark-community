@@ -20,6 +20,7 @@ final readonly class ProcessDeferredCommunityPhotos
 
     public function handle(int $limit = 25): int
     {
+        $this->configureDatabaseLockWaitTimeout();
         $limit = max(1, min($limit, 100));
         $handled = $this->recoverStaleClaims($limit);
         $remaining = $limit - $handled;

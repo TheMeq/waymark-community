@@ -18,7 +18,9 @@ use App\Models\User;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\QueryException;
+use Illuminate\Database\SQLiteConnection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
@@ -173,6 +175,51 @@ final class DeferredCommunityPhotoProcessingTest extends TestCase
         $this->assertSame('processing', $second->fresh()->status);
         $this->assertSame('retry', $firstPhoto->fresh()->processing_status);
         $this->assertSame('processing', $secondPhoto->fresh()->processing_status);
+    }
+
+    public function test_stale_recovery_sets_the_mysql_session_timeout_before_bounded_contention_and_continues_later_work(): void
+    {
+        Storage::fake('local');
+        $this->useProcessorDouble();
+        config()->set('gallery.deferred.database_lock_wait_seconds', 3);
+        [$blockedPhoto, $blocked] = $this->queuedJob();
+        [, $successful] = $this->queuedJob();
+        $blocked->update([
+            'status' => 'processing', 'attempts' => 1,
+            'claimed_at' => now()->subMinutes(20), 'lease_expires_at' => now()->subMinute(), 'claim_token' => 'stale-'.$blocked->id,
+        ]);
+        $blockedPhoto->update(['processing_status' => 'processing']);
+        $defaultConnection = DB::getDefaultConnection();
+        $connection = $this->useRecordingMySqlConnection();
+        $this->assertSame($connection, DB::connection());
+        $this->assertSame('mysql', DB::connection()->getDriverName());
+        $configuredBeforeContention = false;
+        $hasContended = false;
+
+        try {
+            CommunityPhoto::updating(function (CommunityPhoto $photo) use ($connection, &$configuredBeforeContention, &$hasContended): void {
+                if (! $hasContended && $photo->processing_status === 'retry') {
+                    $hasContended = true;
+                    $configuredBeforeContention = in_array('SET SESSION innodb_lock_wait_timeout = 3', $connection->unpreparedStatements, true);
+                    $previous = new \PDOException('Lock wait timeout exceeded.');
+                    $previous->errorInfo = ['HY000', 1205, 'Lock wait timeout exceeded.'];
+
+                    throw new QueryException('mysql', 'update community_photos', [], $previous);
+                }
+            });
+
+            $handled = app(ProcessDeferredCommunityPhotos::class)->handle(2);
+
+            $this->assertSame('SET SESSION innodb_lock_wait_timeout = 3', $connection->unpreparedStatements[0]);
+            $this->assertTrue($configuredBeforeContention);
+            $this->assertTrue($hasContended);
+            $this->assertSame(1, $handled);
+            $this->assertSame('processing', $blocked->fresh()->status);
+            $this->assertSame('completed', $successful->fresh()->status);
+        } finally {
+            DB::setDefaultConnection($defaultConnection);
+            DB::purge('recording-mysql');
+        }
     }
 
     public function test_a_completed_job_cannot_be_processed_twice_by_manual_or_scheduler_invocation(): void
@@ -399,6 +446,21 @@ final class DeferredCommunityPhotoProcessingTest extends TestCase
         Storage::fake('local');
     }
 
+    private function useRecordingMySqlConnection(): RecordingMySqlConnection
+    {
+        $original = DB::connection();
+        $connection = new RecordingMySqlConnection(
+            $original->getPdo(), $original->getDatabaseName(), $original->getTablePrefix(), $original->getConfig(),
+        );
+        $connection->adoptTransactionLevel($original->transactionLevel());
+
+        DB::extend('recording-mysql', fn (): RecordingMySqlConnection => $connection);
+        config()->set('database.connections.recording-mysql', ['driver' => 'recording-mysql']);
+        DB::setDefaultConnection('recording-mysql');
+
+        return $connection;
+    }
+
     private function hardeningMigration(): Migration
     {
         return require database_path('migrations/2026_08_21_163000_harden_community_photo_processing_jobs.php');
@@ -457,5 +519,28 @@ final class DeferredProcessorMetadataReader implements ImageMetadataReader
     public function read(string $path, string $mimeType): ImageMetadata
     {
         return new ImageMetadata(1, null);
+    }
+}
+
+final class RecordingMySqlConnection extends SQLiteConnection
+{
+    /** @var list<string> */
+    public array $unpreparedStatements = [];
+
+    public function getDriverName(): string
+    {
+        return 'mysql';
+    }
+
+    public function unprepared($query): bool
+    {
+        $this->unpreparedStatements[] = $query;
+
+        return true;
+    }
+
+    public function adoptTransactionLevel(int $level): void
+    {
+        $this->transactions = $level;
     }
 }
