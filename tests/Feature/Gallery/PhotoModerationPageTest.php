@@ -9,6 +9,8 @@ use App\Filament\Pages\PhotoModeration;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -36,6 +38,33 @@ final class PhotoModerationPageTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertSame('approved', $own->fresh()->moderation_status);
+    }
+
+    public function test_private_preview_requires_moderation_scope_and_never_streams_a_persisted_unsafe_reference(): void
+    {
+        Storage::fake('local');
+        $leader = User::factory()->create(['role' => AccountRole::WalkLeader]);
+        $own = $this->photoFor(Event::factory()->for($leader, 'organiser')->create());
+        $other = $this->photoFor(Event::factory()->create());
+        Storage::disk('local')->put($own->processed_variants['master'], 'safe private image');
+
+        $response = $this->actingAs($leader)
+            ->get(route('admin.photo-moderation.preview', $own))
+            ->assertSuccessful();
+        $this->assertTrue($response->headers->hasCacheControlDirective('private'));
+        $this->assertTrue($response->headers->hasCacheControlDirective('no-store'));
+        $this->actingAs($leader)
+            ->get(route('admin.photo-moderation.preview', $other))
+            ->assertForbidden();
+
+        DB::table('community_photos')->where('id', $own->id)->update([
+            'processed_variants' => json_encode(['master' => '../.env'], JSON_THROW_ON_ERROR),
+        ]);
+        $this->assertSame('../.env', CommunityPhoto::query()->findOrFail($own->id)->processed_variants['master']);
+
+        $this->actingAs($leader)
+            ->get(route('admin.photo-moderation.preview', $own))
+            ->assertNotFound();
     }
 
     private function photoFor(Event $event): CommunityPhoto

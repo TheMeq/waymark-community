@@ -40,13 +40,23 @@ return new class extends Migration
 
     public function down(): void
     {
-        DB::table('role_capabilities')->whereIn('capability', [
-            ModuleCapability::ModerateOwnEventPhotos->value,
-            ModuleCapability::ModerateAllCommunityPhotos->value,
-        ])->whereIn('role', [
-            AccountRole::WalkLeader->value,
-            AccountRole::Moderator->value,
-            AccountRole::Administrator->value,
-        ])->delete();
+        $defaults = [
+            AccountRole::WalkLeader->value => ['admin.access', 'event_updates.manage_own', 'walks.create', 'walks.manage_own', ModuleCapability::ModerateOwnEventPhotos->value],
+            AccountRole::Moderator->value => ['admin.access', 'socials.manage', ModuleCapability::ModerateAllCommunityPhotos->value],
+            AccountRole::Administrator->value => ['accounts.manage', 'accounts.manage_membership_verification', 'admin.access', 'admin.manage_permissions', 'event_configuration.manage', 'event_updates.manage_all', 'event_updates.manage_own', 'holidays.manage', 'socials.manage', 'walks.create', 'walks.manage_all', 'walks.manage_own', ModuleCapability::ModerateOwnEventPhotos->value, ModuleCapability::ModerateAllCommunityPhotos->value],
+        ];
+
+        foreach ($defaults as $role => $capabilities) {
+            sort($capabilities);
+            $existing = DB::table('role_capabilities')->where('role', $role)->orderBy('capability')->pluck('capability')->all();
+            if ($existing !== $capabilities) {
+                continue;
+            }
+
+            DB::table('role_capabilities')->where('role', $role)->whereIn('capability', [
+                ModuleCapability::ModerateOwnEventPhotos->value,
+                ModuleCapability::ModerateAllCommunityPhotos->value,
+            ])->delete();
+        }
     }
 };
