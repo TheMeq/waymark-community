@@ -64,6 +64,26 @@ final class IcsFeedTest extends TestCase
         $this->assertSame([$holiday->calendar_uid], array_column($this->parse($this->get('/calendar/holidays.ics')->assertOk()->getContent()), 'UID'));
     }
 
+    public function test_combined_feed_keeps_a_running_holiday_until_its_end(): void
+    {
+        $this->travelTo('2026-10-04 12:00:00');
+
+        try {
+            $holiday = $this->event(EventType::Holiday, 'Current feed holiday');
+            $holiday->update([
+                'starts_at' => '2026-10-02 16:00:00',
+                'ends_at' => '2026-10-05 10:00:00',
+            ]);
+
+            $this->assertContains($holiday->calendar_uid, array_column($this->parse($this->get('/calendar.ics')->assertOk()->getContent()), 'UID'));
+
+            $this->travelTo('2026-10-05 10:00:00');
+            $this->assertNotContains($holiday->calendar_uid, array_column($this->parse($this->get('/calendar.ics')->assertOk()->getContent()), 'UID'));
+        } finally {
+            $this->travelBack();
+        }
+    }
+
     public function test_cancelled_event_remains_in_feed_with_revision_and_cancellation_semantics(): void
     {
         $event = $this->event(EventType::Social, 'Cancelled supper');

@@ -13,7 +13,7 @@ final readonly class PublicHolidaysQuery
     public function upcoming(): Builder
     {
         return $this->published()
-            ->where('starts_at', '>=', now())
+            ->currentOrUpcoming()
             ->orderBy('starts_at')->orderBy('id');
     }
 

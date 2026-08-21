@@ -20,16 +20,13 @@ final class PublicWalksQuery
             ->where('is_public', true)
             ->whereNotNull('published_at')
             ->where('published_at', '<=', now())
-            ->where(function (Builder $query): void {
-                $query->whereNull('completion_override')->orWhere('completion_override', false);
-            })
+            ->currentOrUpcoming()
             ->whereIn('status', [
                 EventStatus::Published,
                 EventStatus::Changed,
                 EventStatus::Postponed,
                 EventStatus::Cancelled,
             ])
-            ->where('starts_at', '>=', now())
             ->whereHas('walk')
             ->with(['walk.grade', 'walk.primaryLeader'])
             ->orderBy('starts_at')

@@ -147,6 +147,26 @@ final class Event extends Model
         return $this->scopePast($query, $at);
     }
 
+    /** @param Builder<Event> $query */
+    public function scopeCurrentOrUpcoming(Builder $query, ?CarbonInterface $at = null): Builder
+    {
+        $at ??= now();
+
+        return $query->where(function (Builder $query) use ($at): void {
+            $query->where('completion_override', false)
+                ->orWhere(function (Builder $query) use ($at): void {
+                    $query->whereNull('completion_override')
+                        ->where(function (Builder $query) use ($at): void {
+                            $query->where('ends_at', '>', $at)
+                                ->orWhere(function (Builder $query) use ($at): void {
+                                    $query->whereNull('ends_at')
+                                        ->where('starts_at', '>', $at);
+                                });
+                        });
+                });
+        });
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {

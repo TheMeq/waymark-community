@@ -13,10 +13,7 @@ final class PublicSocialsQuery
     public function upcoming(): Builder
     {
         return $this->published()
-            ->where(function (Builder $query): void {
-                $query->whereNull('completion_override')->orWhere('completion_override', false);
-            })
-            ->where('starts_at', '>=', now())
+            ->currentOrUpcoming()
             ->orderBy('starts_at')
             ->orderBy('id');
     }

@@ -38,10 +38,7 @@ final readonly class PublicEventsQuery
     public function upcoming(?EventType $type = null): Builder
     {
         return $this->published($type)
-            ->where(function (Builder $query): void {
-                $query->whereNull('completion_override')->orWhere('completion_override', false);
-            })
-            ->where('starts_at', '>=', now())
+            ->currentOrUpcoming()
             ->orderBy('starts_at')->orderBy('id');
     }
 

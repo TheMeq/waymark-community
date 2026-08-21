@@ -30,6 +30,24 @@ final class PublicHolidayPagesTest extends TestCase
             ->assertDontSee('Draft trip');
     }
 
+    public function test_running_multi_day_holiday_remains_listed_until_its_end(): void
+    {
+        $this->travelTo('2026-10-04 12:00:00');
+
+        try {
+            $holiday = $this->publishedHoliday('Current coast weekend', '-2 days', [
+                'ends_at' => '2026-10-05 10:00:00',
+            ]);
+
+            $this->get('/weekends')->assertOk()->assertSee($holiday->title);
+
+            $this->travelTo('2026-10-05 10:00:00');
+            $this->get('/weekends')->assertOk()->assertDontSee($holiday->title);
+        } finally {
+            $this->travelBack();
+        }
+    }
+
     public function test_future_scheduled_publication_is_not_visible_yet(): void
     {
         $holiday = $this->publishedHoliday('Scheduled holiday', '+2 weeks', ['published_at' => now()->addDay()]);

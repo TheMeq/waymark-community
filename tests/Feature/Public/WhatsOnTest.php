@@ -30,6 +30,52 @@ final class WhatsOnTest extends TestCase
         $this->assertSame([$walk->id, $social->id, $holiday->id], $events->pluck('id')->all());
     }
 
+    public function test_current_holiday_and_walk_and_social_queries_share_completion_semantics(): void
+    {
+        $this->travelTo('2026-10-04 12:00:00');
+
+        try {
+            $holiday = $this->event(EventType::Holiday, 'Current shared holiday', '2026-10-02 16:00:00');
+            $holiday->update(['ends_at' => '2026-10-05 10:00:00']);
+            $walk = $this->event(EventType::Walk, 'Current shared walk', '2026-10-04 09:00:00');
+            $walk->update(['ends_at' => '2026-10-04 15:00:00']);
+            $social = $this->event(EventType::Social, 'Current shared social', '2026-10-04 11:00:00');
+            $social->update(['ends_at' => '2026-10-04 14:00:00']);
+
+            $this->get('/whats-on')
+                ->assertOk()
+                ->assertSee($holiday->title)
+                ->assertSee($walk->title)
+                ->assertSee($social->title);
+            $this->get('/walks')->assertOk()->assertSee($walk->title);
+            $this->get('/socials')->assertOk()->assertSee($social->title);
+
+            $this->travelTo('2026-10-05 10:00:00');
+            $this->get('/whats-on')->assertOk()->assertDontSee($holiday->title);
+        } finally {
+            $this->travelBack();
+        }
+    }
+
+    public function test_completion_overrides_force_public_query_inclusion_and_exclusion(): void
+    {
+        $this->travelTo('2026-10-04 12:00:00');
+
+        try {
+            $keptCurrent = $this->event(EventType::Social, 'Override current social', '2026-10-01 19:00:00');
+            $keptCurrent->update(['ends_at' => '2026-10-01 22:00:00', 'completion_override' => false]);
+            $forcedPast = $this->event(EventType::Walk, 'Override completed walk', '2026-10-10 09:00:00');
+            $forcedPast->update(['completion_override' => true]);
+
+            $events = app(PublicEventsQuery::class)->upcoming()->get();
+
+            $this->assertTrue($events->contains($keptCurrent));
+            $this->assertFalse($events->contains($forcedPast));
+        } finally {
+            $this->travelBack();
+        }
+    }
+
     public function test_combined_list_is_chronological_and_type_filter_is_dedicated(): void
     {
         $this->event(EventType::Holiday, 'October holiday', '2026-10-09 16:00:00');

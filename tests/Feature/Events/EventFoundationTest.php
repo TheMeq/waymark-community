@@ -110,6 +110,48 @@ final class EventFoundationTest extends TestCase
         }
     }
 
+    public function test_current_or_upcoming_scope_is_the_exact_inverse_of_past_at_the_completion_boundary(): void
+    {
+        $this->travelTo('2026-08-20 12:00:00');
+
+        try {
+            $running = Event::factory()->create([
+                'starts_at' => '2026-08-19 09:00:00',
+                'ends_at' => '2026-08-20 12:01:00',
+            ]);
+            $futureWithoutEnd = Event::factory()->create([
+                'starts_at' => '2026-08-20 12:01:00',
+                'ends_at' => null,
+            ]);
+            $forcedCurrent = Event::factory()->create([
+                'starts_at' => '2026-08-18 09:00:00',
+                'ends_at' => '2026-08-18 12:00:00',
+                'completion_override' => false,
+            ]);
+            Event::factory()->create([
+                'starts_at' => '2026-08-20 13:00:00',
+                'ends_at' => '2026-08-20 16:00:00',
+                'completion_override' => true,
+            ]);
+            Event::factory()->create([
+                'starts_at' => '2026-08-20 09:00:00',
+                'ends_at' => '2026-08-20 12:00:00',
+            ]);
+            Event::factory()->create([
+                'starts_at' => '2026-08-20 12:00:00',
+                'ends_at' => null,
+            ]);
+
+            $this->assertTrue(method_exists(Event::class, 'scopeCurrentOrUpcoming'));
+            $this->assertSame(
+                [$running->id, $futureWithoutEnd->id, $forcedCurrent->id],
+                Event::query()->currentOrUpcoming()->orderBy('id')->pluck('id')->all(),
+            );
+        } finally {
+            $this->travelBack();
+        }
+    }
+
     public function test_publishing_makes_an_event_public_and_dispatches_an_audit_ready_status_hook(): void
     {
         $this->assertTrue(class_exists(PublishEvent::class));
