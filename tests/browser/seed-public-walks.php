@@ -7,6 +7,7 @@ use App\Domain\Events\Models\Event;
 use App\Domain\Holidays\Actions\AssignHolidayChild;
 use App\Domain\Holidays\Actions\SaveHolidayDetails;
 use App\Domain\Operations\Actions\UpdateSiteProfile;
+use App\Domain\Gallery\Actions\AcceptCurrentPhotoUploadPolicy;
 use App\Domain\Socials\Actions\SaveSocialDetails;
 use App\Domain\Walks\Actions\SaveWalkDetails;
 use App\Domain\Walks\Models\Grade;
@@ -36,6 +37,7 @@ $leader = User::factory()->create([
     'public_profile_introduction' => 'I enjoy sharing friendly, varied walks and helping people feel at home outdoors.',
     'profile_photo_reference' => '/images/demo/lakeside-friends.png',
 ]);
+app(AcceptCurrentPhotoUploadPolicy::class)->handle($leader);
 
 $securityUser = User::factory()->create([
     'name' => 'Security Walker',

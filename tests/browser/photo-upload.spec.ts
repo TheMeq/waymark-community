@@ -1,39 +1,48 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
-async function signIn(page: Page, projectName: string) {
-    const email = `photo-upload-${projectName}@example.test`;
-
-    await page.goto('/register');
-    await page.getByLabel('Your name').fill('Taylor Walker');
-    await page.getByLabel('Email address').fill(email);
-    await page.getByLabel('Password', { exact: true }).fill('password');
-    await page.getByLabel('Confirm password').fill('password');
+async function signIn(page: Page) {
+    await page.goto('/login');
+    await page.getByLabel('Email address').fill('morgan.leader@example.test');
+    await page.getByLabel('Password').fill('password');
     await Promise.all([
-        page.waitForURL('**/new-here'),
-        page.getByRole('button', { name: 'Create account' }).click(),
+        page.waitForURL('**/'),
+        page.getByRole('button', { name: 'Sign in' }).click(),
     ]);
 }
 
 test('photo upload keeps each failed file available for an accessible retry', async ({ page }, testInfo) => {
-    await signIn(page, testInfo.project.name);
+    await signIn(page);
     await page.goto('/photos/upload?event=1');
 
     await expect(page.getByRole('heading', { name: 'Share photos' })).toBeVisible();
     await expect(page.getByLabel('Add to')).toHaveValue('event:1');
-    await page.getByLabel('Photos', { exact: true }).setInputFiles({
-        name: 'ridge.png',
-        mimeType: 'image/png',
-        buffer: Buffer.from('not a raster'),
+    await expect(page).toHaveScreenshot(`photo-upload-${testInfo.project.name}.png`, { fullPage: true });
+    let requests = 0;
+    await page.route('**/photos/upload', async (route) => {
+        requests++;
+        if (requests === 2) {
+            await route.fulfill({ status: 503, contentType: 'application/json', body: '{}' });
+            return;
+        }
+        await route.continue();
     });
-    await expect(page.getByText('ridge.png')).toBeVisible();
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL82QAAAABJRU5ErkJggg==', 'base64');
+    await page.getByLabel('Photos', { exact: true }).setInputFiles([
+        { name: 'first.png', mimeType: 'image/png', buffer: png },
+        { name: 'retry.png', mimeType: 'image/png', buffer: png },
+    ]);
+    await expect(page.getByText('first.png')).toBeVisible();
     await expect(page.getByText('Ready')).toBeVisible();
-    await page.getByRole('checkbox').check();
-
     await page.getByRole('button', { name: 'Upload photos' }).click();
     await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible();
+    await expect(page.getByText('first.png').locator('..')).toContainText('Submitted');
+    expect(requests).toBe(2);
+    await page.getByRole('button', { name: 'Retry' }).focus();
+    await expect(page.getByRole('button', { name: 'Retry' })).toBeFocused();
     await page.getByRole('button', { name: 'Retry' }).click();
-    await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible();
+    await expect(page.getByText('retry.png').locator('..')).toContainText('Submitted');
+    expect(requests).toBe(3);
 
     const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
@@ -45,5 +54,4 @@ test('photo upload keeps each failed file available for an accessible retry', as
     await expect(page.getByRole('link', { name: 'Skip to main content' })).toBeFocused();
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-    await expect(page).toHaveScreenshot(`photo-upload-${testInfo.project.name}.png`, { fullPage: true });
 });
