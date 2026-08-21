@@ -10,21 +10,31 @@ return new class extends Migration
     public function up(): void
     {
         $now = now();
-        $rows = [
-            [AccountRole::WalkLeader, ModuleCapability::ModerateOwnEventPhotos],
-            [AccountRole::Moderator, ModuleCapability::ModerateAllCommunityPhotos],
-            [AccountRole::Administrator, ModuleCapability::ModerateOwnEventPhotos],
-            [AccountRole::Administrator, ModuleCapability::ModerateAllCommunityPhotos],
+        $defaults = [
+            AccountRole::WalkLeader->value => ['admin.access', 'event_updates.manage_own', 'walks.create', 'walks.manage_own'],
+            AccountRole::Moderator->value => ['admin.access', 'socials.manage'],
+            AccountRole::Administrator->value => ['accounts.manage', 'accounts.manage_membership_verification', 'admin.access', 'admin.manage_permissions', 'event_configuration.manage', 'event_updates.manage_all', 'event_updates.manage_own', 'holidays.manage', 'socials.manage', 'walks.create', 'walks.manage_all', 'walks.manage_own'],
         ];
-
-        foreach ($rows as [$role, $capability]) {
-            DB::table('role_capabilities')->updateOrInsert([
-                'role' => $role->value,
-                'capability' => $capability->value,
-            ], [
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
+        $rows = [
+            AccountRole::WalkLeader->value => [ModuleCapability::ModerateOwnEventPhotos],
+            AccountRole::Moderator->value => [ModuleCapability::ModerateAllCommunityPhotos],
+            AccountRole::Administrator->value => [ModuleCapability::ModerateOwnEventPhotos, ModuleCapability::ModerateAllCommunityPhotos],
+        ];
+        foreach ($rows as $role => $capabilities) {
+            $existing = DB::table('role_capabilities')->where('role', $role)->orderBy('capability')->pluck('capability')->all();
+            sort($defaults[$role]);
+            if ($existing !== $defaults[$role]) {
+                continue;
+            }
+            foreach ($capabilities as $capability) {
+                DB::table('role_capabilities')->updateOrInsert([
+                    'role' => $role,
+                    'capability' => $capability->value,
+                ], [
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
         }
     }
 
