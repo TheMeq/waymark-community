@@ -2,9 +2,12 @@
 
 namespace App\ViewModels;
 
+use App\Domain\Events\Enums\EventStatus;
+use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Domain\Holidays\Data\HolidayAttachment;
 use App\Domain\Holidays\Data\HolidayFeaturedImage;
+use App\Domain\Holidays\Data\HolidayGallerySource;
 
 final readonly class PublicHolidayDetailViewModel
 {
@@ -29,6 +32,15 @@ final readonly class PublicHolidayDetailViewModel
             ]),
             'travel' => $holiday?->travel_details,
             'itinerary' => $holiday?->itinerary_notes,
+            'child_itinerary' => $event->children
+                ->filter(fn (Event $child): bool => $child->is_public && $child->published_at !== null && in_array($child->status, [EventStatus::Published, EventStatus::Changed, EventStatus::Postponed, EventStatus::Cancelled], true))
+                ->map(fn (Event $child): array => [
+                    'title' => $child->title,
+                    'type' => ucfirst($child->type->value),
+                    'date' => $child->starts_at->format('l j F, H:i'),
+                    'url' => $child->type === EventType::Walk ? route('walks.show', $child->slug) : route('socials.show', $child->slug),
+                ])->values()->all(),
+            'gallery_source' => HolidayGallerySource::for($event)->eventIds,
             'image' => HolidayFeaturedImage::resolve($holiday?->featured_image_path)?->toArray(),
             'attachments' => $holiday === null ? [] : HolidayAttachment::availableFor($holiday),
         ];

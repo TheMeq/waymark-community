@@ -12,6 +12,7 @@ final readonly class HolidayDetailsData
     public static function validate(array $attributes): array
     {
         $validated = Validator::make($attributes, [
+            'show_child_events_in_global_calendar' => ['nullable', 'boolean'],
             'destination' => ['nullable', 'string', 'max:255'],
             'accommodation' => ['nullable', 'string', 'max:5000'],
             'pricing_type' => ['nullable', Rule::in(['free', 'tbc', 'fixed', 'from'])],
@@ -44,7 +45,7 @@ final readonly class HolidayDetailsData
         }
 
         return Arr::only($validated, [
-            'destination', 'accommodation', 'pricing_type', 'price_amount', 'currency', 'deposit_amount',
+            'show_child_events_in_global_calendar', 'destination', 'accommodation', 'pricing_type', 'price_amount', 'currency', 'deposit_amount',
             'pricing_notes', 'capacity', 'availability', 'booking_deadline', 'booking_status',
             'booking_instructions', 'booking_url', 'booking_contact', 'travel_details', 'itinerary_notes',
             'featured_image_path', 'attachments',

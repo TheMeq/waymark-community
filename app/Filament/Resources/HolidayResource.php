@@ -7,6 +7,7 @@ use App\Filament\Resources\HolidayResource\Pages\CreateHoliday;
 use App\Filament\Resources\HolidayResource\Pages\EditHoliday;
 use App\Filament\Resources\HolidayResource\Pages\ListHolidays;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -35,6 +36,7 @@ final class HolidayResource extends Resource
             Textarea::make('summary')->maxLength(65535)->columnSpanFull(),
             Textarea::make('description')->maxLength(65535)->columnSpanFull(),
             TextInput::make('destination')->maxLength(255),
+            Checkbox::make('show_child_events_in_global_calendar')->label('Show child walks and socials in the global calendar')->default(true),
             Textarea::make('accommodation')->maxLength(5000),
             Select::make('pricing_type')->options(['free' => 'Free', 'tbc' => 'TBC', 'fixed' => 'Fixed', 'from' => 'From']),
             TextInput::make('price_amount')->numeric()->minValue(0),

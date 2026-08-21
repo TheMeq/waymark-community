@@ -14,7 +14,7 @@ final class PublicHolidayShowController
 {
     public function __invoke(string $slug): View
     {
-        $event = Event::query()->with(['holiday', 'organiser'])
+        $event = Event::query()->with(['holiday', 'organiser', 'children'])
             ->where('slug', $slug)->where('type', EventType::Holiday)
             ->whereIn('status', [EventStatus::Published, EventStatus::Changed, EventStatus::Postponed, EventStatus::Cancelled])
             ->where('is_public', true)->whereNotNull('published_at')->firstOrFail();

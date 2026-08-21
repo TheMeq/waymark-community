@@ -31,6 +31,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'published_at',
     'completion_override',
     'organiser_id',
+    'parent_event_id',
 ])]
 final class Event extends Model
 {
@@ -46,6 +47,18 @@ final class Event extends Model
     public function organiser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'organiser_id');
+    }
+
+    /** @return BelongsTo<Event, $this> */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_event_id');
+    }
+
+    /** @return HasMany<Event, $this> */
+    public function children(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_event_id')->orderBy('starts_at')->orderBy('id');
     }
 
     /** @return HasOne<Walk, $this> */

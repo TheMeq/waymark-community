@@ -25,7 +25,22 @@
             @if ($holiday['pricing'] !== [])<section class="mt-8"><h2 class="text-2xl text-ink">Price</h2>@foreach ($holiday['pricing'] as $line)<p class="mt-2 text-ink-muted">{{ $line }}</p>@endforeach</section>@endif
             @if ($holiday['booking'] !== [])<section class="mt-8"><h2 class="text-2xl text-ink">Booking</h2>@foreach (['status', 'deadline', 'instructions', 'contact'] as $field)@if (filled($holiday['booking'][$field] ?? null))<p class="mt-2 text-ink-muted">{{ $holiday['booking'][$field] }}</p>@endif @endforeach @if (filled($holiday['booking']['url'] ?? null))<a class="mt-3 inline-block font-semibold text-brand underline" href="{{ $holiday['booking']['url'] }}">External booking information</a>@endif</section>@endif
             @if ($holiday['travel'])<section class="mt-8"><h2 class="text-2xl text-ink">Travel</h2><p class="mt-3 text-ink-muted">{{ $holiday['travel'] }}</p></section>@endif
-            @if ($holiday['itinerary'])<section class="mt-8"><h2 class="text-2xl text-ink">Itinerary</h2><p class="mt-3 text-ink-muted">{{ $holiday['itinerary'] }}</p></section>@endif
+            @if ($holiday['itinerary'] || $holiday['child_itinerary'] !== [])
+                <section class="mt-8">
+                    <h2 class="text-2xl text-ink">Itinerary</h2>
+                    @if ($holiday['itinerary'])<p class="mt-3 text-ink-muted">{{ $holiday['itinerary'] }}</p>@endif
+                    @if ($holiday['child_itinerary'] !== [])
+                        <ol class="mt-4 grid gap-3">
+                            @foreach ($holiday['child_itinerary'] as $item)
+                                <li class="rounded-[var(--wm-radius-md)] border border-border bg-surface-soft p-4">
+                                    <p class="text-xs font-semibold uppercase tracking-[0.12em] text-brand">{{ $item['type'] }} &middot; {{ $item['date'] }}</p>
+                                    <a class="mt-1 inline-block font-semibold text-ink hover:text-brand" href="{{ $item['url'] }}">{{ $item['title'] }}</a>
+                                </li>
+                            @endforeach
+                        </ol>
+                    @endif
+                </section>
+            @endif
             @if ($holiday['attachments'] !== [])<section class="mt-8"><h2 class="text-2xl text-ink">Downloads</h2><ul class="mt-3 grid gap-2">@foreach ($holiday['attachments'] as $attachment)<li><a class="font-semibold text-brand underline" href="{{ route('holidays.attachment', [$event->slug, $attachment['index']]) }}">{{ $attachment['name'] }}</a></li>@endforeach</ul></section>@endif
         </div>
     </article>

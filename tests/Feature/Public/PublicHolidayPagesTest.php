@@ -5,7 +5,9 @@ namespace Tests\Feature\Public;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
+use App\Domain\Holidays\Actions\AssignHolidayChild;
 use App\Domain\Holidays\Actions\SaveHolidayDetails;
+use App\Domain\Socials\Actions\SaveSocialDetails;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -104,6 +106,30 @@ final class PublicHolidayPagesTest extends TestCase
             ->assertDontSee('Missing.pdf');
         $this->get('/weekends/'.$event->slug.'/attachments/0')->assertOk();
         $this->get('/weekends/'.$event->slug.'/attachments/1')->assertNotFound();
+    }
+
+    public function test_holiday_detail_itinerary_links_published_child_walks_and_socials_by_their_own_identity(): void
+    {
+        $holiday = $this->publishedHoliday('Itinerary weekend', '+2 weeks');
+        $walk = Event::factory()->create([
+            'type' => EventType::Walk, 'title' => 'Saturday coast walk', 'slug' => 'saturday-coast-walk',
+            'starts_at' => $holiday->starts_at->copy()->addDay(), 'ends_at' => $holiday->starts_at->copy()->addDay()->addHours(5),
+            'status' => EventStatus::Published, 'is_public' => true, 'published_at' => now(),
+        ]);
+        $social = Event::factory()->create([
+            'type' => EventType::Social, 'title' => 'Saturday supper', 'slug' => 'saturday-supper',
+            'starts_at' => $holiday->starts_at->copy()->addDay()->addHours(7), 'ends_at' => $holiday->starts_at->copy()->addDay()->addHours(10),
+            'status' => EventStatus::Published, 'is_public' => true, 'published_at' => now(),
+        ]);
+        app(SaveSocialDetails::class)->handle($social, []);
+        app(AssignHolidayChild::class)->handle($holiday, $walk);
+        app(AssignHolidayChild::class)->handle($holiday, $social);
+
+        $this->get('/weekends/'.$holiday->slug)
+            ->assertOk()
+            ->assertSeeInOrder(['Saturday coast walk', 'Saturday supper'])
+            ->assertSee('/walks/saturday-coast-walk', false)
+            ->assertSee('/socials/saturday-supper', false);
     }
 
     /** @param array<string, mixed> $eventAttributes @param array<string, mixed> $holidayAttributes */
