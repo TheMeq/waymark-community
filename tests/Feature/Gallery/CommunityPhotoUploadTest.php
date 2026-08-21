@@ -21,6 +21,8 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Cache\RateLimiting\Limit;
 use Tests\TestCase;
 
 final class CommunityPhotoUploadTest extends TestCase
@@ -110,6 +112,17 @@ final class CommunityPhotoUploadTest extends TestCase
         ])->assertCreated();
 
         $this->assertDatabaseHas('community_photos', ['event_id' => $child->id]);
+    }
+
+    public function test_named_photo_upload_route_returns_429_before_processing_after_its_limit(): void
+    {
+        RateLimiter::for('photo-upload', fn ($request) => [Limit::perMinute(1)->by('account:'.$request->user()->id), Limit::perMinute(20)->by('ip:'.$request->ip())]);
+        $account = User::factory()->create();
+        $payload = ['context' => 'event:999', 'accept_photo_policy' => true, 'photos' => [$this->pngUpload('limited.png')]];
+
+        $this->actingAs($account)->postJson(route('community-photos.upload.store'), $payload)->assertUnprocessable();
+        $this->actingAs($account)->postJson(route('community-photos.upload.store'), $payload)->assertStatus(429);
+        $this->assertDatabaseCount('community_photos', 0);
     }
 
     public function test_html_fallback_renders_individual_mixed_batch_outcomes_after_redirect(): void
