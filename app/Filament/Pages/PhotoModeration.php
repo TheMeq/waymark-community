@@ -5,6 +5,8 @@ namespace App\Filament\Pages;
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Actions\ModerateCommunityPhoto;
+use App\Domain\Gallery\CommunityPhotoModerationPreviewResolver;
+use App\Domain\Gallery\Data\CommunityPhotoModerationPreview;
 use App\Domain\Gallery\Data\CommunityPhotoModerationRequest;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\SpecialAlbum;
@@ -65,6 +67,25 @@ final class PhotoModeration extends Page
         $actor = auth()->user();
 
         return app(ModeratableCommunityPhotos::class)->for($actor, ['approved'])->paginate(10, ['*'], 'publishedPage');
+    }
+
+    public function previewFor(CommunityPhoto $photo): ?CommunityPhotoModerationPreview
+    {
+        /** @var User $actor */
+        $actor = auth()->user();
+
+        return app(CommunityPhotoModerationPreviewResolver::class)->resolve($actor, $photo);
+    }
+
+    public function processingState(CommunityPhoto $photo): ?string
+    {
+        return match ($photo->processing_status) {
+            'staging', 'queued' => 'Processing queued',
+            'processing' => 'Processing in progress',
+            'retry' => 'Processing retrying',
+            'terminal_failed', 'failed' => 'Processing failed',
+            default => $photo->processing_status === 'complete' ? null : 'Processing unavailable',
+        };
     }
 
     public function approve(int $photoId): void

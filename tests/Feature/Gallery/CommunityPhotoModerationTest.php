@@ -224,6 +224,24 @@ final class CommunityPhotoModerationTest extends TestCase
         $this->assertSame(['featured', 'removed'], CommunityPhotoModerationAudit::query()->orderBy('id')->pluck('action')->all());
     }
 
+    public function test_global_edit_and_move_to_album_clears_feature_and_preserves_album_feature(): void
+    {
+        $moderator = User::factory()->create(['role' => AccountRole::Moderator]);
+        $event = Event::factory()->create();
+        $album = SpecialAlbum::query()->create(['title' => 'Highlights', 'slug' => 'highlights']);
+        $moving = $this->photoFor($event, ['moderation_status' => 'approved', 'published_at' => now(), 'is_featured' => true]);
+        $existing = $this->photoFor($album, ['moderation_status' => 'approved', 'published_at' => now(), 'is_featured' => true]);
+
+        app(ModerateCommunityPhoto::class)->editAndMove($moderator, $moving, new CommunityPhotoModerationRequest(caption: 'Moved highlight'), 'album:'.$album->id);
+
+        $this->assertSame($album->id, $moving->fresh()->special_album_id);
+        $this->assertFalse($moving->fresh()->is_featured);
+        $this->assertTrue($existing->fresh()->is_featured);
+        $audit = CommunityPhotoModerationAudit::query()->sole();
+        $this->assertTrue($audit->before['is_featured']);
+        $this->assertFalse($audit->after['is_featured']);
+    }
+
     private function photoFor(Event|SpecialAlbum $context, array $overrides = []): CommunityPhoto
     {
         return CommunityPhoto::query()->create(array_merge([

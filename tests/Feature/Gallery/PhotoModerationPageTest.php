@@ -111,6 +111,29 @@ final class PhotoModerationPageTest extends TestCase
         $this->assertDatabaseCount('community_photo_moderation_audits', 0);
     }
 
+    public function test_unprocessed_and_missing_preview_rows_explain_state_without_broken_images_or_actions(): void
+    {
+        Storage::fake('local');
+        $leader = User::factory()->create(['role' => AccountRole::WalkLeader]);
+        $event = Event::factory()->for($leader, 'organiser')->create();
+        foreach (['queued', 'processing', 'retry', 'terminal_failed'] as $status) {
+            $this->photoFor($event)->update(['processing_status' => $status, 'processed_variants' => null]);
+        }
+        $missing = $this->photoFor($event);
+        $missing->update(['source_path' => 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/missing.jpg', 'processed_variants' => ['master' => 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/missing.jpg']]);
+        $complete = $this->photoFor($event);
+        Storage::disk('local')->put($complete->processed_variants['master'], 'preview');
+
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+        $response = $this->actingAs($leader)->get('/admin/photo-moderation')->assertOk();
+        $response->assertSeeText('Processing queued')->assertSeeText('Processing in progress')
+            ->assertSeeText('Processing retrying')->assertSeeText('Processing failed')->assertSeeText('Preview unavailable');
+        $response->assertDontSee(route('admin.photo-moderation.preview', $missing), false);
+        $response->assertSee(route('admin.photo-moderation.preview', $complete), false);
+        $this->assertSame(1, substr_count($response->getContent(), 'wire:click="approve('));
+        $this->assertSame(1, substr_count($response->getContent(), 'wire:click="rotate('));
+    }
+
     private function photoFor(Event $event): CommunityPhoto
     {
         return CommunityPhoto::query()->create([
