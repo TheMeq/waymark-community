@@ -14,4 +14,5 @@ enum ModuleCapability: string
     case ManageOwnEventUpdates = 'event_updates.manage_own';
     case ManageAllEventUpdates = 'event_updates.manage_all';
     case ManageEventConfiguration = 'event_configuration.manage';
+    case ManageMembershipVerification = 'accounts.manage_membership_verification';
 }
