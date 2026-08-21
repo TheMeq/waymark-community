@@ -50,6 +50,33 @@
                 @endif
             </nav>
         @endif
+        <section class="space-y-3" aria-labelledby="photo-reports">
+            <h2 id="photo-reports" class="text-lg font-semibold">Open photo reports</h2>
+            @php($reports = $this->openReports())
+            @forelse ($reports as $report)
+                <article class="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-amber-200 p-3 dark:border-amber-800">
+                    <div><p class="font-semibold">{{ str_replace('_', ' ', $report->reason) }}</p>
+                    <p class="text-sm text-gray-600">{{ $report->photo?->caption ?: 'Community photo' }} · {{ $report->photo?->event?->title ?? $report->photo?->specialAlbum?->title }}</p>
+                    @if ($report->detail)<p class="mt-1 text-sm">{{ $report->detail }}</p>@endif
+                    @if ($report->contact)<p class="mt-1 text-sm">{{ $report->contact }}</p>@endif</div>
+                    <span class="flex gap-2"><x-filament::button size="md" color="gray" wire:click="resolveReport({{ $report->id }}, 'reviewed')">Review</x-filament::button><x-filament::button size="md" color="gray" wire:click="resolveReport({{ $report->id }}, 'dismissed')">Dismiss</x-filament::button></span>
+                </article>
+            @empty
+                <p class="rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-600">No open photo reports.</p>
+            @endforelse
+        </section>
+        <section class="space-y-3" aria-labelledby="photo-removal-requests">
+            <h2 id="photo-removal-requests" class="text-lg font-semibold">Open removal requests</h2>
+            @php($removalRequests = $this->openRemovalRequests())
+            @forelse ($removalRequests as $request)
+                <article class="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-amber-200 p-3 dark:border-amber-800">
+                    <div><p class="font-semibold">Uploader removal request</p><p class="text-sm text-gray-600">{{ $request->photo?->caption ?: 'Community photo' }} · {{ $request->photo?->event?->title ?? $request->photo?->specialAlbum?->title }}</p>@if ($request->detail)<p class="mt-1 text-sm">{{ $request->detail }}</p>@endif</div>
+                    <span class="flex gap-2"><x-filament::button size="md" color="gray" wire:click="resolveRemovalRequest({{ $request->id }}, 'reviewed')">Review</x-filament::button><x-filament::button size="md" color="gray" wire:click="resolveRemovalRequest({{ $request->id }}, 'dismissed')">Dismiss</x-filament::button></span>
+                </article>
+            @empty
+                <p class="rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-600">No open removal requests.</p>
+            @endforelse
+        </section>
         <section class="space-y-3" aria-labelledby="published-photos">
             <h2 id="published-photos" class="text-lg font-semibold">Published photos</h2>
             @php($approvedPhotos = $this->approvedPhotos())

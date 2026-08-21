@@ -7,6 +7,7 @@ use App\Http\Controllers\AccountProfileController;
 use App\Http\Controllers\AccountSecurityController;
 use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\CommunityPhotoModerationPreviewController;
+use App\Http\Controllers\CommunityPhotoReportController;
 use App\Http\Controllers\CommunityPhotoUploadController;
 use App\Http\Controllers\FavouriteController;
 use App\Http\Controllers\HomeController;
@@ -34,6 +35,8 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', HomeController::class)->name('home');
 Route::get('/new-here', NewHereController::class)->name('new-here');
 Route::get('/leaders/{slug}', PublicLeaderProfileController::class)->name('leaders.show');
+Route::get('/photos/{photo}/report', [CommunityPhotoReportController::class, 'create'])->whereNumber('photo')->name('community-photos.reports.create');
+Route::post('/photos/{photo?}/report', CommunityPhotoReportController::class)->whereNumber('photo')->middleware('throttle:photo-report')->name('community-photos.reports.store');
 Route::middleware('auth')->group(function (): void {
     Route::get('/admin/photo-moderation/{photo}/preview', CommunityPhotoModerationPreviewController::class)->name('admin.photo-moderation.preview');
     Route::get('/photos/upload', [CommunityPhotoUploadController::class, 'create'])->name('community-photos.upload.create');

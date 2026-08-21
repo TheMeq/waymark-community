@@ -5,11 +5,17 @@ namespace App\Filament\Pages;
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Actions\ModerateCommunityPhoto;
+use App\Domain\Gallery\Actions\ResolveCommunityPhotoRemovalRequest;
+use App\Domain\Gallery\Actions\ResolveCommunityPhotoReport;
 use App\Domain\Gallery\CommunityPhotoModerationPreviewResolver;
 use App\Domain\Gallery\Data\CommunityPhotoModerationPreview;
 use App\Domain\Gallery\Data\CommunityPhotoModerationRequest;
 use App\Domain\Gallery\Models\CommunityPhoto;
+use App\Domain\Gallery\Models\CommunityPhotoRemovalRequest;
+use App\Domain\Gallery\Models\CommunityPhotoReport;
 use App\Domain\Gallery\Models\SpecialAlbum;
+use App\Domain\Gallery\Queries\ModeratableCommunityPhotoRemovalRequests;
+use App\Domain\Gallery\Queries\ModeratableCommunityPhotoReports;
 use App\Domain\Gallery\Queries\ModeratableCommunityPhotos;
 use App\Models\User;
 use Filament\Notifications\Notification;
@@ -67,6 +73,40 @@ final class PhotoModeration extends Page
         $actor = auth()->user();
 
         return app(ModeratableCommunityPhotos::class)->for($actor, ['approved'])->paginate(10, ['*'], 'publishedPage');
+    }
+
+    /** @return LengthAwarePaginator<int, CommunityPhotoReport> */
+    public function openReports(): LengthAwarePaginator
+    {
+        /** @var User $actor */
+        $actor = auth()->user();
+
+        return app(ModeratableCommunityPhotoReports::class)->for($actor)->paginate(20, ['*'], 'reportPage');
+    }
+
+    public function resolveReport(int $reportId, string $status): void
+    {
+        /** @var User $actor */
+        $actor = auth()->user();
+        app(ResolveCommunityPhotoReport::class)->handle($actor, CommunityPhotoReport::query()->findOrFail($reportId), $status);
+        Notification::make()->success()->title('Report '.$status)->send();
+    }
+
+    /** @return LengthAwarePaginator<int, CommunityPhotoRemovalRequest> */
+    public function openRemovalRequests(): LengthAwarePaginator
+    {
+        /** @var User $actor */
+        $actor = auth()->user();
+
+        return app(ModeratableCommunityPhotoRemovalRequests::class)->for($actor)->paginate(20, ['*'], 'removalRequestPage');
+    }
+
+    public function resolveRemovalRequest(int $requestId, string $status): void
+    {
+        /** @var User $actor */
+        $actor = auth()->user();
+        app(ResolveCommunityPhotoRemovalRequest::class)->handle($actor, CommunityPhotoRemovalRequest::query()->findOrFail($requestId), $status);
+        Notification::make()->success()->title('Removal request '.$status)->send();
     }
 
     public function previewFor(CommunityPhoto $photo): ?CommunityPhotoModerationPreview
