@@ -2,6 +2,7 @@
 
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
+use App\Http\Controllers\AccountPrivacyController;
 use App\Http\Controllers\AccountProfileController;
 use App\Http\Controllers\AccountSecurityController;
 use App\Http\Controllers\CalendarFeedController;
@@ -34,6 +35,12 @@ Route::get('/leaders/{slug}', PublicLeaderProfileController::class)->name('leade
 Route::middleware('auth')->group(function (): void {
     Route::get('/account/profile', [AccountProfileController::class, 'edit'])->name('account.profile.edit');
     Route::patch('/account/profile', [AccountProfileController::class, 'update'])->name('account.profile.update');
+    Route::get('/account/privacy', [AccountPrivacyController::class, 'show'])->name('account.privacy.show');
+    Route::post('/account/privacy/exports', [AccountPrivacyController::class, 'requestExport'])->name('account.privacy.exports.request');
+    Route::post('/account/privacy/deletion', [AccountPrivacyController::class, 'requestDeletion'])
+        ->middleware('sensitive.confirmed')->name('account.privacy.deletion.request');
+    Route::get('/account/privacy/exports/{export}', [AccountPrivacyController::class, 'download'])
+        ->middleware('signed')->name('account.privacy.exports.download');
     Route::get('/account/security', [AccountSecurityController::class, 'show'])
         ->middleware('sensitive.password-confirmed')
         ->name('account.security.show');

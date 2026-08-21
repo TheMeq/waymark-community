@@ -4,9 +4,11 @@ namespace App\Models;
 
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Enums\ModuleCapability;
+use App\Domain\Accounts\Models\AccountDeletionRequest;
 use App\Domain\Accounts\Models\CommunicationPreference;
 use App\Domain\Accounts\Models\Favourite;
 use App\Domain\Accounts\Models\InstallationOwnership;
+use App\Domain\Accounts\Models\PersonalDataExport;
 use App\Domain\Accounts\Models\RoleCapability;
 use App\Domain\Membership\Enums\AccountStatus;
 use App\Domain\Membership\Enums\MembershipStatus;
@@ -148,6 +150,18 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         return $this->hasMany(Favourite::class);
     }
 
+    /** @return HasMany<PersonalDataExport, $this> */
+    public function personalDataExports(): HasMany
+    {
+        return $this->hasMany(PersonalDataExport::class);
+    }
+
+    /** @return HasMany<AccountDeletionRequest, $this> */
+    public function deletionRequests(): HasMany
+    {
+        return $this->hasMany(AccountDeletionRequest::class);
+    }
+
     /**
      * Get the attributes that should be cast.
      *
@@ -162,6 +176,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
             'is_admin' => 'boolean',
             'can_manage_walks' => 'boolean',
             'email_verified_at' => 'datetime',
+            'last_active_at' => 'datetime',
             'membership_verified_at' => 'datetime',
             'membership_review_due_at' => 'date',
             'password' => 'hashed',

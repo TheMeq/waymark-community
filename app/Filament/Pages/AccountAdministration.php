@@ -2,15 +2,20 @@
 
 namespace App\Filament\Pages;
 
+use App\Domain\Accounts\Actions\ApproveAccountDeletion;
 use App\Domain\Accounts\Actions\CreateAdministrator;
 use App\Domain\Accounts\Actions\PromoteToAdministrator;
+use App\Domain\Accounts\Actions\ReviewStaleAccount;
 use App\Domain\Accounts\Actions\TransferInstallationOwnership;
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Enums\ModuleCapability;
+use App\Domain\Accounts\Models\AccountDeletionRequest;
 use App\Domain\Accounts\Models\InstallationOwnership;
+use App\Domain\Accounts\Models\StaleAccountReview;
 use App\Domain\Accounts\Security\SensitiveActionAssurance;
 use App\Models\User;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -56,6 +61,8 @@ final class AccountAdministration extends Page
                         'transfer' => 'Transfer installation ownership',
                         'promote' => 'Promote an existing account',
                         'create' => 'Create an administrator account',
+                        'deletion' => 'Review a deletion request',
+                        'stale' => 'Review a stale account',
                     ])
                     ->required()
                     ->live(),
@@ -93,6 +100,31 @@ final class AccountAdministration extends Page
                             ->maxLength(255)
                             ->required(fn (Get $get): bool => $get('operation') === 'create'),
                     ]),
+                Section::make('Review a deletion request')
+                    ->description('Approval disables and anonymises the account while retaining minimal referential history.')
+                    ->visible(fn (Get $get): bool => $get('operation') === 'deletion')
+                    ->schema([
+                        Select::make('deletion_request_id')
+                            ->label('Pending deletion request')
+                            ->options(fn (): array => $this->pendingDeletionRequests())
+                            ->searchable()
+                            ->required(fn (Get $get): bool => $get('operation') === 'deletion'),
+                        Textarea::make('review_note')->label('Review note')->maxLength(2000),
+                    ]),
+                Section::make('Review a stale account')
+                    ->description('This is a manual review only. Nothing is deleted automatically.')
+                    ->visible(fn (Get $get): bool => $get('operation') === 'stale')
+                    ->schema([
+                        Select::make('stale_account_review_id')
+                            ->label('Stale account')
+                            ->options(fn (): array => $this->pendingStaleAccounts())
+                            ->searchable()
+                            ->required(fn (Get $get): bool => $get('operation') === 'stale'),
+                        Select::make('stale_decision')
+                            ->label('Action')
+                            ->options(['leave_alone' => 'Leave alone', 'deactivate' => 'Deactivate account', 'reviewed' => 'Mark reviewed'])
+                            ->required(fn (Get $get): bool => $get('operation') === 'stale'),
+                    ]),
             ])
             ->statePath('data');
     }
@@ -117,6 +149,16 @@ final class AccountAdministration extends Page
                 $actor,
                 $data['new_administrator_name'],
                 $data['new_administrator_email'],
+            ),
+            'deletion' => app(ApproveAccountDeletion::class)->handle(
+                $actor,
+                AccountDeletionRequest::query()->findOrFail($data['deletion_request_id']),
+                $data['review_note'] ?? null,
+            ),
+            'stale' => app(ReviewStaleAccount::class)->handle(
+                $actor,
+                StaleAccountReview::query()->findOrFail($data['stale_account_review_id']),
+                $data['stale_decision'],
             ),
         };
 
@@ -158,6 +200,22 @@ final class AccountAdministration extends Page
             })
             ->orderBy('name')
             ->pluck('name', 'id')
+            ->all();
+    }
+
+    /** @return array<int, string> */
+    private function pendingDeletionRequests(): array
+    {
+        return AccountDeletionRequest::query()->with('user')->where('status', 'requested')->get()
+            ->mapWithKeys(fn (AccountDeletionRequest $request): array => [$request->id => $request->user->name.' (#'.$request->id.')'])
+            ->all();
+    }
+
+    /** @return array<int, string> */
+    private function pendingStaleAccounts(): array
+    {
+        return StaleAccountReview::query()->with('user')->where('status', 'pending')->get()
+            ->mapWithKeys(fn (StaleAccountReview $review): array => [$review->id => $review->user->name])
             ->all();
     }
 
