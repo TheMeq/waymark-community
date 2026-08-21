@@ -48,6 +48,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 ])]
 final class Walk extends Model
 {
+    protected static function booted(): void
+    {
+        self::updated(function (Walk $walk): void {
+            if ($walk->wasChanged(['meeting_location_name', 'meeting_address', 'meeting_postcode', 'latitude', 'longitude'])) {
+                $walk->event()->increment('calendar_sequence');
+            }
+        });
+    }
+
     /** @return BelongsTo<Event, $this> */
     public function event(): BelongsTo
     {

@@ -49,7 +49,7 @@ final readonly class CreateRecurringSeries
         $offset = ($number - 1) * $series->interval;
         $start = $this->shift($source->starts_at, $series->frequency, $offset);
         $end = $source->ends_at === null ? null : $start->copy()->addSeconds($source->starts_at->diffInSeconds($source->ends_at));
-        $occurrence = $source->replicate(['slug', 'parent_event_id', 'recurring_series_id', 'occurrence_number']);
+        $occurrence = $source->replicate(['slug', 'parent_event_id', 'recurring_series_id', 'occurrence_number', 'calendar_uid', 'calendar_sequence']);
         $occurrence->slug = $this->uniqueSlug($source->slug.'-'.$start->format('Y-m-d'));
         $occurrence->starts_at = $start;
         $occurrence->ends_at = $end;

@@ -39,6 +39,7 @@ final class RecurringSeriesTest extends TestCase
         $this->assertSame(['2026-09-03', '2026-09-17', '2026-10-01'], $occurrences->map(fn (Event $event) => $event->starts_at->format('Y-m-d'))->all());
         $this->assertCount(3, $occurrences->pluck('id')->unique());
         $this->assertCount(3, $occurrences->pluck('slug')->unique());
+        $this->assertCount(3, $occurrences->pluck('calendar_uid')->unique());
         $this->assertSame(['Community Hall', 'Community Hall', 'Community Hall'], $occurrences->map(fn (Event $event) => $event->social->venue_name)->all());
     }
 

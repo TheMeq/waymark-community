@@ -25,6 +25,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 final class Social extends Model
 {
+    protected static function booted(): void
+    {
+        self::updated(function (Social $social): void {
+            if ($social->wasChanged(['venue_name', 'venue_address'])) {
+                $social->event()->increment('calendar_sequence');
+            }
+        });
+    }
+
     /** @return BelongsTo<Event, $this> */
     public function event(): BelongsTo
     {

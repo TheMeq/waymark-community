@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Str;
 
 #[Fillable([
     'type',
@@ -39,6 +40,19 @@ final class Event extends Model
 {
     /** @use HasFactory<EventFactory> */
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        self::creating(function (Event $event): void {
+            $event->calendar_uid ??= (string) Str::uuid();
+            $event->calendar_sequence ??= 0;
+        });
+        self::updating(function (Event $event): void {
+            if ($event->isDirty(['title', 'summary', 'description', 'starts_at', 'ends_at', 'status'])) {
+                $event->calendar_sequence = (int) $event->getOriginal('calendar_sequence') + 1;
+            }
+        });
+    }
 
     protected static function newFactory(): EventFactory
     {
@@ -145,6 +159,7 @@ final class Event extends Model
             'published_at' => 'datetime',
             'completion_override' => 'boolean',
             'occurrence_number' => 'integer',
+            'calendar_sequence' => 'integer',
         ];
     }
 }

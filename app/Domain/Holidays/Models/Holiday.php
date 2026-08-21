@@ -15,6 +15,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 final class Holiday extends Model
 {
+    protected static function booted(): void
+    {
+        self::updated(function (Holiday $holiday): void {
+            if ($holiday->wasChanged(['destination', 'accommodation'])) {
+                $holiday->event()->increment('calendar_sequence');
+            }
+        });
+    }
+
     /** @return BelongsTo<Event, $this> */
     public function event(): BelongsTo
     {

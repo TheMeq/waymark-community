@@ -3,6 +3,7 @@
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\PublicHolidayIndexController;
 use App\Http\Controllers\PublicHolidayShowController;
 use App\Http\Controllers\PublicHolidayAttachmentDownloadController;
@@ -32,6 +33,8 @@ Route::get('/weekends/{slug}/attachments/{attachment}', PublicHolidayAttachmentD
 Route::get('/weekends/{slug}', PublicHolidayShowController::class)->name('holidays.show');
 Route::get('/whats-on', WhatsOnController::class)->name('events.index');
 Route::get('/whats-on/calendar', WhatsOnCalendarController::class)->name('events.calendar');
+Route::get('/calendar.ics', CalendarFeedController::class)->defaults('calendarType', 'all')->name('calendar.all');
+Route::get('/calendar/{calendarType}.ics', CalendarFeedController::class)->whereIn('calendarType', ['walks', 'socials', 'holidays'])->name('calendar.type');
 
 if (app()->environment(['local', 'testing'])) {
     Route::get('/_dev/components', function () {
