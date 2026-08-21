@@ -11,8 +11,11 @@ use App\Domain\Walks\RelatedContent\RelatedWalks;
 use App\Domain\Walks\RelatedContent\SignalRelatedWalks;
 use App\Http\Middleware\RequireSensitiveActionAssurance;
 use App\Policies\InstallationOwnershipPolicy;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 
@@ -33,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        RateLimiter::for('photo-upload', fn (Request $request) => Limit::perMinute(12)->by(($request->user()?->id ?? 'guest').'|'.$request->ip()));
         Gate::policy(InstallationOwnership::class, InstallationOwnershipPolicy::class);
         Livewire::addPersistentMiddleware([RequireSensitiveActionAssurance::class]);
 

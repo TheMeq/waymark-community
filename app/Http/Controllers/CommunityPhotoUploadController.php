@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Actions\UploadCommunityPhoto;
 use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Gallery\PhotoUploadPolicyGate;
+use App\Domain\Gallery\Queries\UploadablePublicEvents;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use Illuminate\Contracts\View\View;
@@ -16,13 +16,13 @@ use Illuminate\Validation\ValidationException;
 
 final class CommunityPhotoUploadController
 {
-    public function create(Request $request, PhotoUploadPolicyGate $policyGate): View
+    public function create(Request $request, PhotoUploadPolicyGate $policyGate, UploadablePublicEvents $events): View
     {
         $account = $request->user();
 
         abort_unless($account?->isActive(), 403);
 
-        $selectedEvent = Event::query()->find($request->integer('event'));
+        $selectedEvent = $events->find($request->integer('event'));
         $siteProfile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
 
         return view('gallery.upload', [
@@ -31,7 +31,7 @@ final class CommunityPhotoUploadController
                 'strapline' => 'A local walking community',
             ],
             'theme' => BrandTheme::fromSiteProfile($siteProfile),
-            'events' => Event::query()
+            'events' => $events->query()
                 ->orderByRaw('case when starts_at <= ? then 0 else 1 end', [now()])
                 ->orderByDesc('starts_at')
                 ->orderByDesc('id')
@@ -68,13 +68,14 @@ final class CommunityPhotoUploadController
                     $validated['caption'] ?? null,
                     (bool) ($validated['accept_photo_policy'] ?? false),
                 );
-                $results[] = ['index' => $index, 'status' => 'uploaded', 'photo_id' => $communityPhoto->id];
-            } catch (ValidationException $exception) {
+                $results[] = ['index' => $index, 'name' => $photo->getClientOriginalName(), 'status' => 'uploaded', 'photo_id' => $communityPhoto->id];
+            } catch (ValidationException|\RuntimeException $exception) {
                 $failed = true;
                 $results[] = [
                     'index' => $index,
+                    'name' => $photo->getClientOriginalName(),
                     'status' => 'failed',
-                    'errors' => collect($exception->errors())->flatten()->values()->all(),
+                    'errors' => $exception instanceof ValidationException ? collect($exception->errors())->flatten()->values()->all() : ['This photo could not be uploaded.'],
                 ];
             }
         }

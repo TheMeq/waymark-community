@@ -35,7 +35,7 @@ Route::get('/new-here', NewHereController::class)->name('new-here');
 Route::get('/leaders/{slug}', PublicLeaderProfileController::class)->name('leaders.show');
 Route::middleware('auth')->group(function (): void {
     Route::get('/photos/upload', [CommunityPhotoUploadController::class, 'create'])->name('community-photos.upload.create');
-    Route::post('/photos/upload', [CommunityPhotoUploadController::class, 'store'])->name('community-photos.upload.store');
+    Route::post('/photos/upload', [CommunityPhotoUploadController::class, 'store'])->middleware('throttle:photo-upload')->name('community-photos.upload.store');
     Route::get('/account/profile', [AccountProfileController::class, 'edit'])->name('account.profile.edit');
     Route::patch('/account/profile', [AccountProfileController::class, 'update'])->name('account.profile.update');
     Route::get('/account/privacy', [AccountPrivacyController::class, 'show'])->name('account.privacy.show');

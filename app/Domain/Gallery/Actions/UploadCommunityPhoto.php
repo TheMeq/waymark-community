@@ -8,6 +8,7 @@ use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Gallery\PhotoUploadPolicyDecision;
 use App\Domain\Gallery\PhotoUploadPolicyGate;
+use App\Domain\Gallery\Queries\UploadablePublicEvents;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +21,7 @@ final readonly class UploadCommunityPhoto
         private IngestCommunityPhoto $ingest,
         private PhotoUploadPolicyGate $policyGate,
         private AcceptCurrentPhotoUploadPolicy $acceptPolicy,
+        private UploadablePublicEvents $events,
     ) {}
 
     public function handle(
@@ -94,7 +96,7 @@ final readonly class UploadCommunityPhoto
         }
 
         if ($matches[1] === 'event') {
-            $event = Event::query()->find($matches[2]);
+            $event = $this->events->find((int) $matches[2]);
 
             if ($event === null) {
                 throw ValidationException::withMessages(['context' => 'Choose a valid event or special album.']);

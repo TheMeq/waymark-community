@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Gallery;
 
+use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Actions\UploadCommunityPhoto;
@@ -36,11 +37,13 @@ final class CommunityPhotoUploadTest extends TestCase
             'type' => EventType::Walk,
             'title' => 'Yesterday on the ridge',
             'starts_at' => now()->subDay(),
+            'status' => EventStatus::Published, 'is_public' => true, 'published_at' => now()->subMinute(),
         ]);
         $upcoming = Event::factory()->create([
             'type' => EventType::Social,
             'title' => 'Next month social',
             'starts_at' => now()->addMonth(),
+            'status' => EventStatus::Published, 'is_public' => true, 'published_at' => now()->subMinute(),
         ]);
         $album = SpecialAlbum::query()->create([
             'title' => 'Volunteer day',
@@ -60,12 +63,29 @@ final class CommunityPhotoUploadTest extends TestCase
             ->assertSee('method="post"', false);
     }
 
+    public function test_only_publicly_published_events_can_be_selected_or_mutated_as_photo_contexts(): void
+    {
+        Storage::fake('local');
+        $this->useUploadProcessorDouble();
+        $account = User::factory()->create();
+        $public = Event::factory()->create(['title' => 'Published event', 'status' => EventStatus::Published, 'is_public' => true, 'published_at' => now()->subMinute()]);
+        $draft = Event::factory()->create(['title' => 'Draft event']);
+        $private = Event::factory()->create(['title' => 'Private event', 'status' => EventStatus::Published, 'is_public' => false, 'published_at' => now()->subMinute()]);
+
+        $this->actingAs($account)->get(route('community-photos.upload.create', ['event' => $draft->id]))
+            ->assertDontSee($draft->title)->assertDontSee($private->title)->assertSee($public->title)->assertDontSee('value="event:'.$draft->id.'" selected', false);
+
+        $this->actingAs($account)->postJson(route('community-photos.upload.store'), ['context' => 'event:'.$private->id, 'accept_photo_policy' => true, 'photos' => [$this->pngUpload('private.png')]])
+            ->assertUnprocessable();
+        $this->assertDatabaseCount('community_photos', 0);
+    }
+
     public function test_verified_active_account_can_upload_one_photo_to_an_event_after_accepting_the_current_policy(): void
     {
         Storage::fake('local');
         $this->useUploadProcessorDouble();
         $account = User::factory()->create(['display_name' => 'Taylor W.']);
-        $event = Event::factory()->create(['type' => EventType::Walk]);
+        $event = $this->uploadableEvent(['type' => EventType::Walk]);
 
         $response = $this->actingAs($account)->postJson(route('community-photos.upload.store'), [
             'context' => 'event:'.$event->id,
@@ -94,7 +114,7 @@ final class CommunityPhotoUploadTest extends TestCase
         Storage::fake('local');
         $this->useUploadProcessorDouble();
         $account = User::factory()->create();
-        $event = Event::factory()->create();
+        $event = $this->uploadableEvent();
 
         $this->actingAs($account)->postJson(route('community-photos.upload.store'), [
             'context' => 'event:'.$event->id,
@@ -111,7 +131,7 @@ final class CommunityPhotoUploadTest extends TestCase
         Storage::fake('local');
         $this->useUploadProcessorDouble();
         $account = User::factory()->create();
-        $event = Event::factory()->create();
+        $event = $this->uploadableEvent();
         $album = SpecialAlbum::query()->create(['title' => 'Committee archive', 'slug' => 'committee-archive']);
 
         $this->actingAs($account)->postJson(route('community-photos.upload.store'), [
@@ -131,7 +151,7 @@ final class CommunityPhotoUploadTest extends TestCase
         Storage::fake('local');
         $this->useUploadProcessorDouble();
         $account = User::factory()->create();
-        $event = Event::factory()->create();
+        $event = $this->uploadableEvent();
 
         $this->actingAs($account)->postJson(route('community-photos.upload.store'), [
             'context' => 'event:'.$event->id,
@@ -184,7 +204,7 @@ final class CommunityPhotoUploadTest extends TestCase
         Storage::fake('local');
         $this->useUploadProcessorDouble();
         $account = User::factory()->create();
-        $event = Event::factory()->create();
+        $event = $this->uploadableEvent();
         $failPersistence = true;
 
         CommunityPhoto::creating(function () use (&$failPersistence): void {
@@ -225,6 +245,15 @@ final class CommunityPhotoUploadTest extends TestCase
             $name,
             base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL82QAAAABJRU5ErkJggg==', true),
         )->mimeType('image/png');
+    }
+
+    private function uploadableEvent(array $attributes = []): Event
+    {
+        return Event::factory()->create(array_replace([
+            'status' => EventStatus::Published,
+            'is_public' => true,
+            'published_at' => now()->subMinute(),
+        ], $attributes));
     }
 }
 
