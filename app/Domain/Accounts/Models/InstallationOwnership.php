@@ -8,8 +8,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 final class InstallationOwnership extends Model
 {
-    public const int SINGLETON_ID = 1;
-
     public $incrementing = false;
 
     protected $guarded = [];

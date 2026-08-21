@@ -21,14 +21,14 @@ final class EstablishInitialInstallationOwner
         return DB::transaction(function () use ($administrator): InstallationOwnership {
             $existing = InstallationOwnership::query()
                 ->lockForUpdate()
-                ->find(InstallationOwnership::SINGLETON_ID);
+                ->first();
 
             if ($existing instanceof InstallationOwnership) {
                 return $existing;
             }
 
             InstallationOwnership::query()->insertOrIgnore([
-                'id' => InstallationOwnership::SINGLETON_ID,
+                'id' => ((int) InstallationOwnership::query()->max('id')) + 1,
                 'owner_user_id' => $administrator->getKey(),
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -36,7 +36,7 @@ final class EstablishInitialInstallationOwner
 
             return InstallationOwnership::query()
                 ->lockForUpdate()
-                ->findOrFail(InstallationOwnership::SINGLETON_ID);
+                ->sole();
         });
     }
 }

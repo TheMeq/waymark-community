@@ -16,13 +16,13 @@ final readonly class TransferInstallationOwnership
 
     public function handle(User $actor, User $newOwner): InstallationOwnership
     {
-        $ownership = InstallationOwnership::query()->findOrFail(InstallationOwnership::SINGLETON_ID);
+        $ownership = InstallationOwnership::query()->sole();
         Gate::forUser($actor)->authorize('transfer', $ownership);
 
         [$ownership, $previousOwner, $newOwner] = DB::transaction(function () use ($actor, $newOwner): array {
             $ownership = InstallationOwnership::query()
                 ->lockForUpdate()
-                ->findOrFail(InstallationOwnership::SINGLETON_ID);
+                ->sole();
             Gate::forUser($actor)->authorize('transfer', $ownership);
 
             $previousOwner = User::query()->lockForUpdate()->findOrFail($ownership->owner_user_id);

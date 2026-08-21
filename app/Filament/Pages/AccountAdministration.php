@@ -8,6 +8,7 @@ use App\Domain\Accounts\Actions\TransferInstallationOwnership;
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Accounts\Models\InstallationOwnership;
+use App\Domain\Accounts\Security\SensitiveActionAssurance;
 use App\Models\User;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -100,6 +101,7 @@ final class AccountAdministration extends Page
     {
         /** @var User $actor */
         $actor = auth()->user();
+        $this->ensureSensitiveAssurance($actor);
         $data = $this->form->getState();
 
         match ($data['operation']) {
@@ -130,7 +132,7 @@ final class AccountAdministration extends Page
     private function eligibleAdministrators(): array
     {
         $ownerId = InstallationOwnership::query()
-            ->find(InstallationOwnership::SINGLETON_ID)
+            ->first()
             ?->owner_user_id;
 
         return User::query()
@@ -157,5 +159,19 @@ final class AccountAdministration extends Page
             ->orderBy('name')
             ->pluck('name', 'id')
             ->all();
+    }
+
+    private function ensureSensitiveAssurance(User $actor): void
+    {
+        $assurance = app(SensitiveActionAssurance::class);
+
+        $session = app('session.store');
+
+        abort_unless($assurance->hasRecentPasswordConfirmation($actor, $session), 403);
+        abort_unless(
+            ! $assurance->requiresSecondFactor($actor)
+                || $assurance->hasRecentSecondFactorConfirmation($actor, $session),
+            403,
+        );
     }
 }

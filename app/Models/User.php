@@ -132,7 +132,6 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     public function isInstallationOwner(): bool
     {
         return InstallationOwnership::query()
-            ->whereKey(InstallationOwnership::SINGLETON_ID)
             ->where('owner_user_id', $this->getKey())
             ->exists();
     }

@@ -12,11 +12,14 @@ use App\Domain\Accounts\Models\AccountAdministrationAudit;
 use App\Domain\Accounts\Models\InstallationOwnership;
 use App\Domain\Accounts\Notifications\AdministratorAccessChanged;
 use App\Domain\Accounts\Notifications\InstallationOwnershipTransferred;
+use App\Filament\Pages\AccountAdministration;
 use App\Http\Middleware\RequireSensitiveActionAssurance;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use Laravel\Fortify\Fortify;
@@ -39,6 +42,32 @@ final class InstallationOwnershipTest extends TestCase
         $this->assertSame($initialAdministrator->id, $firstOwnership->owner_user_id);
         $this->assertSame($initialAdministrator->id, $secondOwnership->owner_user_id);
         $this->assertSame(1, InstallationOwnership::query()->count());
+    }
+
+    public function test_a_non_one_singleton_identity_remains_operable_and_cannot_be_joined_by_a_second_row(): void
+    {
+        $owner = User::factory()->create(['role' => AccountRole::Administrator]);
+        $newOwner = User::factory()->create(['role' => AccountRole::Administrator]);
+
+        DB::table('installation_ownerships')->insert([
+            'id' => 2,
+            'owner_user_id' => $owner->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        app(TransferInstallationOwnership::class)->handle($owner, $newOwner);
+
+        $this->assertSame($newOwner->id, InstallationOwnership::query()->sole()->owner_user_id);
+
+        $this->expectException(QueryException::class);
+
+        DB::table('installation_ownerships')->insert([
+            'id' => 3,
+            'owner_user_id' => $owner->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     public function test_ownership_transfer_is_atomic_audited_and_notifies_both_owners_without_changing_the_previous_owners_role(): void
@@ -207,6 +236,122 @@ final class InstallationOwnershipTest extends TestCase
     public function test_sensitive_assurance_remains_persistent_for_account_administration_livewire_requests(): void
     {
         $this->assertContains(RequireSensitiveActionAssurance::class, Livewire::getPersistentMiddleware());
+    }
+
+    public function test_account_administration_livewire_save_cannot_transfer_ownership_without_recent_password_assurance(): void
+    {
+        Notification::fake();
+
+        $owner = $this->initialAdministrator();
+        $newOwner = User::factory()->create(['role' => AccountRole::Administrator]);
+
+        $this->actingAs($owner)->withSession([]);
+
+        Livewire::test(AccountAdministration::class)
+            ->set('data.operation', 'transfer')
+            ->set('data.transfer_to_user_id', $newOwner->id)
+            ->call('save')
+            ->assertForbidden();
+
+        $this->assertSame($owner->id, InstallationOwnership::query()->sole()->owner_user_id);
+        $this->assertSame(0, AccountAdministrationAudit::query()->count());
+        Notification::assertNothingSent();
+    }
+
+    public function test_account_administration_livewire_save_rejects_expired_password_assurance_without_mutating_ownership(): void
+    {
+        Notification::fake();
+
+        $owner = $this->initialAdministrator();
+        $newOwner = User::factory()->create(['role' => AccountRole::Administrator]);
+
+        $this->actingAs($owner);
+        app('session.store')->put([
+            'auth.password_confirmed_at' => now()->subSeconds(config('security.sensitive_action_timeout') + 1)->unix(),
+            'sensitive.password_confirmed_user_id' => $owner->id,
+        ]);
+
+        Livewire::test(AccountAdministration::class)
+            ->set('data.operation', 'transfer')
+            ->set('data.transfer_to_user_id', $newOwner->id)
+            ->call('save')
+            ->assertForbidden();
+
+        $this->assertSame($owner->id, InstallationOwnership::query()->sole()->owner_user_id);
+        $this->assertSame(0, AccountAdministrationAudit::query()->count());
+        Notification::assertNothingSent();
+    }
+
+    public function test_account_administration_livewire_save_cannot_promote_or_create_without_recent_password_assurance(): void
+    {
+        Notification::fake();
+
+        $owner = $this->initialAdministrator();
+        $member = User::factory()->create(['role' => AccountRole::RegisteredUser]);
+
+        $this->actingAs($owner)->withSession([]);
+
+        Livewire::test(AccountAdministration::class)
+            ->set('data.operation', 'promote')
+            ->set('data.promote_user_id', $member->id)
+            ->call('save')
+            ->assertForbidden();
+
+        Livewire::test(AccountAdministration::class)
+            ->set('data.operation', 'create')
+            ->set('data.new_administrator_name', 'Blocked Administrator')
+            ->set('data.new_administrator_email', 'blocked-administrator@example.test')
+            ->call('save')
+            ->assertForbidden();
+
+        $this->assertSame(AccountRole::RegisteredUser, $member->fresh()->role);
+        $this->assertDatabaseMissing('users', ['email' => 'blocked-administrator@example.test']);
+        $this->assertSame(0, AccountAdministrationAudit::query()->count());
+        Notification::assertNothingSent();
+    }
+
+    public function test_account_administration_livewire_save_requires_fresh_two_factor_assurance_and_then_transfers_with_both_confirmations(): void
+    {
+        Notification::fake();
+
+        $owner = $this->initialAdministrator();
+        $owner->forceFill([
+            'two_factor_secret' => Fortify::currentEncrypter()->encrypt('two-factor-secret'),
+            'two_factor_recovery_codes' => Fortify::currentEncrypter()->encrypt(json_encode(['recovery-code'])),
+            'two_factor_confirmed_at' => now(),
+        ])->save();
+        $newOwner = User::factory()->create(['role' => AccountRole::Administrator]);
+
+        $this->actingAs($owner);
+        app('session.store')->put([
+            'auth.password_confirmed_at' => now()->unix(),
+            'sensitive.password_confirmed_user_id' => $owner->id,
+        ]);
+
+        Livewire::test(AccountAdministration::class)
+            ->set('data.operation', 'transfer')
+            ->set('data.transfer_to_user_id', $newOwner->id)
+            ->call('save')
+            ->assertForbidden();
+
+        $this->assertSame($owner->id, InstallationOwnership::query()->sole()->owner_user_id);
+        $this->assertSame(0, AccountAdministrationAudit::query()->count());
+
+        app('session.store')->put([
+            'sensitive.two_factor_confirmed_at' => now()->unix(),
+            'sensitive.two_factor_confirmed_user_id' => $owner->id,
+        ]);
+
+        Livewire::test(AccountAdministration::class)
+            ->set('data.operation', 'transfer')
+            ->set('data.transfer_to_user_id', $newOwner->id)
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame($newOwner->id, InstallationOwnership::query()->sole()->owner_user_id);
+        $this->assertSame(1, AccountAdministrationAudit::query()->count());
+        Notification::assertSentTo($owner, InstallationOwnershipTransferred::class);
+        Notification::assertSentTo($newOwner, InstallationOwnershipTransferred::class);
     }
 
     /** @return array<string, array{array<string, mixed>}> */
