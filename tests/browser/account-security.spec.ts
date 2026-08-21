@@ -88,7 +88,7 @@ test('TOTP retry only follows a navigation timeout after the counter rolls over'
     Date.now = () => currentTime;
 
     try {
-        const page = fakeTotpPage(() => {
+        const fake = fakeTotpPage(() => {
             submissions++;
 
             if (submissions === 1) {
@@ -98,9 +98,13 @@ test('TOTP retry only follows a navigation timeout after the counter rolls over'
             }
         });
 
-        await submitTotpWithRolloverRetry(page, 'JBSWY3DPEHPK3PXP', '**/new-here');
+        await submitTotpWithRolloverRetry(fake.page, 'JBSWY3DPEHPK3PXP', '**/new-here');
 
         expect(submissions).toBe(2);
+        expect(fake.events).toEqual([
+            'fill', 'wait', 'click', 'rejected',
+            'fill', 'wait', 'click', 'resolved',
+        ]);
     } finally {
         Date.now = originalDateNow;
     }
@@ -109,29 +113,55 @@ test('TOTP retry only follows a navigation timeout after the counter rolls over'
 test('TOTP retry rethrows a non-timeout navigation failure', async () => {
     const failure = new Error('The browser disconnected.');
     let submissions = 0;
-    const page = fakeTotpPage(() => {
+    const fake = fakeTotpPage(() => {
         submissions++;
 
         throw failure;
     });
 
-    await expect(submitTotpWithRolloverRetry(page, 'JBSWY3DPEHPK3PXP', '**/new-here'))
+    await expect(submitTotpWithRolloverRetry(fake.page, 'JBSWY3DPEHPK3PXP', '**/new-here'))
         .rejects.toBe(failure);
     expect(submissions).toBe(1);
+    expect(fake.events).toEqual(['fill', 'wait', 'click', 'rejected']);
 });
 
 test('TOTP retry rethrows a timeout when its counter has not advanced', async () => {
     const timeout = new errors.TimeoutError('TOTP navigation timed out.');
     let submissions = 0;
-    const page = fakeTotpPage(() => {
+    const fake = fakeTotpPage(() => {
         submissions++;
 
         throw timeout;
     });
 
-    await expect(submitTotpWithRolloverRetry(page, 'JBSWY3DPEHPK3PXP', '**/new-here'))
+    await expect(submitTotpWithRolloverRetry(fake.page, 'JBSWY3DPEHPK3PXP', '**/new-here'))
         .rejects.toBe(timeout);
     expect(submissions).toBe(1);
+    expect(fake.events).toEqual(['fill', 'wait', 'click', 'rejected']);
+});
+
+test('TOTP retry rethrows a timeout after a backward counter change', async () => {
+    const timeout = new errors.TimeoutError('TOTP navigation timed out.');
+    let currentTime = 30_000;
+    let submissions = 0;
+    const originalDateNow = Date.now;
+    Date.now = () => currentTime;
+
+    try {
+        const fake = fakeTotpPage(() => {
+            submissions++;
+            currentTime = 29_999;
+
+            throw timeout;
+        });
+
+        await expect(submitTotpWithRolloverRetry(fake.page, 'JBSWY3DPEHPK3PXP', '**/new-here'))
+            .rejects.toBe(timeout);
+        expect(submissions).toBe(1);
+        expect(fake.events).toEqual(['fill', 'wait', 'click', 'rejected']);
+    } finally {
+        Date.now = originalDateNow;
+    }
 });
 
 async function submitTotpWithRolloverRetry(page: Page, secret: string, destination: string): Promise<void> {
@@ -153,7 +183,7 @@ async function submitTotpWithRolloverRetry(page: Page, secret: string, destinati
         } catch (error) {
             if (! (error instanceof errors.TimeoutError)
                 || attempt === 1
-                || totpCounter() === counter) {
+                || totpCounter() <= counter) {
                 throw error;
             }
         }
@@ -189,10 +219,43 @@ function totp(secret: string, counter = totpCounter()): string {
     return String(value % 1_000_000).padStart(6, '0');
 }
 
-function fakeTotpPage(waitForURL: () => void): Page {
+function fakeTotpPage(onSubmission: () => void): { page: Page; events: string[] } {
+    const events: string[] = [];
+    let navigation: { resolve: () => void; reject: (error: unknown) => void } | null = null;
+
     return {
-        getByLabel: () => ({ fill: async () => undefined }),
-        getByRole: () => ({ click: async () => undefined }),
-        waitForURL: async () => waitForURL(),
-    } as unknown as Page;
+        page: {
+            getByLabel: () => ({
+                fill: async () => {
+                    events.push('fill');
+                },
+            }),
+            getByRole: () => ({
+                click: async () => {
+                    events.push('click');
+
+                    if (navigation === null) {
+                        throw new Error('Navigation was not registered before submission.');
+                    }
+
+                    try {
+                        onSubmission();
+                        events.push('resolved');
+                        navigation.resolve();
+                    } catch (error) {
+                        events.push('rejected');
+                        navigation.reject(error);
+                    }
+                },
+            }),
+            waitForURL: () => {
+                events.push('wait');
+
+                return new Promise<void>((resolve, reject) => {
+                    navigation = { resolve, reject };
+                });
+            },
+        } as unknown as Page,
+        events,
+    };
 }
