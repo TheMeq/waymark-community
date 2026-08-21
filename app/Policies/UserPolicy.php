@@ -18,4 +18,15 @@ class UserPolicy
             && $user->hasVerifiedEmail()
             && $user->hasCapability(ModuleCapability::ManageOwnWalks);
     }
+
+    public function promoteAdministrator(User $actor, User $account): bool
+    {
+        return $actor->hasCapability(ModuleCapability::ManageAccounts)
+            && ! $actor->is($account);
+    }
+
+    public function createAdministrator(User $actor): bool
+    {
+        return $actor->hasCapability(ModuleCapability::ManageAccounts);
+    }
 }

@@ -60,6 +60,7 @@ final class RolePermissionsTest extends TestCase
             'event_updates.manage_all',
             'event_configuration.manage',
             'accounts.manage_membership_verification',
+            'accounts.manage',
         ], array_map(static fn (ModuleCapability $capability): string => $capability->value, ModuleCapability::cases()));
     }
 
@@ -81,6 +82,7 @@ final class RolePermissionsTest extends TestCase
                 'socials.manage',
             ],
             AccountRole::Administrator->value => [
+                'accounts.manage',
                 'accounts.manage_membership_verification',
                 'admin.access',
                 'admin.manage_permissions',

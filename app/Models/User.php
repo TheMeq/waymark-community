@@ -6,6 +6,7 @@ use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Accounts\Models\CommunicationPreference;
 use App\Domain\Accounts\Models\Favourite;
+use App\Domain\Accounts\Models\InstallationOwnership;
 use App\Domain\Accounts\Models\RoleCapability;
 use App\Domain\Membership\Enums\AccountStatus;
 use App\Domain\Membership\Enums\MembershipStatus;
@@ -50,7 +51,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     {
         return $panel->getId() === 'admin'
             && $this->hasCapability(ModuleCapability::AccessAdministration)
-            && (! $this->isWalkLeader() || $this->hasVerifiedEmail());
+            && $this->hasVerifiedEmail();
     }
 
     public function hasCapability(ModuleCapability $capability): bool
@@ -126,6 +127,14 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
             && $this->hasVerifiedEmail()
             && $this->role === AccountRole::WalkLeader
             && $this->hasCapability(ModuleCapability::ManageOwnWalks);
+    }
+
+    public function isInstallationOwner(): bool
+    {
+        return InstallationOwnership::query()
+            ->whereKey(InstallationOwnership::SINGLETON_ID)
+            ->where('owner_user_id', $this->getKey())
+            ->exists();
     }
 
     /** @return HasMany<CommunicationPreference, $this> */

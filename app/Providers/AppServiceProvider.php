@@ -2,10 +2,15 @@
 
 namespace App\Providers;
 
+use App\Domain\Accounts\Models\InstallationOwnership;
 use App\Domain\Walks\RelatedContent\RelatedWalks;
 use App\Domain\Walks\RelatedContent\SignalRelatedWalks;
+use App\Http\Middleware\RequireSensitiveActionAssurance;
+use App\Policies\InstallationOwnershipPolicy;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -22,6 +27,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(InstallationOwnership::class, InstallationOwnershipPolicy::class);
+        Livewire::addPersistentMiddleware([RequireSensitiveActionAssurance::class]);
+
         $testNow = env('WAYMARK_TEST_NOW');
 
         if (app()->environment('testing') && is_string($testNow) && $testNow !== '') {
