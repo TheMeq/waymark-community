@@ -23,6 +23,8 @@ final class SensitiveActionAssuranceTest extends TestCase
         Route::middleware(['web', 'auth', 'sensitive.confirmed'])
             ->get('/_testing/sensitive-action', fn () => response('secured'))
             ->name('testing.sensitive-action');
+        Route::middleware(['web', 'auth', 'sensitive.confirmed'])
+            ->post('/_testing/sensitive-action', fn () => response('secured'));
     }
 
     public function test_sensitive_action_for_a_user_without_two_factor_requires_only_a_recent_password_confirmation(): void
@@ -31,7 +33,9 @@ final class SensitiveActionAssuranceTest extends TestCase
 
         $this->actingAs($user)
             ->get('/_testing/sensitive-action')
-            ->assertRedirect(route('password.confirm'));
+            ->assertRedirect(route('password.confirm'))
+            ->assertSessionHas('sensitive.intended_destination', url('/_testing/sensitive-action'))
+            ->assertSessionMissing('url.intended');
 
         $this->post(route('password.confirm.store'), ['password' => 'password'])
             ->assertRedirect('/_testing/sensitive-action')
@@ -50,13 +54,15 @@ final class SensitiveActionAssuranceTest extends TestCase
 
         $this->actingAs($user)
             ->get('/_testing/sensitive-action')
-            ->assertRedirect(route('password.confirm'));
+            ->assertRedirect(route('password.confirm'))
+            ->assertSessionHas('sensitive.intended_destination', url('/_testing/sensitive-action'));
 
         $this->post(route('password.confirm.store'), ['password' => 'password'])
             ->assertRedirect('/_testing/sensitive-action');
 
         $this->get('/_testing/sensitive-action')
-            ->assertRedirect(route('account.sensitive-confirmation.create'));
+            ->assertRedirect(route('account.sensitive-confirmation.create'))
+            ->assertSessionHas('sensitive.intended_destination', url('/_testing/sensitive-action'));
 
         $this->post(route('account.sensitive-confirmation.store'), ['code' => '123456'])
             ->assertRedirect('/_testing/sensitive-action')
@@ -66,6 +72,74 @@ final class SensitiveActionAssuranceTest extends TestCase
         $this->get('/_testing/sensitive-action')
             ->assertOk()
             ->assertSee('secured');
+    }
+
+    public function test_an_unsafe_sensitive_request_never_uses_an_external_referer_as_its_password_destination(): void
+    {
+        $user = User::factory()->create(['password' => 'password']);
+
+        $this->actingAs($user)
+            ->withHeader('referer', 'https://attacker.example/password-stage')
+            ->post('/_testing/sensitive-action')
+            ->assertRedirect(route('password.confirm'))
+            ->assertSessionMissing('sensitive.intended_destination')
+            ->assertSessionMissing('url.intended');
+
+        $this->post(route('password.confirm.store'), ['password' => 'password'])
+            ->assertRedirect(route('new-here'))
+            ->assertSessionMissing('sensitive.intended_destination')
+            ->assertSessionMissing('url.intended');
+    }
+
+    public function test_an_unsafe_sensitive_request_never_uses_an_external_referer_as_its_second_factor_destination(): void
+    {
+        $user = $this->twoFactorEnabledUser();
+        $this->fakeTwoFactorProvider(validCode: '123456');
+
+        $this->actingAs($user)
+            ->withSession([
+                'auth.password_confirmed_at' => now()->unix(),
+                'sensitive.password_confirmed_user_id' => $user->id,
+            ])
+            ->withHeader('referer', 'https://attacker.example/second-factor-stage')
+            ->post('/_testing/sensitive-action')
+            ->assertRedirect(route('account.sensitive-confirmation.create'))
+            ->assertSessionMissing('sensitive.intended_destination')
+            ->assertSessionMissing('url.intended');
+
+        $this->post(route('account.sensitive-confirmation.store'), ['code' => '123456'])
+            ->assertRedirect(route('home'))
+            ->assertSessionMissing('sensitive.intended_destination')
+            ->assertSessionMissing('url.intended');
+    }
+
+    public function test_a_malicious_preseeded_intended_destination_is_discarded_before_password_confirmation_redirects(): void
+    {
+        $user = User::factory()->create(['password' => 'password']);
+
+        $this->actingAs($user)
+            ->withSession([
+                'sensitive.intended_destination' => 'https://attacker.example/preseeded-sensitive',
+                'url.intended' => 'https://attacker.example/preseeded-framework',
+            ])
+            ->post(route('password.confirm.store'), ['password' => 'password'])
+            ->assertRedirect(route('new-here'))
+            ->assertSessionMissing('sensitive.intended_destination')
+            ->assertSessionMissing('url.intended');
+    }
+
+    public function test_the_sensitive_confirmation_route_is_not_saved_as_its_own_password_destination(): void
+    {
+        $user = User::factory()->create(['password' => 'password']);
+
+        $this->actingAs($user)
+            ->get(route('account.sensitive-confirmation.create'))
+            ->assertRedirect(route('password.confirm'))
+            ->assertSessionMissing('sensitive.intended_destination')
+            ->assertSessionMissing('url.intended');
+
+        $this->post(route('password.confirm.store'), ['password' => 'password'])
+            ->assertRedirect(route('new-here'));
     }
 
     public function test_an_invalid_sensitive_second_factor_code_does_not_mark_the_session_fresh(): void
@@ -156,7 +230,10 @@ final class SensitiveActionAssuranceTest extends TestCase
             ->get(route('account.security.show'))
             ->assertRedirect(route('password.confirm'));
 
-        $this->withSession(['auth.password_confirmed_at' => now()->unix()])
+        $this->withSession([
+            'auth.password_confirmed_at' => now()->unix(),
+            'sensitive.password_confirmed_user_id' => $user->id,
+        ])
             ->get(route('account.security.show'))
             ->assertOk()
             ->assertSee('Account security')

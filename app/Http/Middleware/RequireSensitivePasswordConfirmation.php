@@ -7,7 +7,7 @@ use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 
-final readonly class RequireSensitiveActionAssurance
+final readonly class RequireSensitivePasswordConfirmation
 {
     public function __construct(private SensitiveActionAssurance $assurance) {}
 
@@ -22,19 +22,6 @@ final readonly class RequireSensitiveActionAssurance
             $this->assurance->captureIntendedDestination($request);
 
             return to_route('password.confirm');
-        }
-
-        if (! $this->assurance->requiresSecondFactor($user)) {
-            $this->assurance->forgetSecondFactorConfirmation($request->session());
-
-            return $next($request);
-        }
-
-        if (! $this->assurance->hasRecentSecondFactorConfirmation($user, $request->session())) {
-            $this->assurance->forgetSecondFactorConfirmation($request->session());
-            $this->assurance->captureIntendedDestination($request);
-
-            return to_route('account.sensitive-confirmation.create');
         }
 
         return $next($request);

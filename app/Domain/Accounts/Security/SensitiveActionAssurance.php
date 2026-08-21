@@ -4,6 +4,7 @@ namespace App\Domain\Accounts\Security;
 
 use App\Models\User;
 use Illuminate\Contracts\Session\Session;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 
 final class SensitiveActionAssurance
@@ -13,6 +14,8 @@ final class SensitiveActionAssurance
     public const TWO_FACTOR_CONFIRMED_AT = 'sensitive.two_factor_confirmed_at';
 
     public const TWO_FACTOR_CONFIRMED_USER_ID = 'sensitive.two_factor_confirmed_user_id';
+
+    public const INTENDED_DESTINATION = 'sensitive.intended_destination';
 
     public function recordPasswordConfirmation(User $user, Session $session): void
     {
@@ -45,6 +48,31 @@ final class SensitiveActionAssurance
         return $user->hasEnabledTwoFactorAuthentication();
     }
 
+    public function captureIntendedDestination(Request $request): void
+    {
+        $request->session()->forget([self::INTENDED_DESTINATION, 'url.intended']);
+
+        if (! in_array($request->method(), ['GET', 'HEAD'], true)) {
+            return;
+        }
+
+        $destination = $request->fullUrl();
+
+        if ($this->isSafeDestination($destination, $request)) {
+            $request->session()->put(self::INTENDED_DESTINATION, $destination);
+        }
+    }
+
+    public function consumeIntendedDestination(Request $request, string $fallback): string
+    {
+        $destination = $request->session()->pull(self::INTENDED_DESTINATION);
+        $request->session()->forget('url.intended');
+
+        return is_string($destination) && $this->isSafeDestination($destination, $request)
+            ? $destination
+            : $fallback;
+    }
+
     public function forgetSecondFactorConfirmation(Session $session): void
     {
         $session->forget([
@@ -60,6 +88,8 @@ final class SensitiveActionAssurance
             self::PASSWORD_CONFIRMED_USER_ID,
             self::TWO_FACTOR_CONFIRMED_AT,
             self::TWO_FACTOR_CONFIRMED_USER_ID,
+            self::INTENDED_DESTINATION,
+            'url.intended',
         ]);
     }
 
@@ -78,5 +108,39 @@ final class SensitiveActionAssurance
         $age = Date::now()->unix() - (int) $timestamp;
 
         return $age >= 0 && $age <= (int) config('security.sensitive_action_timeout');
+    }
+
+    private function isSafeDestination(string $destination, Request $request): bool
+    {
+        $destinationParts = parse_url($destination);
+        $requestParts = parse_url($request->root());
+
+        if (! is_array($destinationParts) || ! is_array($requestParts)
+            || ! isset($destinationParts['scheme'], $destinationParts['host'], $requestParts['scheme'], $requestParts['host'])) {
+            return false;
+        }
+
+        $sameOrigin = strcasecmp($destinationParts['scheme'], $requestParts['scheme']) === 0
+            && strcasecmp($destinationParts['host'], $requestParts['host']) === 0
+            && $this->portFor($destinationParts) === $this->portFor($requestParts);
+
+        if (! $sameOrigin || isset($destinationParts['user'], $destinationParts['pass'])) {
+            return false;
+        }
+
+        $path = $destinationParts['path'] ?? '/';
+
+        return $path !== parse_url(route('password.confirm'), PHP_URL_PATH)
+            && $path !== parse_url(route('account.sensitive-confirmation.create'), PHP_URL_PATH);
+    }
+
+    /** @param array<string, int|string> $parts */
+    private function portFor(array $parts): int
+    {
+        if (isset($parts['port'])) {
+            return (int) $parts['port'];
+        }
+
+        return strtolower((string) $parts['scheme']) === 'https' ? 443 : 80;
     }
 }

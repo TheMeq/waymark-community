@@ -46,7 +46,7 @@ final class SensitiveTwoFactorConfirmationController extends Controller
 
         $assurance->recordSecondFactorConfirmation($user, $request->session());
 
-        return redirect()->intended(route('home'));
+        return redirect()->to($assurance->consumeIntendedDestination($request, route('home')));
     }
 
     private function enabledUser(Request $request, SensitiveActionAssurance $assurance): User

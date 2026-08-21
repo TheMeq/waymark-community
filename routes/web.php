@@ -35,13 +35,13 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/account/profile', [AccountProfileController::class, 'edit'])->name('account.profile.edit');
     Route::patch('/account/profile', [AccountProfileController::class, 'update'])->name('account.profile.update');
     Route::get('/account/security', [AccountSecurityController::class, 'show'])
-        ->middleware('password.confirm')
+        ->middleware('sensitive.password-confirmed')
         ->name('account.security.show');
     Route::get('/account/sensitive-confirmation', [SensitiveTwoFactorConfirmationController::class, 'create'])
-        ->middleware('password.confirm')
+        ->middleware('sensitive.password-confirmed')
         ->name('account.sensitive-confirmation.create');
     Route::post('/account/sensitive-confirmation', [SensitiveTwoFactorConfirmationController::class, 'store'])
-        ->middleware(['password.confirm', 'throttle:sensitive-two-factor'])
+        ->middleware(['sensitive.password-confirmed', 'throttle:sensitive-two-factor'])
         ->name('account.sensitive-confirmation.store');
     Route::get('/account/favourites', [FavouriteController::class, 'index'])->name('account.favourites.index');
     Route::post('/favourites/{event}', [FavouriteController::class, 'store'])->name('favourites.store');

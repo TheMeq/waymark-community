@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { createHmac } from 'node:crypto';
 
 test('account security settings are accessible and visually stable', async ({ page }, testInfo) => {
@@ -49,18 +49,16 @@ test('sensitive two-factor confirmation is keyboard-accessible and visually stab
         page.getByRole('button', { name: 'Sign in' }).click(),
     ]);
 
-    await page.getByLabel('Authentication code').fill(totp('JBSWY3DPEHPK3PXP'));
+    await submitTotpWithRolloverRetry(page, 'JBSWY3DPEHPK3PXP', '**/new-here');
+
+    await page.goto('/account/security');
+    await page.getByLabel('Password').fill('password');
     await Promise.all([
-        page.waitForURL('**/new-here'),
+        page.waitForURL('**/account/security'),
         page.getByRole('button', { name: 'Continue' }).click(),
     ]);
 
     await page.goto('/account/sensitive-confirmation');
-    await page.getByLabel('Password').fill('password');
-    await Promise.all([
-        page.waitForURL('**/account/sensitive-confirmation'),
-        page.getByRole('button', { name: 'Continue' }).click(),
-    ]);
 
     const code = page.getByLabel('Authentication code');
     await code.focus();
@@ -81,6 +79,27 @@ test('sensitive two-factor confirmation is keyboard-accessible and visually stab
     });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+async function submitTotpWithRolloverRetry(page: Page, secret: string, destination: string): Promise<void> {
+    const code = page.getByLabel('Authentication code');
+    const submit = page.getByRole('button', { name: 'Continue' });
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+        await code.fill(totp(secret));
+
+        const reachedDestination = page.waitForURL(destination, { timeout: 5_000 })
+            .then(() => true)
+            .catch(() => false);
+
+        await submit.click();
+
+        if (await reachedDestination) {
+            return;
+        }
+    }
+
+    throw new Error('The authenticator code rolled over before it could be submitted.');
+}
 
 function totp(secret: string): string {
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
