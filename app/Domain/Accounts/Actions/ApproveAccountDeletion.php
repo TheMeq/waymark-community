@@ -4,10 +4,12 @@ namespace App\Domain\Accounts\Actions;
 
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Models\AccountDeletionRequest;
+use App\Domain\Accounts\Models\PersonalDataExport;
 use App\Domain\Membership\Enums\AccountStatus;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -18,8 +20,9 @@ final readonly class ApproveAccountDeletion
     public function handle(User $actor, AccountDeletionRequest $request, ?string $reviewNote = null): AccountDeletionRequest
     {
         Gate::forUser($actor)->authorize('reviewAccountDeletion', $request);
+        $exportPaths = [];
 
-        return DB::transaction(function () use ($actor, $request, $reviewNote): AccountDeletionRequest {
+        $request = DB::transaction(function () use ($actor, $request, $reviewNote, &$exportPaths): AccountDeletionRequest {
             $request = AccountDeletionRequest::query()->lockForUpdate()->findOrFail($request->id);
             $user = User::query()->lockForUpdate()->findOrFail($request->user_id);
 
@@ -30,6 +33,17 @@ final readonly class ApproveAccountDeletion
             if ($user->isInstallationOwner() || $user->role === AccountRole::Administrator) {
                 throw ValidationException::withMessages(['account' => 'Installation owners and administrator accounts cannot be anonymised through this workflow.']);
             }
+
+            PersonalDataExport::query()->where('user_id', $user->id)->lockForUpdate()->get()->each(function (PersonalDataExport $export) use (&$exportPaths): void {
+                if ($export->hasSafeStoragePath()) {
+                    $exportPaths[] = $export->storage_path;
+                }
+                $export->update([
+                    'status' => 'revoked', 'storage_path' => null,
+                    'download_token' => null, 'download_token_hash' => null,
+                    'processing_started_at' => null, 'expires_at' => null,
+                ]);
+            });
 
             $user->communicationPreferences()->delete();
             $user->favourites()->delete();
@@ -63,5 +77,15 @@ final readonly class ApproveAccountDeletion
 
             return $request->fresh();
         });
+
+        foreach ($exportPaths as $path) {
+            try {
+                Storage::disk('local')->delete($path);
+            } catch (\Throwable) {
+                // State revocation has committed; a later retention run can retry safe cleanup.
+            }
+        }
+
+        return $request;
     }
 }

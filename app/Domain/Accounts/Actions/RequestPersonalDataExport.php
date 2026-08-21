@@ -5,12 +5,17 @@ namespace App\Domain\Accounts\Actions;
 use App\Domain\Accounts\Models\PersonalDataExport;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 final class RequestPersonalDataExport
 {
     public function handle(User $user): PersonalDataExport
     {
         return DB::transaction(function () use ($user): PersonalDataExport {
+            $user = User::query()->lockForUpdate()->findOrFail($user->id);
+            if (! $user->isActive()) {
+                throw ValidationException::withMessages(['account' => 'Disabled accounts cannot request personal data exports.']);
+            }
             $existing = PersonalDataExport::query()
                 ->where('user_id', $user->id)
                 ->where(function ($query): void {

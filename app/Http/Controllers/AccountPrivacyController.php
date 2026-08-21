@@ -51,7 +51,7 @@ final class AccountPrivacyController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
-        abort_unless($export->user_id === $user->id && $export->status === 'ready' && ! $export->isExpired() && $export->acceptsDownloadToken($request->string('token')->toString()), 403);
+        abort_unless($user->isActive() && $export->user_id === $user->id && $export->status === 'ready' && ! $export->isExpired() && $export->acceptsDownloadToken($request->string('token')->toString()), 403);
         abort_unless($export->hasSafeStoragePath() && Storage::disk('local')->exists($export->storage_path), 403);
 
         return Storage::disk('local')->download($export->storage_path, 'waymark-personal-data-export.json', ['Content-Type' => 'application/json']);

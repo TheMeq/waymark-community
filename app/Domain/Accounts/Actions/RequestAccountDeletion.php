@@ -12,15 +12,17 @@ final class RequestAccountDeletion
 {
     public function handle(User $user): AccountDeletionRequest
     {
-        if ($user->isInstallationOwner()) {
-            throw ValidationException::withMessages(['account' => 'Transfer installation ownership before requesting account deletion.']);
-        }
-
-        if ($user->role === AccountRole::Administrator) {
-            throw ValidationException::withMessages(['account' => 'Administrator accounts require an administrator review before they can be removed.']);
-        }
-
         return DB::transaction(function () use ($user): AccountDeletionRequest {
+            $user = User::query()->lockForUpdate()->findOrFail($user->id);
+            if (! $user->isActive()) {
+                throw ValidationException::withMessages(['account' => 'Disabled accounts cannot request deletion.']);
+            }
+            if ($user->isInstallationOwner()) {
+                throw ValidationException::withMessages(['account' => 'Transfer installation ownership before requesting account deletion.']);
+            }
+            if ($user->role === AccountRole::Administrator) {
+                throw ValidationException::withMessages(['account' => 'Administrator accounts require an administrator review before they can be removed.']);
+            }
             $existing = AccountDeletionRequest::query()->where('user_id', $user->id)->where('status', 'requested')->lockForUpdate()->first();
 
             return $existing ?? AccountDeletionRequest::query()->create([
