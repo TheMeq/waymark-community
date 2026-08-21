@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
 use Laravel\Fortify\Fortify;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 final class SensitiveActionAssuranceTest extends TestCase
@@ -126,6 +127,38 @@ final class SensitiveActionAssuranceTest extends TestCase
             ->assertRedirect(route('new-here'))
             ->assertSessionMissing('sensitive.intended_destination')
             ->assertSessionMissing('url.intended');
+    }
+
+    #[DataProvider('unsafeSensitiveDestinationProvider')]
+    public function test_unsafe_sensitive_destinations_are_discarded_before_password_confirmation_redirects(
+        string $destinationType,
+        string $path,
+    ): void {
+        $user = User::factory()->create(['password' => 'password']);
+        $origin = rtrim(url('/'), '/');
+        $destination = match ($destinationType) {
+            'username' => preg_replace('#^(https?://)#', '$1assurance@', $origin).$path,
+            'username-password' => preg_replace('#^(https?://)#', '$1assurance:secret@', $origin).$path,
+            'protocol-relative' => '//attacker.example'.$path,
+            default => $origin.$path,
+        };
+
+        $this->actingAs($user)
+            ->withSession(['sensitive.intended_destination' => $destination])
+            ->post(route('password.confirm.store'), ['password' => 'password'])
+            ->assertRedirect(route('new-here'))
+            ->assertSessionMissing('sensitive.intended_destination');
+    }
+
+    public function test_a_legitimate_same_origin_destination_preserves_its_query_and_fragment(): void
+    {
+        $user = User::factory()->create(['password' => 'password']);
+        $destination = url('/_testing/sensitive-action?tab=security#two-factor');
+
+        $this->actingAs($user)
+            ->withSession(['sensitive.intended_destination' => $destination])
+            ->post(route('password.confirm.store'), ['password' => 'password'])
+            ->assertRedirect($destination);
     }
 
     public function test_the_sensitive_confirmation_route_is_not_saved_as_its_own_password_destination(): void
@@ -360,6 +393,25 @@ final class SensitiveActionAssuranceTest extends TestCase
         $user->refresh();
         $this->assertTrue(Hash::check('new-password', $user->password));
         $this->assertGuest();
+    }
+
+    /** @return array<string, array{string, string}> */
+    public static function unsafeSensitiveDestinationProvider(): array
+    {
+        return [
+            'username-only userinfo' => ['username', '/_testing/sensitive-action'],
+            'username-and-password userinfo' => ['username-password', '/_testing/sensitive-action'],
+            'raw dot segment to password confirmation' => ['same-origin', '/foo/../user/confirm-password'],
+            'encoded dot segment to password confirmation' => ['same-origin', '/foo/%2e%2e/user/confirm-password'],
+            'double-encoded dot segment to password confirmation' => ['same-origin', '/foo/%252e%252e/user/confirm-password'],
+            'encoded slash dot segment to password confirmation' => ['same-origin', '/foo%2f..%2fuser%2fconfirm-password'],
+            'double-encoded slash dot segment to password confirmation' => ['same-origin', '/foo%252f..%252fuser%252fconfirm-password'],
+            'raw backslash dot segment to password confirmation' => ['same-origin', '/foo\\..\\user\\confirm-password'],
+            'encoded backslash dot segment to password confirmation' => ['same-origin', '/foo%5c..%5cuser%5cconfirm-password'],
+            'double-encoded backslash dot segment to password confirmation' => ['same-origin', '/foo%255c..%255cuser%255cconfirm-password'],
+            'protocol-relative destination' => ['protocol-relative', '/user/confirm-password'],
+            'encoded protocol-relative path' => ['same-origin', '/%2f%2fattacker.example/user/confirm-password'],
+        ];
     }
 
     private function twoFactorEnabledUser(): User

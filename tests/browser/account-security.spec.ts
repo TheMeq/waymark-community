@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { createHmac } from 'node:crypto';
+import { errors } from 'playwright';
 
 test('account security settings are accessible and visually stable', async ({ page }, testInfo) => {
     const email = `security-${testInfo.project.name}@example.test`;
@@ -80,28 +81,92 @@ test('sensitive two-factor confirmation is keyboard-accessible and visually stab
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test('TOTP retry only follows a navigation timeout after the counter rolls over', async () => {
+    let currentTime = 29_999;
+    let submissions = 0;
+    const originalDateNow = Date.now;
+    Date.now = () => currentTime;
+
+    try {
+        const page = fakeTotpPage(() => {
+            submissions++;
+
+            if (submissions === 1) {
+                currentTime = 30_000;
+
+                throw new errors.TimeoutError('TOTP navigation timed out.');
+            }
+        });
+
+        await submitTotpWithRolloverRetry(page, 'JBSWY3DPEHPK3PXP', '**/new-here');
+
+        expect(submissions).toBe(2);
+    } finally {
+        Date.now = originalDateNow;
+    }
+});
+
+test('TOTP retry rethrows a non-timeout navigation failure', async () => {
+    const failure = new Error('The browser disconnected.');
+    let submissions = 0;
+    const page = fakeTotpPage(() => {
+        submissions++;
+
+        throw failure;
+    });
+
+    await expect(submitTotpWithRolloverRetry(page, 'JBSWY3DPEHPK3PXP', '**/new-here'))
+        .rejects.toBe(failure);
+    expect(submissions).toBe(1);
+});
+
+test('TOTP retry rethrows a timeout when its counter has not advanced', async () => {
+    const timeout = new errors.TimeoutError('TOTP navigation timed out.');
+    let submissions = 0;
+    const page = fakeTotpPage(() => {
+        submissions++;
+
+        throw timeout;
+    });
+
+    await expect(submitTotpWithRolloverRetry(page, 'JBSWY3DPEHPK3PXP', '**/new-here'))
+        .rejects.toBe(timeout);
+    expect(submissions).toBe(1);
+});
+
 async function submitTotpWithRolloverRetry(page: Page, secret: string, destination: string): Promise<void> {
     const code = page.getByLabel('Authentication code');
     const submit = page.getByRole('button', { name: 'Continue' });
 
     for (let attempt = 0; attempt < 2; attempt++) {
-        await code.fill(totp(secret));
+        const counter = totpCounter();
+        await code.fill(totp(secret, counter));
 
-        const reachedDestination = page.waitForURL(destination, { timeout: 5_000 })
-            .then(() => true)
-            .catch(() => false);
+        const navigation = page.waitForURL(destination, { timeout: 5_000 });
 
         await submit.click();
 
-        if (await reachedDestination) {
+        try {
+            await navigation;
+
             return;
+        } catch (error) {
+            if (! (error instanceof errors.TimeoutError)
+                || attempt === 1
+                || totpCounter() === counter) {
+                throw error;
+            }
         }
     }
 
-    throw new Error('The authenticator code rolled over before it could be submitted.');
+    throw new Error('Unreachable TOTP retry state.');
 }
 
-function totp(secret: string): string {
+function totpCounter(): number {
+    return Math.floor(Date.now() / 30_000);
+}
+
+function totp(secret: string, counter = totpCounter()): string {
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
     let bits = '';
 
@@ -110,7 +175,6 @@ function totp(secret: string): string {
     }
 
     const key = Buffer.from(bits.match(/.{1,8}/g)?.map((octet) => Number.parseInt(octet.padEnd(8, '0'), 2)) ?? []);
-    const counter = Math.floor(Date.now() / 30_000);
     const counterBuffer = Buffer.alloc(8);
     counterBuffer.writeUInt32BE(Math.floor(counter / 0x1_0000_0000), 0);
     counterBuffer.writeUInt32BE(counter >>> 0, 4);
@@ -123,4 +187,12 @@ function totp(secret: string): string {
         | digest[offset + 3];
 
     return String(value % 1_000_000).padStart(6, '0');
+}
+
+function fakeTotpPage(waitForURL: () => void): Page {
+    return {
+        getByLabel: () => ({ fill: async () => undefined }),
+        getByRole: () => ({ click: async () => undefined }),
+        waitForURL: async () => waitForURL(),
+    } as unknown as Page;
 }

@@ -124,14 +124,19 @@ final class SensitiveActionAssurance
             && strcasecmp($destinationParts['host'], $requestParts['host']) === 0
             && $this->portFor($destinationParts) === $this->portFor($requestParts);
 
-        if (! $sameOrigin || isset($destinationParts['user'], $destinationParts['pass'])) {
+        if (! $sameOrigin
+            || array_key_exists('user', $destinationParts)
+            || array_key_exists('pass', $destinationParts)) {
             return false;
         }
 
-        $path = $destinationParts['path'] ?? '/';
+        $path = $this->canonicalPath($destinationParts['path'] ?? '/');
+        $passwordConfirmationPath = $this->canonicalPath((string) parse_url(route('password.confirm'), PHP_URL_PATH));
+        $sensitiveConfirmationPath = $this->canonicalPath((string) parse_url(route('account.sensitive-confirmation.create'), PHP_URL_PATH));
 
-        return $path !== parse_url(route('password.confirm'), PHP_URL_PATH)
-            && $path !== parse_url(route('account.sensitive-confirmation.create'), PHP_URL_PATH);
+        return $path !== null
+            && $path !== $passwordConfirmationPath
+            && $path !== $sensitiveConfirmationPath;
     }
 
     /** @param array<string, int|string> $parts */
@@ -142,5 +147,42 @@ final class SensitiveActionAssurance
         }
 
         return strtolower((string) $parts['scheme']) === 'https' ? 443 : 80;
+    }
+
+    private function canonicalPath(string $path): ?string
+    {
+        $decodedPath = $path;
+
+        for ($decodingPass = 0; $decodingPass < 2; $decodingPass++) {
+            $nextPath = rawurldecode($decodedPath);
+
+            if ($nextPath === $decodedPath) {
+                break;
+            }
+
+            $decodedPath = $nextPath;
+        }
+
+        if (str_contains($decodedPath, '\\') || str_starts_with($decodedPath, '//')) {
+            return null;
+        }
+
+        $segments = [];
+
+        foreach (explode('/', $decodedPath) as $segment) {
+            if ($segment === '' || $segment === '.') {
+                continue;
+            }
+
+            if ($segment === '..') {
+                array_pop($segments);
+
+                continue;
+            }
+
+            $segments[] = $segment;
+        }
+
+        return '/'.implode('/', $segments);
     }
 }
