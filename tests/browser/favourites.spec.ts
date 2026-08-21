@@ -10,13 +10,17 @@ async function expectNoHorizontalOverflow(page: Page) {
     expect(width.scroll).toBeLessThanOrEqual(width.client);
 }
 
-async function signIn(page: Page) {
-    await page.goto('/login');
-    await page.getByLabel('Email address').fill('morgan.leader@example.test');
-    await page.getByLabel('Password').fill('password');
+async function signIn(page: Page, projectName: string) {
+    const email = `favourites-${projectName}@example.test`;
+
+    await page.goto('/register');
+    await page.getByLabel('Name').fill(`Favourite ${projectName}`);
+    await page.getByLabel('Email address').fill(email);
+    await page.getByLabel('Password', { exact: true }).fill('password');
+    await page.getByLabel('Confirm password').fill('password');
     await Promise.all([
         page.waitForURL('**/new-here'),
-        page.getByRole('button', { name: 'Sign in' }).click(),
+        page.getByRole('button', { name: 'Create account' }).click(),
     ]);
 }
 
@@ -33,7 +37,7 @@ async function tabTo(page: Page, target: ReturnType<Page['getByRole']>) {
 }
 
 test('an authenticated user can save, list and remove a favourite accessibly', async ({ page }, testInfo) => {
-    await signIn(page);
+    await signIn(page, testInfo.project.name);
     await page.goto('/walks/ridge-and-reservoir');
     await page.getByRole('button', { name: 'Save to favourites' }).click();
     await expect(page.getByRole('button', { name: 'Remove from favourites' })).toBeVisible();

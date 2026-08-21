@@ -8,6 +8,7 @@ use App\Domain\Events\Models\Event;
 use App\Domain\Holidays\Actions\AssignHolidayChild;
 use App\Domain\Holidays\Actions\SaveHolidayDetails;
 use App\Domain\Socials\Actions\SaveSocialDetails;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -88,6 +89,21 @@ final class PublicHolidayPagesTest extends TestCase
             ->assertSee('/images/demo/coastal-weekend.png', false)
             ->assertDontSee('<form', false)
             ->assertDontSee('RSVP');
+    }
+
+    public function test_holiday_cards_and_detail_use_the_public_organiser_display_name_contract(): void
+    {
+        $organiser = User::factory()->create(['name' => 'Alex Morgan', 'display_name' => 'Trail Alex']);
+        $event = $this->publishedHoliday('Display-safe holiday', '+2 weeks', ['organiser_id' => $organiser->id]);
+
+        $this->get('/weekends')
+            ->assertOk()
+            ->assertSee('Trail Alex')
+            ->assertDontSee('Alex Morgan');
+        $this->get('/weekends/'.$event->slug)
+            ->assertOk()
+            ->assertSee('Trail Alex')
+            ->assertDontSee('Alex Morgan');
     }
 
     public function test_empty_optional_holiday_sections_are_omitted_cleanly(): void

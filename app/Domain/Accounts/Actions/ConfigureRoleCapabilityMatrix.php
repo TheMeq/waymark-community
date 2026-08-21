@@ -12,6 +12,8 @@ use Illuminate\Validation\ValidationException;
 
 final class ConfigureRoleCapabilityMatrix
 {
+    public function __construct(private readonly RecordAccountAdministrationAudit $audit) {}
+
     /**
      * @param  array<string, array<int, ModuleCapability|string>>  $matrix
      */
@@ -36,12 +38,17 @@ final class ConfigureRoleCapabilityMatrix
             }
         }
 
-        DB::transaction(function () use ($rows): void {
+        DB::transaction(function () use ($actor, $matrix, $rows): void {
             RoleCapability::query()->delete();
 
             if ($rows !== []) {
                 RoleCapability::query()->insert($rows);
             }
+
+            $this->audit->handle($actor, $actor, 'role_capability_matrix_updated', [
+                'roles_updated' => count($matrix),
+                'capability_assignments' => count($rows),
+            ]);
         });
     }
 

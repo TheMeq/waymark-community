@@ -6,6 +6,7 @@ use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Domain\Socials\Actions\SaveSocialDetails;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -67,6 +68,21 @@ final class PublicSocialPagesTest extends TestCase
 
         $response->assertSee(route('socials.attachment', [$event->slug, 0]), false);
         $this->get('/socials/'.$event->slug.'/attachments/0')->assertOk();
+    }
+
+    public function test_social_cards_and_detail_use_the_public_organiser_display_name_contract(): void
+    {
+        $organiser = User::factory()->create(['name' => 'Alex Morgan', 'display_name' => null]);
+        $event = $this->publishedSocial('Display-safe social', '+1 week', ['organiser_id' => $organiser->id]);
+
+        $this->get('/socials')
+            ->assertOk()
+            ->assertSee('Alex M.')
+            ->assertDontSee('Alex Morgan');
+        $this->get('/socials/'.$event->slug)
+            ->assertOk()
+            ->assertSee('Alex M.')
+            ->assertDontSee('Alex Morgan');
     }
 
     public function test_empty_optional_social_fields_omit_their_sections_cleanly(): void

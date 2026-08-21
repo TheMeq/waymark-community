@@ -22,7 +22,7 @@ final readonly class PublicHolidayDetailViewModel
             'status' => PublicEventStatus::lifecycle($event->status),
             'destination' => $holiday?->destination,
             'accommodation' => $holiday?->accommodation,
-            'organiser' => $event->organiser?->name,
+            'organiser' => $event->organiser?->publicDisplayName(),
             'pricing' => self::pricing($holiday?->pricing_type, $holiday?->price_amount, $holiday?->currency, $holiday?->deposit_amount, $holiday?->pricing_notes),
             'capacity' => $holiday?->capacity,
             'availability' => $showBookingState ? $holiday?->availability : null,

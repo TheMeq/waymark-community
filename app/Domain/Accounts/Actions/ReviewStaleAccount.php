@@ -2,6 +2,7 @@
 
 namespace App\Domain\Accounts\Actions;
 
+use App\Domain\Accounts\Models\InstallationOwnership;
 use App\Domain\Accounts\Models\StaleAccountReview;
 use App\Domain\Membership\Enums\AccountStatus;
 use App\Models\User;
@@ -25,6 +26,14 @@ final readonly class ReviewStaleAccount
             $user = User::query()->lockForUpdate()->findOrFail($review->user_id);
             if ($review->status !== 'pending') {
                 throw ValidationException::withMessages(['review' => 'This stale account has already been reviewed.']);
+            }
+            if ($decision === 'deactivate' && InstallationOwnership::query()
+                ->lockForUpdate()
+                ->where('owner_user_id', $user->getKey())
+                ->exists()) {
+                throw ValidationException::withMessages([
+                    'owner' => 'Transfer installation ownership before deactivating the installation owner.',
+                ]);
             }
             if ($decision === 'deactivate') {
                 $user->forceFill(['account_status' => AccountStatus::Disabled])->save();

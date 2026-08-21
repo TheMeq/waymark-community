@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Domain\Accounts\Models\CommunicationPreference;
+use App\Http\Middleware\ThrottleRegistration;
 use App\Models\User;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -76,6 +77,82 @@ final class PublicAccountAccessTest extends TestCase
         $this->assertAuthenticatedAs($user);
         $this->assertNull($user->email_verified_at);
         Notification::assertSentTo($user, VerifyEmail::class);
+    }
+
+    public function test_registration_is_rate_limited_by_normalised_email_and_ip_without_creating_an_account_or_sending_mail_after_exhaustion(): void
+    {
+        Notification::fake();
+        $email = 'rate.limited@example.test';
+        $payload = ['name' => '', 'email' => $email, 'password' => 'password', 'password_confirmation' => 'password'];
+
+        $this->assertContains(ThrottleRegistration::class, Route::getRoutes()->getByName('register.store')->gatherMiddleware());
+
+        foreach (range(1, 5) as $_) {
+            $this->post('/register', $payload)->assertSessionHasErrors('name');
+        }
+
+        $this->post('/register', $payload)->assertTooManyRequests();
+
+        $this->assertDatabaseMissing('users', ['email' => $email]);
+        Notification::assertNothingSent();
+    }
+
+    public function test_registration_limiter_separates_normalised_email_keys_and_decays(): void
+    {
+        $first = ['name' => '', 'email' => 'First.Limiter@example.test', 'password' => 'password', 'password_confirmation' => 'password'];
+        $normalisedFirst = ['name' => '', 'email' => 'first.limiter@example.test', 'password' => 'password', 'password_confirmation' => 'password'];
+        $second = ['name' => '', 'email' => 'second.limiter@example.test', 'password' => 'password', 'password_confirmation' => 'password'];
+
+        foreach (range(1, 5) as $_) {
+            $this->post('/register', $first)->assertSessionHasErrors('name');
+        }
+
+        $this->post('/register', $normalisedFirst)->assertTooManyRequests();
+        $this->post('/register', $second)->assertSessionHasErrors('name');
+        $this->travel(61)->seconds();
+        $this->post('/register', $normalisedFirst)->assertSessionHasErrors('name');
+    }
+
+    public function test_registration_limiter_bounds_varied_emails_from_one_source_without_creating_accounts_or_sending_mail(): void
+    {
+        Notification::fake();
+
+        foreach (range(1, 10) as $attempt) {
+            $this->post('/register', [
+                'name' => '',
+                'email' => 'source-'.$attempt.'@example.test',
+                'password' => 'password',
+                'password_confirmation' => 'password',
+            ])->assertSessionHasErrors('name');
+        }
+
+        $this->post('/register', [
+            'name' => '',
+            'email' => 'source-over-limit@example.test',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ])->assertTooManyRequests();
+
+        $this->assertDatabaseCount('users', 0);
+        Notification::assertNothingSent();
+    }
+
+    public function test_registration_limiter_keeps_same_email_attempts_isolated_by_source_ip(): void
+    {
+        $payload = ['name' => '', 'email' => 'shared-source@example.test', 'password' => 'password', 'password_confirmation' => 'password'];
+
+        foreach (range(1, 5) as $_) {
+            $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.10'])
+                ->post('/register', $payload)
+                ->assertSessionHasErrors('name');
+        }
+
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.10'])
+            ->post('/register', $payload)
+            ->assertTooManyRequests();
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.11'])
+            ->post('/register', $payload)
+            ->assertSessionHasErrors('name');
     }
 
     public function test_unverified_accounts_can_sign_in_and_read_the_informational_new_here_guide(): void

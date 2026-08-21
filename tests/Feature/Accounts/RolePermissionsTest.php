@@ -6,12 +6,15 @@ use App\Domain\Accounts\Actions\ConfigureRoleCapabilities;
 use App\Domain\Accounts\Actions\ConfigureRoleCapabilityMatrix;
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Enums\ModuleCapability;
+use App\Domain\Accounts\Models\AccountAdministrationAudit;
 use App\Domain\Accounts\Models\RoleCapability;
+use App\Domain\Accounts\Security\SensitiveActionAssurance;
 use App\Domain\Events\Models\Event;
 use App\Domain\Membership\Enums\AccountStatus;
 use App\Domain\Membership\Enums\MembershipStatus;
 use App\Domain\Walks\Models\Walk;
 use App\Filament\Pages\RolePermissionSettings;
+use App\Http\Middleware\RequireSensitiveActionAssurance;
 use App\Models\User;
 use App\Policies\HolidayPolicy;
 use App\Policies\SocialPolicy;
@@ -297,16 +300,26 @@ final class RolePermissionsTest extends TestCase
         $administrator = User::factory()->create(['role' => AccountRole::Administrator]);
         $moderator = User::factory()->create(['role' => AccountRole::Moderator]);
 
-        $this->actingAs($administrator)
+        $this->actingAs($administrator)->withSession([
+            'auth.password_confirmed_at' => now()->unix(),
+            SensitiveActionAssurance::PASSWORD_CONFIRMED_USER_ID => $administrator->id,
+        ])
             ->get('/admin/role-permissions')
             ->assertSuccessful()
             ->assertSeeText('Role permissions');
 
-        $this->actingAs($moderator)
+        $this->actingAs($moderator)->withSession([
+            'auth.password_confirmed_at' => now()->unix(),
+            SensitiveActionAssurance::PASSWORD_CONFIRMED_USER_ID => $moderator->id,
+        ])
             ->get('/admin/role-permissions')
             ->assertForbidden();
 
         $this->actingAs($administrator);
+        app('session.store')->put([
+            'auth.password_confirmed_at' => now()->unix(),
+            SensitiveActionAssurance::PASSWORD_CONFIRMED_USER_ID => $administrator->id,
+        ]);
 
         Livewire::test(RolePermissionSettings::class)
             ->fillForm([
@@ -322,6 +335,85 @@ final class RolePermissionsTest extends TestCase
 
         $this->assertTrue(User::factory()->create(['role' => AccountRole::Moderator])
             ->hasCapability(ModuleCapability::ManageHolidays));
+    }
+
+    public function test_role_permission_matrix_mutation_requires_fresh_sensitive_assurance_and_records_an_audit(): void
+    {
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator]);
+        $before = RoleCapability::query()->orderBy('role')->orderBy('capability')->get(['role', 'capability'])->map->toArray()->all();
+
+        $this->actingAs($administrator)
+            ->get('/admin/role-permissions')
+            ->assertRedirect(route('password.confirm'));
+
+        $this->assertContains(RequireSensitiveActionAssurance::class, Livewire::getPersistentMiddleware());
+
+        app('session.store')->put([
+            'auth.password_confirmed_at' => now()->subSeconds(config('security.sensitive_action_timeout') + 1)->unix(),
+            SensitiveActionAssurance::PASSWORD_CONFIRMED_USER_ID => $administrator->id,
+        ]);
+        $this->get('/admin/role-permissions')->assertRedirect(route('password.confirm'));
+
+        Livewire::test(RolePermissionSettings::class)
+            ->call('save')
+            ->assertForbidden();
+
+        $this->assertSame($before, RoleCapability::query()->orderBy('role')->orderBy('capability')->get(['role', 'capability'])->map->toArray()->all());
+        $this->assertDatabaseCount('account_administration_audits', 0);
+
+        app('session.store')->forget([
+            'auth.password_confirmed_at',
+            SensitiveActionAssurance::PASSWORD_CONFIRMED_USER_ID,
+        ]);
+        Livewire::test(RolePermissionSettings::class)
+            ->call('save')
+            ->assertForbidden();
+
+        $this->assertSame($before, RoleCapability::query()->orderBy('role')->orderBy('capability')->get(['role', 'capability'])->map->toArray()->all());
+        $this->assertDatabaseCount('account_administration_audits', 0);
+
+        app('session.store')->put([
+            'auth.password_confirmed_at' => now()->subSeconds(config('security.sensitive_action_timeout') + 1)->unix(),
+            SensitiveActionAssurance::PASSWORD_CONFIRMED_USER_ID => $administrator->id,
+        ]);
+        Livewire::test(RolePermissionSettings::class)
+            ->call('save')
+            ->assertForbidden();
+
+        $this->assertSame($before, RoleCapability::query()->orderBy('role')->orderBy('capability')->get(['role', 'capability'])->map->toArray()->all());
+        $this->assertDatabaseCount('account_administration_audits', 0);
+
+        $administrator->forceFill([
+            'two_factor_secret' => 'enabled-two-factor-secret',
+            'two_factor_confirmed_at' => now(),
+        ])->save();
+        app('session.store')->put([
+            'auth.password_confirmed_at' => now()->unix(),
+            SensitiveActionAssurance::PASSWORD_CONFIRMED_USER_ID => $administrator->id,
+        ]);
+
+        Livewire::test(RolePermissionSettings::class)
+            ->call('save')
+            ->assertForbidden();
+
+        $this->assertSame($before, RoleCapability::query()->orderBy('role')->orderBy('capability')->get(['role', 'capability'])->map->toArray()->all());
+        $this->assertDatabaseCount('account_administration_audits', 0);
+
+        app('session.store')->put([
+            SensitiveActionAssurance::TWO_FACTOR_CONFIRMED_AT => now()->unix(),
+            SensitiveActionAssurance::TWO_FACTOR_CONFIRMED_USER_ID => $administrator->id,
+        ]);
+
+        Livewire::test(RolePermissionSettings::class)
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $audit = AccountAdministrationAudit::query()->sole();
+        $this->assertSame('role_capability_matrix_updated', $audit->action);
+        $this->assertSame($administrator->id, $audit->actor_user_id);
+        $this->assertSame($administrator->id, $audit->subject_user_id);
+        $this->assertSame(count(AccountRole::cases()), $audit->context['roles_updated']);
+        $this->assertGreaterThan(0, $audit->context['capability_assignments']);
     }
 
     public function test_unverified_walk_leader_cannot_manage_walks_or_access_the_admin_panel(): void
@@ -474,12 +566,55 @@ final class RolePermissionsTest extends TestCase
         ], $this->capabilitiesFor(AccountRole::Administrator));
     }
 
+    public function test_role_capability_matrix_rolls_back_when_its_required_audit_cannot_be_recorded(): void
+    {
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator]);
+        $before = RoleCapability::query()->orderBy('role')->orderBy('capability')->get(['role', 'capability'])->map->toArray()->all();
+
+        AccountAdministrationAudit::creating(static function (): never {
+            throw new \RuntimeException('Audit storage is unavailable.');
+        });
+
+        try {
+            app(ConfigureRoleCapabilityMatrix::class)->handle($administrator, $this->completeMatrix());
+            $this->fail('A role matrix change was committed without its required audit record.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('Audit storage is unavailable.', $exception->getMessage());
+        } finally {
+            AccountAdministrationAudit::flushEventListeners();
+        }
+
+        $this->assertSame($before, RoleCapability::query()->orderBy('role')->orderBy('capability')->get(['role', 'capability'])->map->toArray()->all());
+        $this->assertDatabaseCount('account_administration_audits', 0);
+    }
+
     private function walkFor(User $organiser): Walk
     {
         return Walk::query()->create([
             'event_id' => Event::factory()->for($organiser, 'organiser')->create()->id,
             'primary_leader_id' => $organiser->id,
         ]);
+    }
+
+    /** @return array<string, array<int, ModuleCapability>> */
+    private function completeMatrix(): array
+    {
+        return [
+            AccountRole::RegisteredUser->value => [],
+            AccountRole::VerifiedMember->value => [],
+            AccountRole::WalkLeader->value => [
+                ModuleCapability::AccessAdministration,
+                ModuleCapability::CreateWalks,
+            ],
+            AccountRole::Moderator->value => [
+                ModuleCapability::AccessAdministration,
+                ModuleCapability::ManageHolidays,
+            ],
+            AccountRole::Administrator->value => [
+                ModuleCapability::AccessAdministration,
+                ModuleCapability::ManagePermissions,
+            ],
+        ];
     }
 
     /** @return array<int, string> */

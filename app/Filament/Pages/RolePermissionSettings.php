@@ -6,6 +6,7 @@ use App\Domain\Accounts\Actions\ConfigureRoleCapabilityMatrix;
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Accounts\Models\RoleCapability;
+use App\Domain\Accounts\Security\SensitiveActionAssurance;
 use App\Models\User;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Notifications\Notification;
@@ -21,6 +22,8 @@ final class RolePermissionSettings extends Page
     protected static string|\UnitEnum|null $navigationGroup = 'Configuration';
 
     protected static ?string $navigationLabel = 'Role permissions';
+
+    protected static string|array $routeMiddleware = ['sensitive.confirmed'];
 
     protected string $view = 'filament.pages.role-permission-settings';
 
@@ -75,6 +78,7 @@ final class RolePermissionSettings extends Page
     {
         /** @var User $user */
         $user = auth()->user();
+        $this->ensureSensitiveAssurance($user);
         $roles = $this->form->getState()['roles'] ?? [];
 
         app(ConfigureRoleCapabilityMatrix::class)->handle($user, $roles);
@@ -83,6 +87,19 @@ final class RolePermissionSettings extends Page
             ->success()
             ->title('Role permissions saved')
             ->send();
+    }
+
+    private function ensureSensitiveAssurance(User $user): void
+    {
+        $assurance = app(SensitiveActionAssurance::class);
+        $session = app('session.store');
+
+        abort_unless($assurance->hasRecentPasswordConfirmation($user, $session), 403);
+        abort_unless(
+            ! $assurance->requiresSecondFactor($user)
+                || $assurance->hasRecentSecondFactorConfirmation($user, $session),
+            403,
+        );
     }
 
     /** @return array<string, string> */

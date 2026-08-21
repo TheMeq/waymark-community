@@ -14,8 +14,13 @@ final class FlagStaleAccountsForReview
         $count = 0;
 
         User::query()->where('account_status', AccountStatus::Active->value)
-            ->whereNotNull('last_active_at')
-            ->where('last_active_at', '<=', $threshold)
+            ->where(function ($query) use ($threshold): void {
+                $query->where('last_active_at', '<=', $threshold)
+                    ->orWhere(function ($query) use ($threshold): void {
+                        $query->whereNull('last_active_at')
+                            ->where('created_at', '<=', $threshold);
+                    });
+            })
             ->orderBy('id')->limit($limit)->each(function (User $user) use (&$count): void {
                 $review = StaleAccountReview::query()->firstOrCreate(['user_id' => $user->id], [
                     'status' => 'pending', 'flagged_at' => now(),

@@ -69,6 +69,16 @@ class FortifyServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by('sensitive-two-factor:'.($request->user()?->getAuthIdentifier() ?? $request->ip()));
         });
 
+        RateLimiter::for('registration', function (Request $request) {
+            $email = Str::transliterate(Str::lower(trim((string) $request->input(Fortify::username()))));
+            $ip = $request->ip();
+
+            return [
+                Limit::perMinute(5)->by('registration:email:'.$email.'|'.$ip),
+                Limit::perMinute(10)->by('registration:ip:'.$ip),
+            ];
+        });
+
     }
 
     private function accountView(string $view, Request $request): View

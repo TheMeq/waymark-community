@@ -4,13 +4,16 @@ namespace Tests\Feature\Accounts;
 
 use App\Domain\Accounts\Actions\ApproveAccountDeletion;
 use App\Domain\Accounts\Actions\EstablishInitialInstallationOwner;
+use App\Domain\Accounts\Actions\FlagStaleAccountsForReview;
 use App\Domain\Accounts\Actions\ProcessPersonalDataExports;
 use App\Domain\Accounts\Actions\RequestAccountDeletion;
 use App\Domain\Accounts\Actions\RequestPersonalDataExport;
+use App\Domain\Accounts\Actions\ReviewStaleAccount;
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Models\CommunicationPreference;
 use App\Domain\Accounts\Models\Favourite;
 use App\Domain\Accounts\Models\PersonalDataExport;
+use App\Domain\Accounts\Models\StaleAccountReview;
 use App\Domain\Events\Models\Event;
 use App\Domain\Membership\Enums\AccountStatus;
 use App\Models\User;
@@ -143,6 +146,40 @@ final class AccountLifecycleTest extends TestCase
         $this->assertDatabaseMissing('stale_account_reviews', ['user_id' => $fresh->id]);
         $this->assertSame(AccountStatus::Active, $stale->fresh()->account_status);
         $this->assertSame('Stale Person', $stale->fresh()->name);
+    }
+
+    public function test_stale_account_flagging_includes_old_never_active_accounts_and_uses_activity_over_creation_when_present(): void
+    {
+        $oldNeverActive = User::factory()->create(['last_active_at' => null, 'created_at' => now()->subDays(181)]);
+        $newNeverActive = User::factory()->create(['last_active_at' => null, 'created_at' => now()->subDays(179)]);
+        $recentlyActiveOldAccount = User::factory()->create(['last_active_at' => now(), 'created_at' => now()->subDays(400)]);
+        $staleRecentlyCreatedAccount = User::factory()->create(['last_active_at' => now()->subDays(181), 'created_at' => now()->subDays(2)]);
+
+        app(FlagStaleAccountsForReview::class)->handle(180);
+
+        $this->assertDatabaseHas('stale_account_reviews', ['user_id' => $oldNeverActive->id, 'status' => 'pending']);
+        $this->assertDatabaseMissing('stale_account_reviews', ['user_id' => $newNeverActive->id]);
+        $this->assertDatabaseMissing('stale_account_reviews', ['user_id' => $recentlyActiveOldAccount->id]);
+        $this->assertDatabaseHas('stale_account_reviews', ['user_id' => $staleRecentlyCreatedAccount->id, 'status' => 'pending']);
+    }
+
+    public function test_stale_account_review_cannot_deactivate_the_installation_owner_before_ownership_is_transferred(): void
+    {
+        $owner = User::factory()->create(['role' => AccountRole::Administrator]);
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator]);
+        app(EstablishInitialInstallationOwner::class)->handle($owner);
+        $review = StaleAccountReview::query()->create(['user_id' => $owner->id, 'status' => 'pending', 'flagged_at' => now()]);
+
+        try {
+            app(ReviewStaleAccount::class)->handle($administrator, $review, 'deactivate');
+            $this->fail('The installation owner was deactivated without transferring ownership.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('owner', $exception->errors());
+        }
+
+        $this->assertSame(AccountStatus::Active, $owner->fresh()->account_status);
+        $this->assertSame('pending', $review->fresh()->status);
+        $this->assertDatabaseCount('account_administration_audits', 0);
     }
 
     public function test_privacy_routes_require_authentication_and_sensitive_assurance_for_deletion(): void
