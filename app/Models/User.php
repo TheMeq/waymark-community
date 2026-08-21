@@ -127,8 +127,10 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     {
         return $this->isActive()
             && $this->hasVerifiedEmail()
-            && $this->role === AccountRole::WalkLeader
-            && $this->hasCapability(ModuleCapability::ManageOwnWalks);
+            && (
+                $this->hasCapability(ModuleCapability::ManageOwnWalks)
+                || $this->hasCapability(ModuleCapability::ManageAllWalks)
+            );
     }
 
     public function isInstallationOwner(): bool
