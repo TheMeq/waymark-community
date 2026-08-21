@@ -15,6 +15,7 @@ use App\Domain\Walks\Models\Grade;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Fortify\Fortify;
 
 require __DIR__.'/../../vendor/autoload.php';
@@ -53,8 +54,10 @@ $moderationEvent = Event::query()->create([
     'published_at' => CarbonImmutable::parse('2026-08-19 12:00:00'),
     'organiser_id' => $leader->id,
 ]);
+$preview = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADElEQVQImWNgYGAAAAAEAAGjChXjAAAAAElFTkSuQmCC', true);
 
 foreach (range(1, 21) as $number) {
+    Storage::disk('local')->put('community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/browser-'.$number.'.jpg', $preview);
     CommunityPhoto::query()->create([
         'event_id' => $moderationEvent->id,
         'uploader_id' => $leader->id,
@@ -67,6 +70,8 @@ foreach (range(1, 21) as $number) {
         'caption' => 'Browser moderation photo '.$number,
     ]);
 }
+
+Storage::disk('local')->put('community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/browser-published.jpg', $preview);
 
 CommunityPhoto::query()->create([
     'event_id' => $moderationEvent->id,

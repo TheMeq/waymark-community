@@ -192,6 +192,38 @@ final class CommunityPhotoModerationTest extends TestCase
         $this->assertSame(2, CommunityPhotoModerationAudit::query()->count());
     }
 
+    public function test_moving_a_featured_photo_clears_feature_without_displacing_destination_feature(): void
+    {
+        $moderator = User::factory()->create(['role' => AccountRole::Moderator]);
+        $source = Event::factory()->create();
+        $destination = Event::factory()->create();
+        $moving = $this->photoFor($source, ['moderation_status' => 'approved', 'is_featured' => true, 'published_at' => now()]);
+        $existing = $this->photoFor($destination, ['moderation_status' => 'approved', 'is_featured' => true, 'published_at' => now()]);
+
+        app(ModerateCommunityPhoto::class)->move($moderator, $moving, 'event:'.$destination->id);
+
+        $this->assertFalse($moving->fresh()->is_featured);
+        $this->assertTrue($existing->fresh()->is_featured);
+        $this->assertSame($destination->id, $moving->fresh()->event_id);
+        $this->assertFalse(CommunityPhotoModerationAudit::query()->sole()->after['is_featured']);
+    }
+
+    public function test_repeated_move_feature_and_removal_are_noop_without_duplicate_audit(): void
+    {
+        $moderator = User::factory()->create(['role' => AccountRole::Moderator]);
+        $event = Event::factory()->create();
+        $photo = $this->photoFor($event, ['moderation_status' => 'approved', 'published_at' => now()]);
+        $action = app(ModerateCommunityPhoto::class);
+
+        $action->move($moderator, $photo, 'event:'.$event->id);
+        $action->feature($moderator, $photo);
+        $action->feature($moderator, $photo);
+        $action->remove($moderator, $photo);
+        $action->remove($moderator, $photo);
+
+        $this->assertSame(['featured', 'removed'], CommunityPhotoModerationAudit::query()->orderBy('id')->pluck('action')->all());
+    }
+
     private function photoFor(Event|SpecialAlbum $context, array $overrides = []): CommunityPhoto
     {
         return CommunityPhoto::query()->create(array_merge([

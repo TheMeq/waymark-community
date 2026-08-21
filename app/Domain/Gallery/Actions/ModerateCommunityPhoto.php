@@ -49,6 +49,9 @@ final class ModerateCommunityPhoto
     public function remove(User $actor, CommunityPhoto $photo): CommunityPhoto
     {
         return $this->mutate($actor, $photo, 'removed', function (CommunityPhoto $locked): bool {
+            if ($locked->moderation_status === 'removed') {
+                return false;
+            }
             if ($locked->moderation_status !== 'approved') {
                 throw ValidationException::withMessages(['photo' => 'Only published photos can be removed.']);
             }
@@ -79,7 +82,10 @@ final class ModerateCommunityPhoto
             $this->assertEditable($locked);
             [$event, $album] = $this->target($target);
             $this->assertTargetScope($actor, $event, $album);
-            $locked->forceFill(['event_id' => $event?->id, 'special_album_id' => $album?->id])->save();
+            if ($locked->event_id === $event?->id && $locked->special_album_id === $album?->id) {
+                return false;
+            }
+            $locked->forceFill(['event_id' => $event?->id, 'special_album_id' => $album?->id, 'is_featured' => false])->save();
 
             return true;
         }, ['destination' => $target]);
@@ -96,7 +102,11 @@ final class ModerateCommunityPhoto
             $caption = $this->nullableText($request->caption, 2000, 'caption');
             $photographer = $this->nullableText($request->photographerName, 255, 'photographer_name');
             $before = $this->snapshot($locked);
-            $locked->forceFill(['caption' => $caption, 'photographer_name' => $photographer, 'event_id' => $event?->id, 'special_album_id' => $album?->id])->save();
+            $contextChanged = $locked->event_id !== $event?->id || $locked->special_album_id !== $album?->id;
+            if (! $contextChanged && $locked->caption === $caption && $locked->photographer_name === $photographer) {
+                return $locked;
+            }
+            $locked->forceFill(['caption' => $caption, 'photographer_name' => $photographer, 'event_id' => $event?->id, 'special_album_id' => $album?->id, 'is_featured' => $contextChanged ? false : $locked->is_featured])->save();
             $this->audit($actor, $locked, 'edited_and_moved', $before, $this->snapshot($locked), ['destination' => $target]);
 
             return $locked;
@@ -120,20 +130,29 @@ final class ModerateCommunityPhoto
     public function feature(User $actor, CommunityPhoto $photo): CommunityPhoto
     {
         return DB::transaction(function () use ($actor, $photo): CommunityPhoto {
-            $locked = CommunityPhoto::query()->lockForUpdate()->findOrFail($photo->id);
+            $candidate = CommunityPhoto::query()->findOrFail($photo->id);
+            if ($candidate->event_id !== null) {
+                Event::query()->lockForUpdate()->findOrFail($candidate->event_id);
+                $context = ['event_id' => $candidate->event_id];
+            } else {
+                SpecialAlbum::query()->lockForUpdate()->findOrFail($candidate->special_album_id);
+                $context = ['special_album_id' => $candidate->special_album_id];
+            }
+            $contextPhotos = CommunityPhoto::query()->where($context)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $locked = $contextPhotos->get($photo->id);
+            if (! $locked instanceof CommunityPhoto) {
+                throw ValidationException::withMessages(['photo' => 'The photo context changed. Try again.']);
+            }
             $this->authorize($actor, $locked);
             $this->assertProcessed($locked);
             if ($locked->moderation_status !== 'approved') {
                 throw ValidationException::withMessages(['photo' => 'Only approved photos can be featured.']);
             }
-            $before = $this->snapshot($locked);
-            $context = $locked->event_id !== null ? ['event_id' => $locked->event_id] : ['special_album_id' => $locked->special_album_id];
-            if ($locked->event_id !== null) {
-                Event::query()->lockForUpdate()->findOrFail($locked->event_id);
-            } else {
-                SpecialAlbum::query()->lockForUpdate()->findOrFail($locked->special_album_id);
+            if ($locked->is_featured) {
+                return $locked;
             }
-            $displaced = CommunityPhoto::query()->where($context)->whereKeyNot($locked->id)->where('is_featured', true)->orderBy('id')->lockForUpdate()->get();
+            $before = $this->snapshot($locked);
+            $displaced = $contextPhotos->filter(fn (CommunityPhoto $item): bool => $item->id !== $locked->id && $item->is_featured);
             foreach ($displaced as $previous) {
                 $previousBefore = $this->snapshot($previous);
                 $previous->forceFill(['is_featured' => false])->save();

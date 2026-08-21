@@ -11,9 +11,7 @@
                     <div class="flex gap-3">
                         <input wire:model.live="selectedPhotoIds" value="{{ $photo->id }}" type="checkbox" style="width: 24px; height: 24px;" aria-label="Select {{ $photo->caption ?: 'photo' }} for bulk moderation" />
                         <div>
-                        @if ($photo->processed_variants['master'] ?? false)
-                            <img src="{{ route('admin.photo-moderation.preview', $photo) }}" alt="" class="mb-3 h-28 w-40 rounded-lg object-cover" style="{{ $photo->presentationRotationStyle() }}" />
-                        @endif
+                        <img src="{{ route('admin.photo-moderation.preview', $photo) }}" alt="Preview: {{ $photo->caption ?: ($photo->event?->title ?? $photo->specialAlbum?->title) }}" class="mb-3 h-28 w-40 rounded-lg object-cover" style="{{ $photo->presentationRotationStyle() }}" />
                         <p class="font-semibold text-gray-950 dark:text-white">{{ $photo->caption ?: 'Untitled photo' }}</p>
                         <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
                             {{ $photo->event?->title ?? $photo->specialAlbum?->title }}
@@ -54,13 +52,20 @@
             <h2 id="published-photos" class="text-lg font-semibold">Published photos</h2>
             @php($approvedPhotos = $this->approvedPhotos())
             @foreach ($approvedPhotos as $photo)
-                <div class="flex items-center justify-between rounded-xl border border-gray-200 p-3 dark:border-gray-700">
-                    <span>{{ $photo->caption ?: 'Untitled photo' }}</span>
+                <article class="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+                    <div class="flex items-center gap-3">
+                        <img src="{{ route('admin.photo-moderation.preview', $photo) }}" alt="Preview: {{ $photo->caption ?: ($photo->event?->title ?? $photo->specialAlbum?->title) }}" class="h-24 w-32 rounded-lg object-cover" style="{{ $photo->presentationRotationStyle() }}" />
+                        <div><p class="font-semibold">{{ $photo->caption ?: 'Untitled photo' }}</p>
+                        <p class="text-sm text-gray-600">{{ $photo->event?->title ?? $photo->specialAlbum?->title }} · {{ $photo->photographer_name ?: $photo->uploader?->publicDisplayName() }}</p>
+                        @if ($photo->is_featured)<p class="text-sm font-semibold">Featured</p>@endif</div>
+                    </div>
                     <span class="flex gap-2">
+                        <x-filament::button size="md" color="gray" wire:click="beginEditing({{ $photo->id }})">Edit</x-filament::button>
+                        <x-filament::button size="md" color="gray" wire:click="rotate({{ $photo->id }}, 90)">Rotate</x-filament::button>
                         <x-filament::button size="md" style="min-width: 24px; min-height: 24px;" color="gray" wire:click="feature({{ $photo->id }})">Feature</x-filament::button>
                         <x-filament::button size="md" style="min-width: 24px; min-height: 24px;" color="danger" wire:click="remove({{ $photo->id }})">Remove</x-filament::button>
                     </span>
-                </div>
+                </article>
             @endforeach
             @if ($approvedPhotos->hasPages())
                 <nav class="flex items-center justify-between gap-3" aria-label="Published photo pagination">

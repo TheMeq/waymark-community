@@ -6,6 +6,7 @@ use App\Domain\Gallery\Data\PhotoStorageReference;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Queries\ModeratableCommunityPhotos;
 use App\Models\User;
+use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -15,6 +16,7 @@ final class CommunityPhotoModerationPreviewController
     {
         /** @var User $actor */
         $actor = auth()->user();
+        abort_unless($actor instanceof User && $actor->hasVerifiedEmail() && $actor->canAccessPanel(Filament::getPanel('admin')), 403);
         abort_unless(app(ModeratableCommunityPhotos::class)->for($actor, ['pending', 'approved'])->whereKey($photo->id)->exists(), 403);
         $path = $photo->processed_variants['master'] ?? null;
         abort_unless(is_string($path), 404);

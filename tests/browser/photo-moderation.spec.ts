@@ -11,7 +11,7 @@ async function signIn(page: Page) {
     ]);
 }
 
-test('authorised moderation workflow is operable and accessible at every review viewport', async ({ page }) => {
+test('authorised moderation workflow is operable and accessible at every review viewport', async ({ page }, testInfo) => {
     await signIn(page);
     await page.goto('/admin/photo-moderation');
 
@@ -26,9 +26,21 @@ test('authorised moderation workflow is operable and accessible at every review 
     await expect(page.getByRole('button', { name: 'Remove' })).toBeVisible();
     await expect(page.locator('nav').filter({ hasText: 'Next' }).first()).toBeVisible();
 
-    await page.getByRole('button', { name: 'Rotate' }).first().focus();
-    await expect(page.getByRole('button', { name: 'Rotate' }).first()).toBeFocused();
+    const photoNumber = { desktop: 1, tablet: 2, mobile: 3 }[testInfo.project.name] ?? 1;
+    const caption = `Browser moderation photo ${photoNumber}`;
+    const pendingRow = page.locator('article').filter({ has: page.getByText(caption, { exact: true }) });
+    const pendingPreview = pendingRow.getByRole('img', { name: `Preview: ${caption}` });
+    await expect(pendingPreview).toBeVisible();
+    expect(await pendingPreview.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+    const published = page.locator('article').filter({ hasText: 'Browser published moderation photo' });
+    await expect(published.getByRole('img', { name: 'Preview: Browser published moderation photo' })).toBeVisible();
+    await expect(published.getByRole('button', { name: 'Edit' })).toBeVisible();
+    await expect(published.getByRole('button', { name: 'Rotate' })).toBeVisible();
+    const rotate = pendingRow.getByRole('button', { name: 'Rotate' });
+    await rotate.focus();
+    await expect(rotate).toBeFocused();
     await page.keyboard.press('Enter');
+    await expect(pendingPreview).toHaveAttribute('style', /rotate\(90deg\)/);
     await expect(page.getByText('Photo approved')).toHaveCount(0);
 
     const results = await new AxeBuilder({ page })
