@@ -40,8 +40,8 @@ return new class extends Migration
             $table->boolean('is_featured')->default(false);
             $table->timestamps();
 
-            $table->index(['event_id', 'moderation_status', 'captured_at']);
-            $table->index(['special_album_id', 'moderation_status', 'captured_at']);
+            $table->index(['event_id', 'moderation_status', 'captured_at'], 'cp_event_status_captured_idx');
+            $table->index(['special_album_id', 'moderation_status', 'captured_at'], 'cp_album_status_captured_idx');
         });
 
         $this->addSourceContextConstraint();

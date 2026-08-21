@@ -44,6 +44,61 @@ final class CommunityPhotoSchemaTest extends TestCase
         ]));
     }
 
+    public function test_photo_without_a_source_context_is_rejected_at_the_application_boundary(): void
+    {
+        $uploader = User::factory()->create();
+
+        $this->expectException(\LogicException::class);
+
+        CommunityPhoto::query()->create($this->photoAttributes($uploader, [
+            'event_id' => null,
+            'special_album_id' => null,
+        ]));
+    }
+
+    public function test_photo_persistence_accepts_safe_storage_references(): void
+    {
+        $uploader = User::factory()->create();
+        $event = Event::factory()->create();
+
+        $photo = CommunityPhoto::query()->create($this->photoAttributes($uploader, [
+            'event_id' => $event->id,
+            'special_album_id' => null,
+            'processed_variants' => [
+                'thumbnail' => 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/thumbnail.webp',
+            ],
+        ]));
+
+        $this->assertDatabaseHas('community_photos', [
+            'id' => $photo->id,
+            'storage_disk' => 'local',
+            'source_path' => 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/source.jpg',
+        ]);
+    }
+
+    public function test_photo_persistence_rejects_an_unconfigured_storage_disk(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->savePhotoWithStorage(['storage_disk' => 'public']);
+    }
+
+    public function test_photo_persistence_rejects_an_unsafe_source_path(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->savePhotoWithStorage(['source_path' => '../private/photo.jpg']);
+    }
+
+    public function test_photo_persistence_rejects_an_unsafe_processed_variant_path(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->savePhotoWithStorage([
+            'processed_variants' => ['thumbnail' => '../private/thumbnail.webp'],
+        ]);
+    }
+
     public function test_database_rejects_photos_without_a_source_context_or_with_two_contexts(): void
     {
         $uploader = User::factory()->create();
@@ -85,5 +140,20 @@ final class CommunityPhotoSchemaTest extends TestCase
             'source_path' => 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/source.jpg',
             'moderation_status' => 'pending',
         ];
+    }
+
+    /** @param array<string, mixed> $overrides */
+    private function savePhotoWithStorage(array $overrides): void
+    {
+        $uploader = User::factory()->create();
+        $event = Event::factory()->create();
+
+        CommunityPhoto::query()->create([
+            ...$this->photoAttributes($uploader, [
+                'event_id' => $event->id,
+                'special_album_id' => null,
+            ]),
+            ...$overrides,
+        ]);
     }
 }
