@@ -15,6 +15,7 @@ final class CommunityPhotoProcessingJob extends Model
             'available_at' => 'datetime',
             'claimed_at' => 'datetime',
             'lease_expires_at' => 'datetime',
+            'staging_lease_expires_at' => 'datetime',
         ];
     }
 

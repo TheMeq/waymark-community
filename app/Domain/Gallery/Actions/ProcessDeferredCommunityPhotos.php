@@ -55,14 +55,25 @@ final readonly class ProcessDeferredCommunityPhotos
         $processed = null;
 
         try {
-            $temporaryPath = $this->copyStagedSourceToTemporaryFile($job);
-            $processed = $this->ingest->handle($this->temporaryUpload($temporaryPath), $job->output_directory);
-            $this->finalise($job->id, $job->claim_token, $processed);
-        } catch (Throwable $exception) {
-            if ($processed instanceof ProcessedCommunityPhoto) {
-                $this->cleanProcessedDirectory($job, $processed);
-            }
+            $worked = DB::transaction(function () use ($job, &$temporaryPath, &$processed): bool {
+                $locked = CommunityPhotoProcessingJob::query()->lockForUpdate()->findOrFail($job->id);
+                $photo = CommunityPhoto::query()->lockForUpdate()->findOrFail($locked->community_photo_id);
 
+                if ($locked->status !== 'processing' || $locked->claim_token !== $job->claim_token || ! $this->hasSafeStagedSource($locked, $photo)) {
+                    return false;
+                }
+
+                $locked->setRelation('photo', $photo);
+                $temporaryPath = $this->copyStagedSourceToTemporaryFile($locked);
+                $processed = $this->ingest->handle($this->temporaryUpload($temporaryPath), $locked->output_directory);
+
+                return $this->finalise($locked->id, $locked->claim_token, $processed);
+            });
+
+            if (! $worked) {
+                return false;
+            }
+        } catch (Throwable $exception) {
             report($exception);
             $this->fail($job->id, $job->claim_token);
             $this->cleanUp(1);
@@ -200,7 +211,7 @@ final readonly class ProcessDeferredCommunityPhotos
         }
 
         $handled = 0;
-        CommunityPhotoProcessingJob::query()->where('status', 'staging')->orderBy('id')->limit($limit)->pluck('id')
+        CommunityPhotoProcessingJob::query()->where('status', 'staging')->where('staging_lease_expires_at', '<=', now())->orderBy('id')->limit($limit)->pluck('id')
             ->each(function (int $jobId) use (&$handled): void {
                 if ($this->recoverStaging($jobId)) {
                     $handled++;
@@ -242,10 +253,10 @@ final readonly class ProcessDeferredCommunityPhotos
                 return false;
             }
             if (Storage::disk($photo->storage_disk)->exists($job->staged_source_path)) {
-                $job->update(['status' => 'queued', 'available_at' => now()]);
+                $job->update(['status' => 'queued', 'available_at' => now(), 'staging_lease_expires_at' => null]);
                 $photo->update(['processing_status' => 'queued']);
             } else {
-                $job->update(['status' => 'terminal_failed', 'staged_source_path' => null, 'failure_reason' => 'Photo staging did not complete.']);
+                $job->update(['status' => 'terminal_failed', 'staged_source_path' => null, 'staging_lease_expires_at' => null, 'failure_reason' => 'Photo staging did not complete.']);
                 $photo->update(['processing_status' => 'failed']);
             }
 
@@ -259,8 +270,11 @@ final readonly class ProcessDeferredCommunityPhotos
         if (! $job instanceof CommunityPhotoProcessingJob || ! $job->photo instanceof CommunityPhoto || ! is_string($job->output_directory)) {
             return false;
         }
-        if (! Storage::disk($job->photo->storage_disk)->deleteDirectory($job->output_directory)) {
-            return false;
+        $disk = Storage::disk($job->photo->storage_disk);
+        if ($disk->exists($job->output_directory)) {
+            if (! $disk->deleteDirectory($job->output_directory)) {
+                return false;
+            }
         }
 
         return DB::transaction(function () use ($job): bool {
@@ -280,7 +294,8 @@ final readonly class ProcessDeferredCommunityPhotos
         if (! $job instanceof CommunityPhotoProcessingJob || ! $job->photo instanceof CommunityPhoto || ! is_string($job->staged_source_path)) {
             return false;
         }
-        if (! Storage::disk($job->photo->storage_disk)->delete($job->staged_source_path)) {
+        $disk = Storage::disk($job->photo->storage_disk);
+        if ($disk->exists($job->staged_source_path) && ! $disk->delete($job->staged_source_path)) {
             return false;
         }
 

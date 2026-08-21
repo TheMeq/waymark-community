@@ -126,6 +126,17 @@ final class DeferredCommunityPhotoProcessingTest extends TestCase
         $this->assertSame('new-claim', $job->fresh()->claim_token);
     }
 
+    public function test_an_active_staging_lease_is_not_recovered_by_the_scheduler(): void
+    {
+        Storage::fake('local');
+        [$photo, $job] = $this->queuedJob();
+        $photo->update(['processing_status' => 'staging']);
+        $job->update(['status' => 'staging', 'staging_lease_expires_at' => now()->addMinute()]);
+
+        $this->assertSame(0, app(ProcessDeferredCommunityPhotos::class)->handle(1));
+        $this->assertSame('staging', $job->fresh()->status);
+    }
+
     public function test_streamed_disk_sources_are_copied_to_a_temporary_file_and_cleaned_after_processing(): void
     {
         Storage::fake('s3');

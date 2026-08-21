@@ -81,6 +81,7 @@ final class CommunityPhotoUploadController
                     'index' => $index, 'name' => $photo->getClientOriginalName(), 'status' => $status, 'photo_id' => $communityPhoto->id,
                     'errors' => $status === 'failed' ? ['This photo could not be processed.'] : null,
                 ]);
+                $failed = $failed || $status === 'failed';
             } catch (ValidationException|\RuntimeException $exception) {
                 if ($exception instanceof \RuntimeException) {
                     report($exception);

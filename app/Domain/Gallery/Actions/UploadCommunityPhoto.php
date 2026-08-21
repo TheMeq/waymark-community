@@ -107,6 +107,7 @@ final readonly class UploadCommunityPhoto
             CommunityPhotoProcessingJob::query()->create([
                 'community_photo_id' => $photo->id, 'status' => 'staging', 'attempts' => 0,
                 'staged_source_path' => $path, 'available_at' => now(),
+                'staging_lease_expires_at' => now()->addMinutes(max(1, (int) config('gallery.deferred.lease_minutes', 15))),
             ]);
 
             return $photo;
@@ -122,7 +123,7 @@ final readonly class UploadCommunityPhoto
                 if ($job->status !== 'staging' || ! Storage::disk($diskName)->put($path, $source)) {
                     throw new \RuntimeException('The photo could not be staged for processing.');
                 }
-                $job->update(['status' => 'queued', 'available_at' => now()]);
+                $job->update(['status' => 'queued', 'available_at' => now(), 'staging_lease_expires_at' => null]);
                 CommunityPhoto::query()->lockForUpdate()->findOrFail($photo->id)->update(['processing_status' => 'queued']);
             });
         } finally {
