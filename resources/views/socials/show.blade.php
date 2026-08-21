@@ -13,6 +13,7 @@
             <h1 class="mt-2 text-4xl text-ink sm:text-5xl">{{ $social['title'] }}</h1>
             @if ($social['status'])<p class="mt-4 inline-flex rounded-[var(--wm-radius-pill)] bg-surface-soft px-3 py-1 text-sm font-semibold text-ink">{{ $social['status'] }}</p>@endif
             <p class="mt-4 text-ink-muted"><time datetime="{{ $event->starts_at->toAtomString() }}">{{ $social['starts_at'] }}</time>@if ($social['ends_at']) – {{ $social['ends_at'] }}@endif</p>
+            <x-account.favourite-control :favourite="$favourite" />
             @if ($social['summary'])<p class="mt-6 text-lg text-ink-muted">{{ $social['summary'] }}</p>@endif
             @if ($social['description'])<div class="prose mt-6 max-w-none text-ink">{!! nl2br(e($social['description'])) !!}</div>@endif
 

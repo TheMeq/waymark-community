@@ -2,6 +2,7 @@
 
 namespace App\Domain\Events\Models;
 
+use App\Domain\Accounts\Models\Favourite;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Holidays\Models\Holiday;
@@ -105,6 +106,12 @@ final class Event extends Model
     public function updates(): HasMany
     {
         return $this->hasMany(EventUpdate::class)->latest('created_at')->latest('id');
+    }
+
+    /** @return HasMany<Favourite, $this> */
+    public function favourites(): HasMany
+    {
+        return $this->hasMany(Favourite::class);
     }
 
     public function isPast(?CarbonInterface $at = null): bool

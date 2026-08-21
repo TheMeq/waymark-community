@@ -17,6 +17,7 @@
                 <p class="mt-4 inline-flex rounded-[var(--wm-radius-pill)] bg-surface-soft px-3 py-1 text-sm font-semibold text-ink">{{ $walk['status'] }}</p>
             @endif
             <p class="mt-4 text-ink-muted"><time datetime="{{ $event->starts_at->toAtomString() }}">{{ $walk['starts_at'] }}</time>@if ($walk['ends_at']) – {{ $walk['ends_at'] }}@endif</p>
+            <x-account.favourite-control :favourite="$favourite" />
             @if ($walk['featured_image'])
                 <figure data-walk-featured-image class="mt-6 overflow-hidden rounded-[var(--wm-radius-md)] bg-surface-soft shadow-[var(--wm-shadow-card)]">
                     <img class="aspect-[16/8] w-full object-cover" src="{{ $walk['featured_image']['url'] }}" alt="{{ $walk['featured_image']['alt'] }}">

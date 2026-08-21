@@ -4,6 +4,7 @@ use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Http\Controllers\AccountProfileController;
 use App\Http\Controllers\CalendarFeedController;
+use App\Http\Controllers\FavouriteController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LeaderHubController;
 use App\Http\Controllers\LeaderHubDuplicateWalkController;
@@ -31,6 +32,9 @@ Route::get('/leaders/{slug}', PublicLeaderProfileController::class)->name('leade
 Route::middleware('auth')->group(function (): void {
     Route::get('/account/profile', [AccountProfileController::class, 'edit'])->name('account.profile.edit');
     Route::patch('/account/profile', [AccountProfileController::class, 'update'])->name('account.profile.update');
+    Route::get('/account/favourites', [FavouriteController::class, 'index'])->name('account.favourites.index');
+    Route::post('/favourites/{event}', [FavouriteController::class, 'store'])->name('favourites.store');
+    Route::delete('/favourites/{event}', [FavouriteController::class, 'destroy'])->name('favourites.destroy');
     Route::get('/leader-hub', LeaderHubController::class)->name('leader-hub.index');
     Route::get('/leader-hub/profile', [LeaderProfileSettingsController::class, 'edit'])->name('leader-hub.profile.edit');
     Route::patch('/leader-hub/profile', [LeaderProfileSettingsController::class, 'update'])->name('leader-hub.profile.update');

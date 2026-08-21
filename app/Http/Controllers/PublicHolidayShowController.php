@@ -7,12 +7,14 @@ use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
+use App\ViewModels\FavouriteControlViewModel;
 use App\ViewModels\PublicHolidayDetailViewModel;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\Request;
 
 final class PublicHolidayShowController
 {
-    public function __invoke(string $slug): View
+    public function __invoke(string $slug, Request $request): View
     {
         $event = Event::query()->with(['holiday', 'organiser', 'children'])
             ->where('slug', $slug)->where('type', EventType::Holiday)
@@ -24,6 +26,7 @@ final class PublicHolidayShowController
         return view('holidays.show', [
             'event' => $event,
             'holiday' => PublicHolidayDetailViewModel::fromEvent($event),
+            'favourite' => FavouriteControlViewModel::for($event, $request->user()),
             'site' => ['name' => $siteProfile->group_name ?? 'Waymark Community', 'strapline' => 'A local walking community'],
             'theme' => BrandTheme::fromSiteProfile($siteProfile),
         ]);

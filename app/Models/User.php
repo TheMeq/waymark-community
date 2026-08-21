@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Accounts\Models\CommunicationPreference;
+use App\Domain\Accounts\Models\Favourite;
 use App\Domain\Accounts\Models\RoleCapability;
 use App\Domain\Membership\Enums\AccountStatus;
 use App\Domain\Membership\Enums\MembershipStatus;
@@ -131,6 +132,12 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     public function communicationPreferences(): HasMany
     {
         return $this->hasMany(CommunicationPreference::class);
+    }
+
+    /** @return HasMany<Favourite, $this> */
+    public function favourites(): HasMany
+    {
+        return $this->hasMany(Favourite::class);
     }
 
     /**
