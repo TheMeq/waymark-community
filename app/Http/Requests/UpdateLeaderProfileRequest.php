@@ -2,14 +2,18 @@
 
 namespace App\Http\Requests;
 
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 final class UpdateLeaderProfileRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        $user = $this->user();
+
+        return $user instanceof User && Gate::forUser($user)->allows('manageLeaderHub', $user);
     }
 
     /** @return array<string, list<mixed>> */

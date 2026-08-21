@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Walks\Actions\DuplicateWalk;
-use App\Domain\Walks\Enums\DuplicateWalkCopyGroup;
 use App\Domain\Walks\Models\Walk;
 use App\Models\User;
+use App\ViewModels\LeaderHubDuplicateWalkPageViewModel;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,11 +17,9 @@ final class LeaderHubDuplicateWalkController extends Controller
     {
         $this->sourceFor($request, $walk);
 
-        return view('leader-hub.duplicate', [
-            'source' => $walk->loadMissing('event'),
-            'copyGroups' => DuplicateWalkCopyGroup::options(),
-            'defaults' => DuplicateWalkCopyGroup::defaults(),
-        ]);
+        return view('leader-hub.duplicate', LeaderHubDuplicateWalkPageViewModel::from(
+            $walk->loadMissing('event'),
+        )->toArray());
     }
 
     public function store(Request $request, Walk $walk, DuplicateWalk $duplicateWalk): RedirectResponse

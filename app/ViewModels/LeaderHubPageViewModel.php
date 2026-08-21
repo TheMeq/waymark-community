@@ -5,9 +5,12 @@ namespace App\ViewModels;
 use App\Domain\Events\Models\Event;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
+use App\Domain\Walks\Models\Walk;
 use App\Filament\Resources\WalkResource;
 use App\Models\User;
+use Filament\Facades\Filament;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 
 final readonly class LeaderHubPageViewModel
 {
@@ -18,6 +21,7 @@ final readonly class LeaderHubPageViewModel
         public array $site,
         public BrandTheme $theme,
         public string $leaderName,
+        public ?string $createWalkUrl,
         public array $walks,
     ) {}
 
@@ -29,6 +33,7 @@ final readonly class LeaderHubPageViewModel
     public static function from(User $leader, Collection $drafts, Collection $upcoming, Collection $past): self
     {
         $siteProfile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
+        $canAccessAdministration = $leader->canAccessPanel(Filament::getPanel('admin'));
 
         return new self(
             site: [
@@ -37,10 +42,13 @@ final readonly class LeaderHubPageViewModel
             ],
             theme: BrandTheme::fromSiteProfile($siteProfile),
             leaderName: $leader->publicDisplayName(),
+            createWalkUrl: $canAccessAdministration && Gate::forUser($leader)->allows('create', Walk::class)
+                ? WalkResource::getUrl('create')
+                : null,
             walks: [
-                'drafts' => self::walks($drafts),
-                'upcoming' => self::walks($upcoming),
-                'past' => self::walks($past),
+                'drafts' => self::walks($drafts, $leader, $canAccessAdministration),
+                'upcoming' => self::walks($upcoming, $leader, $canAccessAdministration),
+                'past' => self::walks($past, $leader, $canAccessAdministration),
             ],
         );
     }
@@ -48,9 +56,9 @@ final readonly class LeaderHubPageViewModel
     /** @param Collection<int, Event> $events
      * @return list<array<string, string|null>>
      */
-    private static function walks(Collection $events): array
+    private static function walks(Collection $events, User $leader, bool $canAccessAdministration): array
     {
-        return $events->map(function (Event $event): array {
+        return $events->map(function (Event $event) use ($leader, $canAccessAdministration): array {
             $walk = $event->walk;
 
             return [
@@ -58,19 +66,22 @@ final readonly class LeaderHubPageViewModel
                 'status' => str($event->status->value)->replace('_', ' ')->title()->toString(),
                 'when' => $event->starts_at->format('j M Y, H:i'),
                 'notes' => $walk?->private_organiser_notes,
-                'edit_url' => WalkResource::getUrl('edit', ['record' => $walk]),
+                'edit_url' => $canAccessAdministration && $walk instanceof Walk && Gate::forUser($leader)->allows('update', $walk)
+                    ? WalkResource::getUrl('edit', ['record' => $walk])
+                    : null,
                 'duplicate_url' => route('leader-hub.walks.duplicate.edit', $walk),
             ];
         })->all();
     }
 
-    /** @return array{site: array<string, string>, theme: BrandTheme, leaderName: string, walks: array<string, list<array<string, string|null>>>} */
+    /** @return array{site: array<string, string>, theme: BrandTheme, leaderName: string, createWalkUrl: ?string, walks: array<string, list<array<string, string|null>>>} */
     public function toArray(): array
     {
         return [
             'site' => $this->site,
             'theme' => $this->theme,
             'leaderName' => $this->leaderName,
+            'createWalkUrl' => $this->createWalkUrl,
             'walks' => $this->walks,
         ];
     }

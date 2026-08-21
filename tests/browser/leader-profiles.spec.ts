@@ -11,6 +11,18 @@ async function expectNoHorizontalOverflow(page: Page) {
     expect(width.scroll).toBeLessThanOrEqual(width.client);
 }
 
+async function tabTo(page: Page, targetName: string) {
+    for (let attempts = 0; attempts < 20; attempts++) {
+        await page.keyboard.press('Tab');
+
+        if (await page.getByRole('link', { name: targetName }).evaluate((element) => element === document.activeElement)) {
+            return page.getByRole('link', { name: targetName });
+        }
+    }
+
+    throw new Error(`Keyboard focus did not reach ${targetName}.`);
+}
+
 async function signInAsLeader(page: Page) {
     await page.goto('/login');
     await page.getByLabel('Email address').fill('morgan.leader@example.test');
@@ -32,11 +44,11 @@ test('public walk leader profile remains accessible and visually stable', async 
         .analyze();
 
     expect(results.violations).toEqual([]);
+    await expect(page).toHaveScreenshot(`leader-profile-${testInfo.project.name}.png`, { fullPage: true });
     await page.evaluate(() => {
         document.documentElement.style.fontSize = '200%';
     });
     await expectNoHorizontalOverflow(page);
-    await expect(page).toHaveScreenshot(`leader-profile-${testInfo.project.name}.png`, { fullPage: true });
 });
 
 test('Leader Hub remains actor-owned, keyboard reachable and visually stable', async ({ page }, testInfo) => {
@@ -51,11 +63,14 @@ test('Leader Hub remains actor-owned, keyboard reachable and visually stable', a
         .analyze();
 
     expect(results.violations).toEqual([]);
-    await page.getByRole('link', { name: 'Leader profile' }).focus();
-    await expect(page.getByRole('link', { name: 'Leader profile' })).toBeFocused();
+    await expect(page).toHaveScreenshot(`leader-hub-${testInfo.project.name}.png`, { fullPage: true });
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('link', { name: 'Skip to main content' })).toBeFocused();
+    const leaderProfile = await tabTo(page, 'Leader profile');
+    await expect(leaderProfile).toBeFocused();
+    await expect(leaderProfile).not.toHaveCSS('box-shadow', 'none');
     await page.evaluate(() => {
         document.documentElement.style.fontSize = '200%';
     });
     await expectNoHorizontalOverflow(page);
-    await expect(page).toHaveScreenshot(`leader-hub-${testInfo.project.name}.png`, { fullPage: true });
 });

@@ -123,7 +123,8 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     {
         return $this->isActive()
             && $this->hasVerifiedEmail()
-            && $this->isWalkLeader();
+            && $this->role === AccountRole::WalkLeader
+            && $this->hasCapability(ModuleCapability::ManageOwnWalks);
     }
 
     /** @return HasMany<CommunicationPreference, $this> */

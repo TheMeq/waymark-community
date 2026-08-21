@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Accounts;
 
+use App\Domain\Accounts\Actions\ConfigureRoleCapabilities;
 use App\Domain\Accounts\Enums\AccountRole;
+use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
@@ -109,6 +111,31 @@ final class LeaderProfilesTest extends TestCase
         $this->assertStringNotContainsString($leader->name, $details['leader_attribution']);
     }
 
+    public function test_public_profile_and_attribution_disappear_when_the_walk_leader_role_loses_manage_own_walks(): void
+    {
+        $leader = $this->leader();
+        $event = $this->walkEvent('Revoked profile walk', $leader, $leader);
+
+        $this->get('/leaders/morgan-m')->assertOk();
+
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator]);
+        app(ConfigureRoleCapabilities::class)->handle($administrator, AccountRole::WalkLeader, [
+            ModuleCapability::AccessAdministration,
+            ModuleCapability::CreateWalks,
+            ModuleCapability::ManageOwnEventUpdates,
+        ]);
+
+        $this->get('/leaders/morgan-m')->assertNotFound();
+        $this->get('/walks')->assertDontSee(route('leaders.show', 'morgan-m'), false);
+
+        $details = PublicWalkDetailViewModel::fromEvent(
+            $event->fresh(['walk.grade', 'walk.primaryLeader', 'walk.coLeaders', 'walk.tags', 'updates']),
+            new SiteProfile,
+        );
+
+        $this->assertStringNotContainsString(route('leaders.show', 'morgan-m'), $details['leader_attribution']);
+    }
+
     public function test_invalid_or_absent_profile_photo_references_are_omitted_without_exposing_the_reference(): void
     {
         $leader = $this->leader([
@@ -183,6 +210,35 @@ final class LeaderProfilesTest extends TestCase
             ->assertSessionHasErrors('public_profile_slug');
     }
 
+    public function test_non_leader_profile_updates_are_forbidden_before_slug_validation_can_disclose_availability(): void
+    {
+        $this->leader(['public_profile_slug' => 'taken-leader-address']);
+        $member = User::factory()->create([
+            'role' => AccountRole::VerifiedMember,
+            'public_profile_slug' => null,
+            'public_profile_introduction' => null,
+        ]);
+
+        $taken = $this->actingAs($member)->patch('/leader-hub/profile', [
+            'public_profile_enabled' => '1',
+            'public_profile_slug' => 'taken-leader-address',
+        ]);
+        $available = $this->actingAs($member)->patch('/leader-hub/profile', [
+            'public_profile_enabled' => '1',
+            'public_profile_slug' => 'available-leader-address',
+        ]);
+
+        $taken->assertForbidden();
+        $available->assertForbidden();
+        $this->assertSame($taken->getContent(), $available->getContent());
+        $this->assertDatabaseHas('users', [
+            'id' => $member->id,
+            'public_profile_enabled' => false,
+            'public_profile_slug' => null,
+            'public_profile_introduction' => null,
+        ]);
+    }
+
     public function test_leader_hub_is_actor_owned_and_groups_draft_current_upcoming_and_past_walks(): void
     {
         $leader = $this->leader();
@@ -244,6 +300,41 @@ final class LeaderProfilesTest extends TestCase
         $this->assertSame($leader->id, $duplicate->event->organiser_id);
         $this->assertSame(EventStatus::Draft, $duplicate->event->status);
         $this->assertFalse($duplicate->event->is_public);
+    }
+
+    public function test_leader_hub_renders_only_shortcuts_usable_under_the_configured_capability_matrix(): void
+    {
+        $leader = $this->leader();
+        $event = $this->walkEvent('Configurable shortcuts walk', $leader, $leader);
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator]);
+
+        app(ConfigureRoleCapabilities::class)->handle($administrator, AccountRole::WalkLeader, [
+            ModuleCapability::AccessAdministration,
+            ModuleCapability::ManageOwnWalks,
+        ]);
+
+        $this->actingAs($leader)
+            ->get('/leader-hub')
+            ->assertOk()
+            ->assertDontSee('Create walk')
+            ->assertSee('>Edit<', false)
+            ->assertSee('>Duplicate<', false);
+
+        app(ConfigureRoleCapabilities::class)->handle($administrator, AccountRole::WalkLeader, [
+            ModuleCapability::CreateWalks,
+            ModuleCapability::ManageOwnWalks,
+        ]);
+
+        $this->actingAs($leader)
+            ->get('/leader-hub')
+            ->assertOk()
+            ->assertDontSee('Create walk')
+            ->assertDontSee('>Edit<', false)
+            ->assertSee('>Duplicate<', false);
+
+        $this->actingAs($leader)
+            ->get(route('leader-hub.walks.duplicate.edit', $event->walk))
+            ->assertOk();
     }
 
     public function test_leader_hub_denies_unverified_or_non_capable_accounts_and_keeps_an_administrator_actor_owned(): void

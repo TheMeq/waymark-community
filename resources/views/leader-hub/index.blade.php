@@ -12,7 +12,9 @@
                     <p class="mt-3 text-ink-muted">Manage walks you organise as {{ $leaderName }}.</p>
                 </div>
                 <div class="flex flex-wrap gap-3">
-                    <x-public.button :href="\App\Filament\Resources\WalkResource::getUrl('create')">Create walk</x-public.button>
+                    @if ($createWalkUrl)
+                        <x-public.button :href="$createWalkUrl">Create walk</x-public.button>
+                    @endif
                     <x-public.button :href="route('leader-hub.profile.edit')" variant="secondary">Leader profile</x-public.button>
                 </div>
             </div>
@@ -32,7 +34,9 @@
                                             <p class="mt-1 text-sm text-ink-muted">{{ $walk['when'] }} · {{ $walk['status'] }}</p>
                                         </div>
                                         <div class="flex flex-wrap gap-3 text-sm font-semibold">
-                                            <a class="text-brand underline" href="{{ $walk['edit_url'] }}">Edit</a>
+                                            @if ($walk['edit_url'])
+                                                <a class="text-brand underline" href="{{ $walk['edit_url'] }}">Edit</a>
+                                            @endif
                                             <a class="text-brand underline" href="{{ $walk['duplicate_url'] }}">Duplicate</a>
                                         </div>
                                     </div>
