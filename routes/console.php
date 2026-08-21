@@ -23,4 +23,6 @@ Artisan::command('gallery:process-deferred-photos {--limit=25}', function (Proce
     $this->info((string) $photos->handle((int) $this->option('limit')).' photo processing job(s) handled.');
 })->purpose('Process deferred community photos without a permanent worker');
 
-Schedule::command('gallery:process-deferred-photos --limit=25')->everyMinute()->withoutOverlapping();
+Schedule::command('gallery:process-deferred-photos --limit=25')
+    ->everyMinute()
+    ->withoutOverlapping(max(1, min(59, (int) config('gallery.deferred.schedule_lock_minutes', 5))));

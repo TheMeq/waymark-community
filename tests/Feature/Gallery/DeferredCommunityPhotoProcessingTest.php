@@ -15,7 +15,9 @@ use App\Domain\Gallery\Data\TransformedRasterImage;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\CommunityPhotoProcessingJob;
 use App\Models\User;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -243,6 +245,62 @@ final class DeferredCommunityPhotoProcessingTest extends TestCase
         $this->assertSame(2, $processed);
         $this->assertSame('retry', $failed->fresh()->status);
         $this->assertSame('completed', $successful->fresh()->status);
+    }
+
+    public function test_a_database_lock_contention_returns_safely_and_allows_the_bounded_batch_to_continue(): void
+    {
+        Storage::fake('local');
+        $this->useProcessorDouble();
+        [, $blocked] = $this->queuedJob();
+        [, $successful] = $this->queuedJob();
+        $hasContended = false;
+        CommunityPhoto::updating(function (CommunityPhoto $photo) use (&$hasContended): void {
+            if (! $hasContended && $photo->processing_status === 'complete') {
+                $hasContended = true;
+                $previous = new \PDOException('Deadlock found while waiting for a lock.');
+                $previous->errorInfo = ['40001', 1213, 'Deadlock found while waiting for a lock.'];
+
+                throw new QueryException('mysql', 'update community_photos', [], $previous);
+            }
+        });
+
+        $handled = app(ProcessDeferredCommunityPhotos::class)->handle(2);
+
+        $this->assertSame(1, $handled);
+        $this->assertSame('processing', $blocked->fresh()->status);
+        $this->assertSame(1, $blocked->fresh()->attempts);
+        $this->assertSame('completed', $successful->fresh()->status);
+        $this->assertFalse(app(ProcessDeferredCommunityPhotos::class)->process($blocked->id));
+    }
+
+    public function test_a_single_job_limit_processes_only_that_jobs_cleanup_and_leaves_unrelated_cleanup_pending(): void
+    {
+        Storage::fake('local');
+        $this->useProcessorDouble();
+        [$processedPhoto, $processedJob] = $this->queuedJob();
+        [$unrelatedPhoto, $unrelatedJob] = $this->queuedJob();
+        $unrelatedJob->update(['status' => 'completed']);
+
+        $handled = app(ProcessDeferredCommunityPhotos::class)->handle(1);
+
+        $this->assertSame(1, $handled);
+        $this->assertSame('completed', $processedJob->fresh()->status);
+        $this->assertNull($processedJob->fresh()->staged_source_path);
+        $this->assertSame('completed', $unrelatedJob->fresh()->status);
+        $this->assertSame($unrelatedPhoto->source_path, $unrelatedJob->fresh()->staged_source_path);
+        Storage::disk('local')->assertExists($unrelatedPhoto->source_path);
+        $this->assertSame('complete', $processedPhoto->fresh()->processing_status);
+    }
+
+    public function test_the_gallery_schedule_uses_a_short_explicit_overlap_expiry(): void
+    {
+        $event = collect(app(Schedule::class)->events())
+            ->first(fn ($event): bool => str_contains((string) $event->command, 'gallery:process-deferred-photos --limit=25'));
+
+        $this->assertNotNull($event);
+        $this->assertTrue($event->withoutOverlapping);
+        $this->assertSame((int) config('gallery.deferred.schedule_lock_minutes'), $event->expiresAt);
+        $this->assertLessThan(60, $event->expiresAt);
     }
 
     public function test_finalisation_failure_keeps_the_reserved_output_reference_until_a_later_cleanup(): void

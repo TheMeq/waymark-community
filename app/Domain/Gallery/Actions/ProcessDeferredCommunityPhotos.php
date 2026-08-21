@@ -7,6 +7,7 @@ use App\Domain\Gallery\Data\ProcessedCommunityPhoto;
 use App\Domain\Gallery\Data\ProcessedPhotoVariant;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\CommunityPhotoProcessingJob;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -20,8 +21,7 @@ final readonly class ProcessDeferredCommunityPhotos
     public function handle(int $limit = 25): int
     {
         $limit = max(1, min($limit, 100));
-        $handled = $this->cleanUp($limit);
-        $handled += $this->recoverStaleClaims($limit - $handled);
+        $handled = $this->recoverStaleClaims($limit);
         $remaining = $limit - $handled;
 
         if ($remaining < 1) {
@@ -35,26 +35,38 @@ final readonly class ProcessDeferredCommunityPhotos
             ->limit($remaining)
             ->pluck('id')
             ->each(function (int $jobId) use (&$handled): void {
-                if ($this->process($jobId)) {
-                    $handled++;
+                try {
+                    if ($this->process($jobId)) {
+                        $handled++;
+                    }
+                } catch (Throwable $exception) {
+                    report($exception);
                 }
             });
+
+        $remaining = $limit - $handled;
+
+        if ($remaining > 0) {
+            $handled += $this->cleanUp($remaining);
+        }
 
         return $handled;
     }
 
     public function process(int $jobId): bool
     {
-        $job = $this->claim($jobId);
-
-        if (! $job instanceof CommunityPhotoProcessingJob) {
-            return false;
-        }
-
         $temporaryPath = null;
         $processed = null;
+        $job = null;
 
         try {
+            $this->configureDatabaseLockWaitTimeout();
+            $job = $this->claim($jobId);
+
+            if (! $job instanceof CommunityPhotoProcessingJob) {
+                return false;
+            }
+
             $worked = DB::transaction(function () use ($job, &$temporaryPath, &$processed): bool {
                 $locked = CommunityPhotoProcessingJob::query()->lockForUpdate()->findOrFail($job->id);
                 $photo = CommunityPhoto::query()->lockForUpdate()->findOrFail($locked->community_photo_id);
@@ -75,10 +87,19 @@ final readonly class ProcessDeferredCommunityPhotos
             }
         } catch (Throwable $exception) {
             report($exception);
-            $this->fail($job->id, $job->claim_token);
 
-            if (CommunityPhotoProcessingJob::query()->whereKey($job->id)->value('status') === 'terminal_failed') {
-                $this->cleanUp(2);
+            if ($this->isDatabaseLockContention($exception) || ! $job instanceof CommunityPhotoProcessingJob) {
+                return false;
+            }
+
+            try {
+                $this->fail($job->id, $job->claim_token);
+
+                if (CommunityPhotoProcessingJob::query()->whereKey($job->id)->value('status') === 'terminal_failed') {
+                    $this->cleanUpJob($job->id);
+                }
+            } catch (Throwable $failureException) {
+                report($failureException);
             }
 
             return true;
@@ -88,7 +109,7 @@ final readonly class ProcessDeferredCommunityPhotos
             }
         }
 
-        $this->cleanUp(1);
+        $this->cleanUpJob($job->id);
 
         return true;
     }
@@ -240,6 +261,21 @@ final readonly class ProcessDeferredCommunityPhotos
                     $handled++;
                 }
             });
+
+        return $handled;
+    }
+
+    private function cleanUpJob(int $jobId): int
+    {
+        $handled = 0;
+
+        if ($this->deleteOutputDirectory($jobId)) {
+            $handled++;
+        }
+
+        if ($this->deleteStagedSource($jobId)) {
+            $handled++;
+        }
 
         return $handled;
     }
@@ -410,6 +446,31 @@ final readonly class ProcessDeferredCommunityPhotos
     private function backoffSeconds(int $attempt): int
     {
         return min(3600, max(1, (int) config('gallery.deferred.retry_delay_seconds', 60)) * (2 ** max(0, $attempt - 1)));
+    }
+
+    private function configureDatabaseLockWaitTimeout(): void
+    {
+        if (DB::connection()->getDriverName() !== 'mysql') {
+            return;
+        }
+
+        DB::unprepared('SET SESSION innodb_lock_wait_timeout = '.$this->databaseLockWaitSeconds());
+    }
+
+    private function databaseLockWaitSeconds(): int
+    {
+        return min(30, max(1, (int) config('gallery.deferred.database_lock_wait_seconds', 5)));
+    }
+
+    private function isDatabaseLockContention(Throwable $exception): bool
+    {
+        if (! $exception instanceof QueryException) {
+            return false;
+        }
+
+        return in_array((int) $exception->getCode(), [1205, 1213], true)
+            || in_array((int) ($exception->errorInfo[1] ?? 0), [1205, 1213], true)
+            || $exception->getCode() === '40001';
     }
 
     private function sourcePath(ProcessedCommunityPhoto $processed): string
