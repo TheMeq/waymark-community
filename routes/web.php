@@ -14,6 +14,8 @@ use App\Http\Controllers\PublicWalkGpxDownloadController;
 use App\Http\Controllers\PublicWalkIndexController;
 use App\Http\Controllers\PublicWalkShowController;
 use App\Http\Controllers\WalkGradingGuideController;
+use App\Http\Controllers\WhatsOnCalendarController;
+use App\Http\Controllers\WhatsOnController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
@@ -28,6 +30,8 @@ Route::get('/socials/{slug}', PublicSocialShowController::class)->name('socials.
 Route::get('/weekends', PublicHolidayIndexController::class)->name('holidays.index');
 Route::get('/weekends/{slug}/attachments/{attachment}', PublicHolidayAttachmentDownloadController::class)->whereNumber('attachment')->name('holidays.attachment');
 Route::get('/weekends/{slug}', PublicHolidayShowController::class)->name('holidays.show');
+Route::get('/whats-on', WhatsOnController::class)->name('events.index');
+Route::get('/whats-on/calendar', WhatsOnCalendarController::class)->name('events.calendar');
 
 if (app()->environment(['local', 'testing'])) {
     Route::get('/_dev/components', function () {
