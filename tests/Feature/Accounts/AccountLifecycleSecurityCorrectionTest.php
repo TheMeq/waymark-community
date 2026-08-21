@@ -80,14 +80,14 @@ final class AccountLifecycleSecurityCorrectionTest extends TestCase
 
         try {
             User::retrieved(function (User $retrieved) use ($account, &$retrievals): void {
-                if ($retrieved->is($account) && ++$retrievals === 3) {
+                if ($retrieved->is($account) && ++$retrievals === 2) {
                     $retrieved->forceFill(['account_status' => AccountStatus::Disabled])->saveQuietly();
                 }
             });
 
             app(ProcessPersonalDataExports::class)->handle();
 
-            $this->assertGreaterThanOrEqual(3, $retrievals);
+            $this->assertGreaterThanOrEqual(2, $retrievals);
             $this->assertSame('revoked', $export->fresh()->status);
             $this->assertNull($export->fresh()->download_token_hash);
             Storage::disk('local')->assertDirectoryEmpty('account-exports/'.$account->id);

@@ -30,7 +30,7 @@ final class CleanUpPersonalDataExports
 
         try {
             $disk = Storage::disk('local');
-            if ($disk->exists($path) && $disk->delete($path)) {
+            if (! $disk->exists($path) || $disk->delete($path)) {
                 $this->clearPathAfterDeletion($exportId, $path);
             }
         } catch (Throwable) {

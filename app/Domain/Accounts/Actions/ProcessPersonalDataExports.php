@@ -54,22 +54,7 @@ final readonly class ProcessPersonalDataExports
                 return;
             }
 
-            $user = User::query()->with(['communicationPreferences', 'favourites.event'])->findOrFail($export->user_id);
-            if (! $user->isActive()) {
-                $this->revokeIfProcessing($export->id);
-
-                return;
-            }
-
-            $path = $export->storage_path;
-            if (! is_string($path) || ! $export->hasSafeStoragePath()) {
-                return;
-            }
-            Storage::disk('local')->put($path, json_encode($this->payload($user), JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
-
-            if (! $this->finalise($export->id, $path, Str::random(64))) {
-                $this->cleanup->handleExport($export->id);
-            }
+            $this->writeAndFinalise($export->id);
         } catch (Throwable) {
             $this->failOrRevoke($exportId);
         }
@@ -104,15 +89,15 @@ final readonly class ProcessPersonalDataExports
         });
     }
 
-    private function finalise(int $exportId, string $path, string $token): bool
+    private function writeAndFinalise(int $exportId): bool
     {
         $ownerId = $this->ownerId($exportId);
         if ($ownerId === null) {
             return false;
         }
 
-        return DB::transaction(function () use ($exportId, $ownerId, $path, $token): bool {
-            $user = User::query()->lockForUpdate()->findOrFail($ownerId);
+        return DB::transaction(function () use ($exportId, $ownerId): bool {
+            $user = User::query()->with(['communicationPreferences', 'favourites.event'])->lockForUpdate()->findOrFail($ownerId);
             $export = PersonalDataExport::query()->lockForUpdate()->findOrFail($exportId);
 
             if ($export->status !== 'processing' || ! $user->isActive()) {
@@ -122,6 +107,13 @@ final readonly class ProcessPersonalDataExports
 
                 return false;
             }
+            $path = $export->storage_path;
+            if (! is_string($path) || ! $export->hasSafeStoragePath()) {
+                return false;
+            }
+
+            Storage::disk('local')->put($path, json_encode($this->payload($user), JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+            $token = Str::random(64);
 
             $export->forceFill([
                 'status' => 'ready', 'storage_path' => $path,
@@ -155,6 +147,7 @@ final readonly class ProcessPersonalDataExports
                 }
                 $export->update([
                     'status' => 'failed', 'failed_at' => now(), 'processing_started_at' => null,
+                    'storage_path' => $this->terminalStoragePath($export),
                     'failure_reason' => 'Export generation failed.',
                 ]);
             });
@@ -206,6 +199,7 @@ final readonly class ProcessPersonalDataExports
                         }
                         $export->update([
                             'status' => 'failed', 'failed_at' => now(), 'processing_started_at' => null,
+                            'storage_path' => $this->terminalStoragePath($export),
                             'failure_reason' => 'Export processing timed out.',
                         ]);
 
@@ -257,10 +251,23 @@ final readonly class ProcessPersonalDataExports
     {
         $export->update([
             'status' => 'revoked',
-            'storage_path' => $export->hasSafeStoragePath() ? $export->storage_path : null,
+            'storage_path' => $this->terminalStoragePath($export),
             'download_token' => null, 'download_token_hash' => null,
             'processing_started_at' => null, 'expires_at' => null,
         ]);
+    }
+
+    private function terminalStoragePath(PersonalDataExport $export): ?string
+    {
+        if (! $export->hasSafeStoragePath()) {
+            return null;
+        }
+
+        try {
+            return Storage::disk('local')->exists($export->storage_path) ? $export->storage_path : null;
+        } catch (Throwable) {
+            return $export->storage_path;
+        }
     }
 
     private function ownerId(int $exportId): ?int
