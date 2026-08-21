@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
@@ -145,5 +146,116 @@ final class PublicAccountAccessTest extends TestCase
         $this->assertTrue($tables->every(fn (string $table): bool => preg_match($forbiddenTableNames, $table) === 0));
         $this->assertTrue($counterColumns->isEmpty());
         $this->assertSame([], array_values(array_intersect((new User)->getFillable(), $forbiddenCounterColumns)));
+    }
+
+    public function test_account_profile_settings_require_authentication_and_use_the_public_layout(): void
+    {
+        $this->get('/account/profile')->assertRedirect('/login');
+
+        $user = User::factory()->create([
+            'name' => '  Alex   Walker  ',
+            'display_name' => null,
+            'profile_photo_reference' => 'profile-photo-42',
+        ]);
+
+        $this->actingAs($user)
+            ->get('/account/profile')
+            ->assertOk()
+            ->assertSee('Profile settings')
+            ->assertSee('Alex W.')
+            ->assertSee('Profile photo')
+            ->assertDontSee('type="file"', false);
+    }
+
+    public function test_account_profile_updates_only_the_authenticated_account_and_records_explicit_preferences(): void
+    {
+        $account = User::factory()->create(['name' => 'Original Account Name']);
+        $otherAccount = User::factory()->create(['name' => 'Unaffected Account Name']);
+
+        $this->actingAs($account)
+            ->patch('/account/profile', [
+                'name' => 'Alex Walker',
+                'display_name' => 'Alex on the hills',
+                'phone' => '+44 7700 900123',
+                'preferences' => [
+                    'group_news' => '1',
+                    'photo_moderation_outcomes' => '1',
+                ],
+            ])
+            ->assertRedirect('/account/profile');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $account->id,
+            'name' => 'Alex Walker',
+            'display_name' => 'Alex on the hills',
+            'phone' => '+44 7700 900123',
+        ]);
+        $this->assertDatabaseHas('communication_preferences', [
+            'user_id' => $account->id,
+            'category' => 'group_news',
+            'is_subscribed' => true,
+        ]);
+        $this->assertDatabaseHas('communication_preferences', [
+            'user_id' => $account->id,
+            'category' => 'photo_moderation_outcomes',
+            'is_subscribed' => true,
+        ]);
+        $this->assertDatabaseHas('communication_preferences', [
+            'user_id' => $account->id,
+            'category' => 'membership_communications',
+            'is_subscribed' => false,
+        ]);
+        $this->assertDatabaseHas('users', [
+            'id' => $otherAccount->id,
+            'name' => 'Unaffected Account Name',
+        ]);
+    }
+
+    public function test_account_profile_rejects_invalid_details(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->from('/account/profile')
+            ->patch('/account/profile', [
+                'name' => '',
+                'display_name' => str_repeat('a', 101),
+                'phone' => str_repeat('1', 51),
+            ])
+            ->assertRedirect('/account/profile')
+            ->assertSessionHasErrors(['name', 'display_name', 'phone']);
+    }
+
+    public function test_public_attribution_uses_an_explicit_display_name_or_a_safe_privacy_fallback(): void
+    {
+        $user = new User(['name' => '  Alex   Walker  ', 'display_name' => null]);
+        $singleNameUser = new User(['name' => 'Alex', 'display_name' => null]);
+        $unnamedUser = new User(['name' => '   ', 'display_name' => null]);
+        $displayNameUser = new User(['name' => 'Alex Walker', 'display_name' => '  Trail Alex  ']);
+
+        $this->assertSame('Alex W.', $user->publicDisplayName());
+        $this->assertSame('Alex', $singleNameUser->publicDisplayName());
+        $this->assertSame('Member', $unnamedUser->publicDisplayName());
+        $this->assertSame('Trail Alex', $displayNameUser->publicDisplayName());
+    }
+
+    public function test_accounts_expose_no_member_directory_or_profile_upload_route(): void
+    {
+        $forbiddenRoutes = collect(Route::getRoutes())
+            ->filter(fn ($route): bool => preg_match('/(?:^|\/)(?:members|directory)(?:\/|$)/i', $route->uri()) === 1);
+
+        $this->assertTrue($forbiddenRoutes->isEmpty());
+        $this->assertFalse(Route::has('members.index'));
+        $this->assertFalse(Route::has('account.profile.photo.store'));
+        $this->assertFalse(Schema::hasTable('member_directories'));
+    }
+
+    public function test_profile_policy_only_allows_an_account_to_update_itself(): void
+    {
+        $account = User::factory()->create();
+        $otherAccount = User::factory()->create();
+
+        $this->assertTrue(Gate::forUser($account)->allows('updateProfile', $account));
+        $this->assertFalse(Gate::forUser($account)->allows('updateProfile', $otherAccount));
     }
 }

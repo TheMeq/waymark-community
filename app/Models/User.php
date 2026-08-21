@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\Accounts\Models\CommunicationPreference;
 use App\Domain\Membership\Enums\AccountStatus;
 use App\Domain\Membership\Enums\MembershipStatus;
 use Database\Factories\UserFactory;
@@ -11,11 +12,12 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
-#[Fillable(['name', 'email', 'password', 'can_manage_walks'])]
+#[Fillable(['name', 'display_name', 'email', 'phone', 'password', 'can_manage_walks'])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class User extends Authenticatable implements FilamentUser, MustVerifyEmail
 {
@@ -35,6 +37,33 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         return $panel->getId() === 'admin'
             && ($this->is_admin || ($this->can_manage_walks && $this->hasVerifiedEmail()))
             && $this->account_status === AccountStatus::Active;
+    }
+
+    public function publicDisplayName(): string
+    {
+        $displayName = trim((string) $this->display_name);
+
+        if ($displayName !== '') {
+            return $displayName;
+        }
+
+        $nameParts = preg_split('/\s+/', trim($this->name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        if ($nameParts === []) {
+            return 'Member';
+        }
+
+        if (count($nameParts) === 1) {
+            return $nameParts[0];
+        }
+
+        return $nameParts[0].' '.mb_strtoupper(mb_substr((string) end($nameParts), 0, 1)).'.';
+    }
+
+    /** @return HasMany<CommunicationPreference, $this> */
+    public function communicationPreferences(): HasMany
+    {
+        return $this->hasMany(CommunicationPreference::class);
     }
 
     /**

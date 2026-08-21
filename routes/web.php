@@ -2,6 +2,7 @@
 
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
+use App\Http\Controllers\AccountProfileController;
 use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\NewHereController;
@@ -22,6 +23,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
 Route::get('/new-here', NewHereController::class)->name('new-here');
+Route::middleware('auth')->group(function (): void {
+    Route::get('/account/profile', [AccountProfileController::class, 'edit'])->name('account.profile.edit');
+    Route::patch('/account/profile', [AccountProfileController::class, 'update'])->name('account.profile.update');
+});
 Route::get('/walks', PublicWalkIndexController::class)->name('walks.index');
 Route::get('/walks/grading-guide', WalkGradingGuideController::class)->name('walks.grading-guide');
 Route::get('/walks/{slug}/attachments/{attachment}', PublicWalkAttachmentDownloadController::class)->whereNumber('attachment')->name('walks.attachment');

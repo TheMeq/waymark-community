@@ -26,7 +26,7 @@
                 <ul class="grid gap-2 text-sm font-medium">
                     <li><x-public.button class="w-full" href="/walks" variant="secondary">Upcoming walks</x-public.button></li>
                     <li><x-public.button class="w-full" :href="route('new-here')">Join us</x-public.button></li>
-                    <li><x-public.button class="w-full" :href="route('login')" variant="quiet">Account</x-public.button></li>
+                    <li><x-public.button class="w-full" :href="auth()->check() ? route('account.profile.edit') : route('login')" variant="quiet">Account</x-public.button></li>
                     <li class="mt-2 border-t border-border pt-3"><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="/whats-on">What's on</a></li>
                     <li><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="/weekends">Weekends away</a></li>
                     <li><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="/photos">Gallery</a></li>
@@ -40,7 +40,7 @@
                 <li><a class="hover:text-brand" href="/whats-on">What's on</a></li>
                 <li><a class="hover:text-brand" href="/weekends">Weekends</a></li>
                 <li><a class="hover:text-brand" href="/photos">Gallery</a></li>
-                <li><a class="hover:text-brand" href="{{ route('login') }}">Members</a></li>
+                <li><a class="hover:text-brand" href="{{ auth()->check() ? route('account.profile.edit') : route('login') }}">Members</a></li>
                 <li><a class="grid size-10 place-items-center rounded-full hover:bg-surface-soft" href="/search" aria-label="Search"><svg class="size-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" stroke-linecap="round" /></svg></a></li>
                 <li><x-public.button :href="route('new-here')">Join us</x-public.button></li>
             </ul>
