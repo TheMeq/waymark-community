@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Accounts\Queries\FavouriteablePublicEventsQuery;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Domain\Socials\Queries\PublicSocialsQuery;
@@ -12,7 +13,7 @@ use Illuminate\Http\Request;
 
 final class PublicSocialShowController
 {
-    public function __invoke(string $slug, PublicSocialsQuery $socials, Request $request): View
+    public function __invoke(string $slug, PublicSocialsQuery $socials, FavouriteablePublicEventsQuery $favourites, Request $request): View
     {
         $siteProfile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
         $event = $socials->published()->where('slug', $slug)->firstOrFail();
@@ -22,7 +23,7 @@ final class PublicSocialShowController
             'theme' => BrandTheme::fromSiteProfile($siteProfile),
             'event' => $event,
             'social' => PublicSocialDetailViewModel::fromEvent($event),
-            'favourite' => FavouriteControlViewModel::for($event, $request->user()),
+            'favourite' => FavouriteControlViewModel::for($event, $request->user(), $favourites),
         ]);
     }
 }

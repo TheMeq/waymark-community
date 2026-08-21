@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Accounts\Queries\FavouriteablePublicEventsQuery;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Domain\Walks\Queries\PublicWalksQuery;
@@ -14,7 +15,7 @@ use Illuminate\Http\Request;
 
 final class PublicWalkShowController
 {
-    public function __invoke(string $slug, PublicWalksQuery $walks, RelatedWalks $relatedWalks, Request $request): View
+    public function __invoke(string $slug, PublicWalksQuery $walks, RelatedWalks $relatedWalks, FavouriteablePublicEventsQuery $favourites, Request $request): View
     {
         $siteProfile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
         $event = $walks->published()->with('updates')->where('slug', $slug)->firstOrFail();
@@ -27,7 +28,7 @@ final class PublicWalkShowController
             'theme' => BrandTheme::fromSiteProfile($siteProfile),
             'event' => $event,
             'walk' => PublicWalkDetailViewModel::fromEvent($event, $siteProfile),
-            'favourite' => FavouriteControlViewModel::for($event, $request->user()),
+            'favourite' => FavouriteControlViewModel::for($event, $request->user(), $favourites),
             'relatedWalks' => $relatedWalks->for($event)
                 ->map(fn ($related) => PublicWalkCardViewModel::fromEvent($related, $siteProfile)),
         ]);

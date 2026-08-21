@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Accounts;
 
+use App\Domain\Accounts\Actions\SaveFavourite;
 use App\Domain\Accounts\Models\Favourite;
+use App\Domain\Accounts\Queries\FavouriteablePublicEventsQuery;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
@@ -10,6 +12,7 @@ use App\Domain\Holidays\Actions\SaveHolidayDetails;
 use App\Domain\Socials\Actions\SaveSocialDetails;
 use App\Domain\Walks\Actions\SaveWalkDetails;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
@@ -48,6 +51,35 @@ final class FavouritesTest extends TestCase
 
         $this->assertSame(3, Favourite::query()->where('user_id', $user->id)->count());
         $this->assertDatabaseCount('favourites', 3);
+    }
+
+    public function test_save_favourite_recovers_only_a_unique_pair_race(): void
+    {
+        $user = User::factory()->create();
+        $event = $this->publicEvent(EventType::Walk, 'Raced favourite');
+        $existing = Favourite::query()->create(['user_id' => $user->id, 'event_id' => $event->id]);
+        $action = new SaveFavourite(
+            app(FavouriteablePublicEventsQuery::class),
+            fn () => throw new UniqueConstraintViolationException('sqlite', 'insert into favourites', [], new \RuntimeException('unique pair')),
+        );
+        $favourite = $action->handle($user, $event);
+
+        $this->assertSame($existing->id, $favourite->id);
+        $this->assertDatabaseCount('favourites', 1);
+    }
+
+    public function test_save_favourite_does_not_mask_non_unique_database_errors(): void
+    {
+        $user = User::factory()->create();
+        $event = $this->publicEvent(EventType::Walk, 'Failed favourite');
+
+        $action = new SaveFavourite(
+            app(FavouriteablePublicEventsQuery::class),
+            fn () => throw new QueryException('sqlite', 'insert into favourites', [], new \RuntimeException('simulated failure')),
+        );
+
+        $this->expectException(QueryException::class);
+        $action->handle($user, $event);
     }
 
     public function test_favourites_reject_private_future_published_unsupported_and_holiday_child_events(): void
@@ -156,6 +188,23 @@ final class FavouritesTest extends TestCase
             ->assertOk()->assertSee('Remove from favourites')->assertDontSee('favourite-count', false);
         $this->actingAs($user)->get(route('holidays.show', $holiday->slug))
             ->assertOk()->assertSee('Save to favourites')->assertDontSee('favourite-count', false);
+    }
+
+    public function test_public_holiday_child_social_has_no_favourite_control_while_a_top_level_social_does(): void
+    {
+        $user = User::factory()->create();
+        $holiday = $this->publicEvent(EventType::Holiday, 'Detail parent holiday');
+        $childSocial = $this->publicEvent(EventType::Social, 'Detail holiday child social', ['parent_event_id' => $holiday->id]);
+        $topLevelSocial = $this->publicEvent(EventType::Social, 'Detail top-level social');
+
+        $this->actingAs($user)->get(route('socials.show', $childSocial->slug))
+            ->assertOk()
+            ->assertDontSee('Save to favourites')
+            ->assertDontSee('Remove from favourites')
+            ->assertDontSee('<form', false);
+        $this->actingAs($user)->get(route('socials.show', $topLevelSocial->slug))
+            ->assertOk()
+            ->assertSee('Save to favourites');
     }
 
     public function test_favourite_surface_introduces_no_reminder_routes_or_preferences(): void
