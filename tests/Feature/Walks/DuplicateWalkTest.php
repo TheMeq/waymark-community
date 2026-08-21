@@ -348,7 +348,7 @@ final class DuplicateWalkTest extends TestCase
 
     private function createSourceWalk(User $organiser): Walk
     {
-        $coLeader = User::factory()->create();
+        $coLeader = User::factory()->walkLeader()->create();
         $grade = Grade::query()->create([
             'display_order' => 10,
             'name' => 'Moderate',

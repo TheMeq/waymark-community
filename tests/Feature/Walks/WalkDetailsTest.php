@@ -22,8 +22,8 @@ final class WalkDetailsTest extends TestCase
     public function test_saves_walk_details_against_an_event_with_existing_leaders_grade_and_tags(): void
     {
         $event = Event::factory()->create();
-        $primaryLeader = User::factory()->create();
-        $coLeader = User::factory()->create();
+        $primaryLeader = User::factory()->walkLeader()->create();
+        $coLeader = User::factory()->walkLeader()->create();
         $grade = Grade::query()->create([
             'display_order' => 10,
             'name' => 'Moderate',
@@ -54,7 +54,7 @@ final class WalkDetailsTest extends TestCase
     public function test_rejects_a_latitude_without_its_paired_longitude(): void
     {
         $event = Event::factory()->create();
-        $leader = User::factory()->create();
+        $leader = User::factory()->walkLeader()->create();
 
         try {
             app(SaveWalkDetails::class)->handle($event, [
@@ -71,7 +71,7 @@ final class WalkDetailsTest extends TestCase
     public function test_rejects_coordinates_outside_their_geographic_ranges(): void
     {
         $event = Event::factory()->create();
-        $leader = User::factory()->create();
+        $leader = User::factory()->walkLeader()->create();
 
         try {
             app(SaveWalkDetails::class)->handle($event, [
@@ -90,7 +90,7 @@ final class WalkDetailsTest extends TestCase
     public function test_rejects_non_positive_distance_duration_and_negative_ascent_or_capacity(): void
     {
         $event = Event::factory()->create();
-        $leader = User::factory()->create();
+        $leader = User::factory()->walkLeader()->create();
 
         try {
             app(SaveWalkDetails::class)->handle($event, [
@@ -113,7 +113,7 @@ final class WalkDetailsTest extends TestCase
     public function test_requires_transport_detail_when_a_walk_is_marked_public_transport_friendly(): void
     {
         $event = Event::factory()->create();
-        $leader = User::factory()->create();
+        $leader = User::factory()->walkLeader()->create();
 
         try {
             app(SaveWalkDetails::class)->handle($event, [
@@ -130,7 +130,7 @@ final class WalkDetailsTest extends TestCase
     public function test_persists_the_optional_walk_detail_seams_without_creating_public_content(): void
     {
         $event = Event::factory()->create();
-        $leader = User::factory()->create();
+        $leader = User::factory()->walkLeader()->create();
 
         $walk = app(SaveWalkDetails::class)->handle($event, [
             'primary_leader_id' => $leader->id,
@@ -188,7 +188,7 @@ final class WalkDetailsTest extends TestCase
     public function test_rejects_a_primary_leader_repeated_as_a_co_leader(): void
     {
         $event = Event::factory()->create();
-        $leader = User::factory()->create();
+        $leader = User::factory()->walkLeader()->create();
 
         try {
             app(SaveWalkDetails::class)->handle($event, [
@@ -205,7 +205,7 @@ final class WalkDetailsTest extends TestCase
     public function test_rejects_overlong_structured_walk_arrays(): void
     {
         $event = Event::factory()->create();
-        $leader = User::factory()->create();
+        $leader = User::factory()->walkLeader()->create();
 
         try {
             app(SaveWalkDetails::class)->handle($event, [
@@ -227,7 +227,7 @@ final class WalkDetailsTest extends TestCase
     public function test_rejects_response_unsafe_attachment_filenames_when_saving_walk_details(): void
     {
         $event = Event::factory()->create();
-        $leader = User::factory()->create();
+        $leader = User::factory()->walkLeader()->create();
 
         try {
             app(SaveWalkDetails::class)->handle($event, [
@@ -256,7 +256,7 @@ final class WalkDetailsTest extends TestCase
             'ascent_unit' => 'metres',
         ]);
         $walk = app(SaveWalkDetails::class)->handle(Event::factory()->create(), [
-            'primary_leader_id' => User::factory()->create()->id,
+            'primary_leader_id' => User::factory()->walkLeader()->create()->id,
             'distance' => 13.5,
             'ascent' => 420,
         ]);
@@ -272,7 +272,7 @@ final class WalkDetailsTest extends TestCase
     public function test_public_detail_data_omits_empty_optional_sections_and_private_notes(): void
     {
         $walk = app(SaveWalkDetails::class)->handle(Event::factory()->create(), [
-            'primary_leader_id' => User::factory()->create()->id,
+            'primary_leader_id' => User::factory()->walkLeader()->create()->id,
             'private_organiser_notes' => 'Arrange key collection.',
         ]);
 
@@ -284,7 +284,7 @@ final class WalkDetailsTest extends TestCase
     public function test_rejects_a_malformed_public_transport_link(): void
     {
         $event = Event::factory()->create();
-        $leader = User::factory()->create();
+        $leader = User::factory()->walkLeader()->create();
 
         try {
             app(SaveWalkDetails::class)->handle($event, [
@@ -305,14 +305,14 @@ final class WalkDetailsTest extends TestCase
         $this->expectException(ValidationException::class);
 
         app(SaveWalkDetails::class)->handle($event, [
-            'primary_leader_id' => User::factory()->create()->id,
+            'primary_leader_id' => User::factory()->walkLeader()->create()->id,
         ]);
     }
 
     public function test_rejects_url_and_path_values_that_exceed_their_persistent_column_limit(): void
     {
         $event = Event::factory()->create();
-        $leader = User::factory()->create();
+        $leader = User::factory()->walkLeader()->create();
         $transportUrl = 'https://example.test/'.str_repeat('a', 235);
 
         try {
@@ -333,7 +333,7 @@ final class WalkDetailsTest extends TestCase
     {
         try {
             app(SaveWalkDetails::class)->handle(Event::factory()->create(), [
-                'primary_leader_id' => User::factory()->create()->id,
+                'primary_leader_id' => User::factory()->walkLeader()->create()->id,
                 'gpx_path' => '../private/route.gpx',
                 'gpx_derived_metadata' => ['route_points' => [[52.95, -1.16]]],
             ]);
@@ -348,7 +348,7 @@ final class WalkDetailsTest extends TestCase
     public function test_rejects_numeric_values_outside_the_walk_column_precision_and_integer_ranges(): void
     {
         $event = Event::factory()->create();
-        $leader = User::factory()->create();
+        $leader = User::factory()->walkLeader()->create();
 
         try {
             app(SaveWalkDetails::class)->handle($event, [

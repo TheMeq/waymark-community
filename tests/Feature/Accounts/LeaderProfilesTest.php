@@ -38,7 +38,7 @@ final class LeaderProfilesTest extends TestCase
             'profile_photo_reference' => '/images/demo/lakeside-friends.png',
         ]);
         $this->walkEvent('Primary leader walk', $leader, $leader);
-        $coLed = $this->walkEvent('Co-led walk', $leader, User::factory()->create(), [$leader]);
+        $coLed = $this->walkEvent('Co-led walk', $leader, User::factory()->walkLeader()->create(), [$leader]);
         $this->walkEvent('Draft walk', $leader, $leader, [], [
             'status' => EventStatus::Draft,
             'is_public' => false,

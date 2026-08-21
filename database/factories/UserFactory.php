@@ -45,6 +45,13 @@ class UserFactory extends Factory
         ]);
     }
 
+    public function walkLeader(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => AccountRole::WalkLeader,
+        ]);
+    }
+
     public function initialAdministrator(): static
     {
         return $this

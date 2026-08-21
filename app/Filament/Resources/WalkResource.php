@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Domain\Accounts\Enums\ModuleCapability;
+use App\Domain\Accounts\Queries\EligibleWalkLeadersQuery;
 use App\Domain\Walks\Models\Grade;
 use App\Domain\Walks\Models\Tag;
 use App\Domain\Walks\Models\Walk;
@@ -46,13 +47,15 @@ final class WalkResource extends Resource
                 Textarea::make('description')->maxLength(65535)->columnSpanFull(),
                 Select::make('primary_leader_id')
                     ->label('Primary leader')
-                    ->options(fn (): array => User::query()->orderBy('name')->pluck('name', 'id')->all())
+                    ->options(fn (): array => app(EligibleWalkLeadersQuery::class)->options())
+                    ->getOptionLabelUsing(fn (int|string $value): ?string => app(EligibleWalkLeadersQuery::class)->existingLabel($value))
                     ->searchable()
                     ->required(),
                 Select::make('co_leader_ids')
                     ->label('Co-leaders')
                     ->multiple()
-                    ->options(fn (): array => User::query()->orderBy('name')->pluck('name', 'id')->all())
+                    ->options(fn (): array => app(EligibleWalkLeadersQuery::class)->options())
+                    ->getOptionLabelsUsing(fn (array $values): array => app(EligibleWalkLeadersQuery::class)->existingLabels($values))
                     ->searchable()
                     ->visible(fn (): bool => self::optionalFieldEnabled('co_leaders')),
                 Select::make('grade_id')

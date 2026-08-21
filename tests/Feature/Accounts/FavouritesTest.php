@@ -226,7 +226,10 @@ final class FavouritesTest extends TestCase
     private function publicEvent(EventType $type, string $title, array $attributes = []): Event
     {
         $startsAt = now()->addWeek();
-        $event = Event::factory()->create(array_replace([
+        $organiser = $type === EventType::Walk
+            ? User::factory()->walkLeader()->create()
+            : User::factory()->create();
+        $event = Event::factory()->for($organiser, 'organiser')->create(array_replace([
             'type' => $type,
             'title' => $title,
             'slug' => str($title)->slug()->toString().'-'.str()->random(6),

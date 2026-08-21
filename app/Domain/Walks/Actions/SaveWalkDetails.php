@@ -21,10 +21,15 @@ final class SaveWalkDetails
             ]);
         }
 
-        $details = WalkDetailsData::from($attributes);
-
-        return DB::transaction(function () use ($event, $details, $storedGpx): Walk {
-            $walk = Walk::query()->firstOrNew(['event_id' => $event->id]);
+        return DB::transaction(function () use ($event, $attributes, $storedGpx): Walk {
+            $walk = Walk::query()
+                ->where('event_id', $event->id)
+                ->lockForUpdate()
+                ->first();
+            $existingPrimaryLeaderId = $walk?->primary_leader_id;
+            $existingCoLeaderIds = $walk?->coLeaders()->pluck('users.id')->all() ?? [];
+            $details = WalkDetailsData::from($attributes, $existingPrimaryLeaderId, $existingCoLeaderIds);
+            $walk ??= new Walk(['event_id' => $event->id]);
             $walk->fill($details->persistenceAttributes());
             if ($storedGpx !== null) {
                 $walk->forceFill($storedGpx->persistenceAttributes());

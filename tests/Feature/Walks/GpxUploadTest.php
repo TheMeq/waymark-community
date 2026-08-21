@@ -311,7 +311,7 @@ GPX));
     private function walk(): Walk
     {
         return app(SaveWalkDetails::class)->handle(Event::factory()->create(), [
-            'primary_leader_id' => User::factory()->create()->id,
+            'primary_leader_id' => User::factory()->walkLeader()->create()->id,
         ]);
     }
 

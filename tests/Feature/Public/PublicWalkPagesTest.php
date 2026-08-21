@@ -130,7 +130,7 @@ final class PublicWalkPagesTest extends TestCase
             'description' => 'Steady mixed terrain.',
         ]);
         $tag = Tag::query()->create(['name' => 'Riverside']);
-        $leader = User::factory()->create(['name' => 'Morgan Walker']);
+        $leader = User::factory()->walkLeader()->create(['name' => 'Morgan Walker']);
         $startsAt = now()->next('Saturday')->setTime(18, 30);
 
         $match = $this->publishedWalk('Matching riverside walk', '+1 week');
@@ -155,7 +155,7 @@ final class PublicWalkPagesTest extends TestCase
 
     public function test_leader_filter_returns_a_walk_led_by_the_selected_primary_leader(): void
     {
-        $primaryLeader = User::factory()->create(['name' => 'Primary Match']);
+        $primaryLeader = User::factory()->walkLeader()->create(['name' => 'Primary Match']);
         $match = $this->publishedWalk('Primary-led walk', '+1 week');
         app(SaveWalkDetails::class)->handle($match, [
             'primary_leader_id' => $primaryLeader->id,
@@ -168,8 +168,8 @@ final class PublicWalkPagesTest extends TestCase
 
     public function test_leader_filter_returns_a_walk_led_by_the_selected_co_leader(): void
     {
-        $primaryLeader = User::factory()->create(['name' => 'Primary Leader']);
-        $coLeader = User::factory()->create(['name' => 'Co-leader Match']);
+        $primaryLeader = User::factory()->walkLeader()->create(['name' => 'Primary Leader']);
+        $coLeader = User::factory()->walkLeader()->create(['name' => 'Co-leader Match']);
         $match = $this->publishedWalk('Co-led walk', '+1 week');
         app(SaveWalkDetails::class)->handle($match, [
             'primary_leader_id' => $primaryLeader->id,
@@ -193,8 +193,8 @@ final class PublicWalkPagesTest extends TestCase
 
     public function test_leader_filter_options_include_a_person_who_only_co_leads_an_upcoming_public_walk(): void
     {
-        $primaryLeader = User::factory()->create(['name' => 'Primary Leader']);
-        $coLeader = User::factory()->create(['name' => 'Co-leader Only']);
+        $primaryLeader = User::factory()->walkLeader()->create(['name' => 'Primary Leader']);
+        $coLeader = User::factory()->walkLeader()->create(['name' => 'Co-leader Only']);
         $walk = $this->publishedWalk('Shared-lead walk', '+1 week');
         app(SaveWalkDetails::class)->handle($walk, [
             'primary_leader_id' => $primaryLeader->id,
@@ -211,8 +211,8 @@ final class PublicWalkPagesTest extends TestCase
 
     public function test_leader_filter_does_not_duplicate_a_walk_with_multiple_leader_relationships(): void
     {
-        $primaryLeader = User::factory()->create(['name' => 'Primary Match']);
-        $coLeaders = User::factory()->count(2)->create();
+        $primaryLeader = User::factory()->walkLeader()->create(['name' => 'Primary Match']);
+        $coLeaders = User::factory()->walkLeader()->count(2)->create();
         $walk = $this->publishedWalk('Duplicate-safe walk', '+1 week');
         app(SaveWalkDetails::class)->handle($walk, [
             'primary_leader_id' => $primaryLeader->id,
@@ -232,8 +232,8 @@ final class PublicWalkPagesTest extends TestCase
             'description' => 'Steady mixed terrain.',
         ]);
         $tag = Tag::query()->create(['name' => 'Riverside']);
-        $leader = User::factory()->create(['name' => 'Morgan Walker']);
-        $coLeader = User::factory()->create(['name' => 'Casey Walker']);
+        $leader = User::factory()->walkLeader()->create(['name' => 'Morgan Walker']);
+        $coLeader = User::factory()->walkLeader()->create(['name' => 'Casey Walker']);
         $event = $this->publishedWalk('Riverside ridge walk', '+1 week', [
             'status' => EventStatus::Changed,
             'summary' => 'A long ridge above the river.',
@@ -425,7 +425,7 @@ final class PublicWalkPagesTest extends TestCase
         ]);
         $event = $this->publishedWalk('Accent walk', '+1 week');
         app(SaveWalkDetails::class)->handle($event, [
-            'primary_leader_id' => User::factory()->create()->id,
+            'primary_leader_id' => User::factory()->walkLeader()->create()->id,
             'grade_id' => $grade->id,
         ]);
 
@@ -492,7 +492,7 @@ final class PublicWalkPagesTest extends TestCase
 
         if ($event->type === EventType::Walk) {
             app(SaveWalkDetails::class)->handle($event, [
-                'primary_leader_id' => User::factory()->create()->id,
+                'primary_leader_id' => User::factory()->walkLeader()->create()->id,
                 'meeting_location_name' => 'Example meeting point',
             ]);
         }

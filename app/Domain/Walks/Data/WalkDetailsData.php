@@ -2,6 +2,7 @@
 
 namespace App\Domain\Walks\Data;
 
+use App\Domain\Accounts\Queries\EligibleWalkLeadersQuery;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Validator as ValidationValidator;
 
@@ -50,8 +51,11 @@ final readonly class WalkDetailsData
         public ?string $highlights,
     ) {}
 
-    /** @param array<string, mixed> $attributes */
-    public static function from(array $attributes): self
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @param  array<int, int>  $existingCoLeaderIds
+     */
+    public static function from(array $attributes, ?int $existingPrimaryLeaderId = null, array $existingCoLeaderIds = []): self
     {
         $attributes = self::normaliseEmptyStrings($attributes);
 
@@ -101,7 +105,27 @@ final readonly class WalkDetailsData
             'highlights' => ['nullable', 'string', 'max:5000'],
         ]);
 
-        $validator->after(function (ValidationValidator $validator) use ($attributes): void {
+        $validator->after(function (ValidationValidator $validator) use ($attributes, $existingPrimaryLeaderId, $existingCoLeaderIds): void {
+            $eligibleLeaders = app(EligibleWalkLeadersQuery::class);
+            $primaryLeaderId = self::integerId($attributes['primary_leader_id'] ?? null);
+
+            if ($primaryLeaderId !== null
+                && $primaryLeaderId !== $existingPrimaryLeaderId
+                && ! $eligibleLeaders->contains($primaryLeaderId)) {
+                $validator->errors()->add('primary_leader_id', 'Choose an active, verified account with permission to manage walks.');
+            }
+
+            foreach ($attributes['co_leader_ids'] ?? [] as $coLeaderId) {
+                $coLeaderId = self::integerId($coLeaderId);
+
+                if ($coLeaderId !== null
+                    && ! in_array($coLeaderId, $existingCoLeaderIds, true)
+                    && ! $eligibleLeaders->contains($coLeaderId)) {
+                    $validator->errors()->add('co_leader_ids', 'Choose only active, verified accounts with permission to manage walks.');
+                    break;
+                }
+            }
+
             if (in_array($attributes['primary_leader_id'] ?? null, $attributes['co_leader_ids'] ?? [], true)) {
                 $validator->errors()->add('co_leader_ids', 'The primary leader cannot also be a co-leader.');
             }
@@ -216,5 +240,18 @@ final readonly class WalkDetailsData
         }
 
         return $attributes;
+    }
+
+    private static function integerId(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && ctype_digit($value)) {
+            return (int) $value;
+        }
+
+        return null;
     }
 }

@@ -172,7 +172,7 @@ final class WalkAdministrationTest extends TestCase
     public function test_walk_edit_form_exposes_and_persists_the_complete_phase_three_walk_data_set(): void
     {
         $leader = User::factory()->create(['can_manage_walks' => true]);
-        $coLeader = User::factory()->create();
+        $coLeader = User::factory()->walkLeader()->create();
         $grade = Grade::query()->create(['display_order' => 10, 'name' => 'Moderate', 'description' => 'Steady']);
         $tag = Tag::query()->create(['name' => 'Riverside']);
         $walk = Walk::query()->create([

@@ -19,7 +19,7 @@ final class WalkRoutePresentationTest extends TestCase
         config()->set('walks.map.attribution', 'Example maps');
 
         $walk = app(SaveWalkDetails::class)->handle(Event::factory()->create(), [
-            'primary_leader_id' => User::factory()->create()->id,
+            'primary_leader_id' => User::factory()->walkLeader()->create()->id,
         ]);
         $walk->forceFill([
             'gpx_path' => 'walks/gpx/123e4567-e89b-12d3-a456-426614174000.gpx',
@@ -51,7 +51,7 @@ final class WalkRoutePresentationTest extends TestCase
     public function test_public_route_details_do_not_expose_a_map_for_invalid_legacy_coordinates(): void
     {
         $walk = app(SaveWalkDetails::class)->handle(Event::factory()->create(), [
-            'primary_leader_id' => User::factory()->create()->id,
+            'primary_leader_id' => User::factory()->walkLeader()->create()->id,
         ]);
         $walk->forceFill(['latitude' => 91, 'longitude' => 0])->save();
 
@@ -63,7 +63,7 @@ final class WalkRoutePresentationTest extends TestCase
     public function test_public_route_details_do_not_expose_a_map_for_a_single_route_point_without_a_meeting_pin(): void
     {
         $walk = app(SaveWalkDetails::class)->handle(Event::factory()->create(), [
-            'primary_leader_id' => User::factory()->create()->id,
+            'primary_leader_id' => User::factory()->walkLeader()->create()->id,
         ]);
         $walk->forceFill([
             'gpx_path' => 'walks/gpx/123e4567-e89b-12d3-a456-426614174000.gpx',
