@@ -16,6 +16,7 @@ final readonly class PublicHolidayDetailViewModel
     public static function fromEvent(Event $event): array
     {
         $holiday = $event->holiday;
+        $showBookingState = ! PublicEventStatus::isExceptional($event->status);
 
         return [
             'status' => PublicEventStatus::lifecycle($event->status),
@@ -24,18 +25,20 @@ final readonly class PublicHolidayDetailViewModel
             'organiser' => $event->organiser?->name,
             'pricing' => self::pricing($holiday?->pricing_type, $holiday?->price_amount, $holiday?->currency, $holiday?->deposit_amount, $holiday?->pricing_notes),
             'capacity' => $holiday?->capacity,
-            'availability' => $holiday?->availability,
-            'booking' => array_filter([
+            'availability' => $showBookingState ? $holiday?->availability : null,
+            'booking' => $showBookingState ? array_filter([
                 'deadline' => $holiday?->booking_deadline?->format('l j F Y, H:i'),
                 'status' => $holiday?->booking_status,
                 'instructions' => $holiday?->booking_instructions,
                 'url' => $holiday?->booking_url,
                 'contact' => $holiday?->booking_contact,
-            ]),
+            ]) : [],
             'travel' => $holiday?->travel_details,
             'itinerary' => $holiday?->itinerary_notes,
             'child_itinerary' => $event->children
-                ->filter(fn (Event $child): bool => $child->is_public && $child->published_at !== null && in_array($child->status, [EventStatus::Published, EventStatus::Changed, EventStatus::Postponed, EventStatus::Cancelled], true))
+                ->filter(fn (Event $child): bool => $child->is_public
+                    && $child->published_at?->lessThanOrEqualTo(now())
+                    && in_array($child->status, [EventStatus::Published, EventStatus::Changed, EventStatus::Postponed, EventStatus::Cancelled], true))
                 ->map(fn (Event $child): array => [
                     'title' => $child->title,
                     'type' => ucfirst($child->type->value),

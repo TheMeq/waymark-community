@@ -96,11 +96,15 @@ final class WhatsOnTest extends TestCase
     public function test_exceptional_lifecycle_state_overrides_availability_on_cards_details_and_calendar(): void
     {
         $social = $this->event(EventType::Social, 'Cancelled community supper', '2026-10-04 19:00:00', EventStatus::Cancelled);
-        $social->social->update(['availability' => 'Places available']);
+        $social->social->update(['availability' => 'Places available', 'booking_status' => 'Booking open']);
 
         $this->get('/whats-on')->assertOk()->assertSee('Cancelled')->assertDontSee('Places available');
         $this->get('/whats-on/calendar?month=2026-10')->assertOk()->assertSee('Cancelled');
-        $this->get('/socials/'.$social->slug)->assertOk()->assertSee('Cancelled');
+        $this->get('/socials/'.$social->slug)
+            ->assertOk()
+            ->assertSee('Cancelled')
+            ->assertDontSee('Places available')
+            ->assertDontSee('Booking open');
     }
 
     public function test_multi_day_event_spanning_into_month_is_present_on_each_applicable_calendar_day(): void

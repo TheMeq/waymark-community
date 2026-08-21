@@ -84,6 +84,22 @@ final class PublicHolidayPagesTest extends TestCase
             ->assertDontSee('<img', false);
     }
 
+    public function test_cancelled_holiday_detail_does_not_advertise_availability_or_booking(): void
+    {
+        $event = $this->publishedHoliday('Cancelled weekend', '+2 weeks', [
+            'status' => EventStatus::Cancelled,
+        ], [
+            'availability' => 'Places available',
+            'booking_status' => 'Booking open',
+        ]);
+
+        $this->get('/weekends/'.$event->slug)
+            ->assertOk()
+            ->assertSee('Cancelled')
+            ->assertDontSee('Places available')
+            ->assertDontSee('Booking open');
+    }
+
     public function test_homepage_spotlight_uses_the_next_published_holiday(): void
     {
         $next = $this->publishedHoliday('Real coast weekend', '+2 weeks', [], [
@@ -141,6 +157,27 @@ final class PublicHolidayPagesTest extends TestCase
             ->assertSeeInOrder(['Saturday coast walk', 'Saturday supper'])
             ->assertSee('/walks/saturday-coast-walk', false)
             ->assertSee('/socials/saturday-supper', false);
+    }
+
+    public function test_holiday_itinerary_omits_a_child_before_its_scheduled_publication_time(): void
+    {
+        $holiday = $this->publishedHoliday('Scheduled itinerary weekend', '+2 weeks');
+        $child = Event::factory()->create([
+            'type' => EventType::Social,
+            'title' => 'Future announcement supper',
+            'slug' => 'future-announcement-supper',
+            'starts_at' => $holiday->starts_at->copy()->addDay(),
+            'ends_at' => $holiday->starts_at->copy()->addDay()->addHours(3),
+            'status' => EventStatus::Published,
+            'is_public' => true,
+            'published_at' => now()->addDay(),
+        ]);
+        app(SaveSocialDetails::class)->handle($child, []);
+        app(AssignHolidayChild::class)->handle($holiday, $child);
+
+        $this->get('/weekends/'.$holiday->slug)
+            ->assertOk()
+            ->assertDontSee('Future announcement supper');
     }
 
     /** @param array<string, mixed> $eventAttributes @param array<string, mixed> $holidayAttributes */

@@ -12,6 +12,7 @@ final readonly class PublicSocialDetailViewModel
     public static function fromEvent(Event $event): array
     {
         $social = $event->social;
+        $showBookingState = ! PublicEventStatus::isExceptional($event->status);
 
         return [
             'title' => $event->title,
@@ -23,15 +24,15 @@ final readonly class PublicSocialDetailViewModel
             'organiser' => $event->organiser?->name,
             'venue' => array_filter(['name' => $social?->venue_name, 'address' => $social?->venue_address]),
             'cost' => $social?->cost,
-            'booking' => array_filter([
+            'booking' => $showBookingState ? array_filter([
                 'status' => $social?->booking_status,
                 'instructions' => $social?->booking_instructions,
                 'url' => $social?->booking_url,
                 'contact_name' => $social?->contact_name,
                 'contact_details' => $social?->contact_details,
-            ]),
+            ]) : [],
             'capacity' => $social?->capacity,
-            'availability' => $social?->availability,
+            'availability' => $showBookingState ? $social?->availability : null,
             'accessibility' => $social?->accessibility_notes,
             'transport' => $social?->transport_notes,
             'attachments' => $social === null ? [] : SocialAttachment::availableFor($social),

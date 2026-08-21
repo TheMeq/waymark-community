@@ -7,6 +7,7 @@ use App\Domain\Events\Models\Event;
 use App\Domain\Holidays\Actions\AssignHolidayChild;
 use App\Domain\Holidays\Actions\RemoveHolidayChild;
 use App\Domain\Holidays\Actions\SaveHolidayDetails;
+use App\Domain\Holidays\Actions\UpdateHoliday;
 use App\Domain\Holidays\Data\HolidayGallerySource;
 use App\Domain\Socials\Actions\SaveSocialDetails;
 use App\Filament\Resources\HolidayResource\Pages\EditHoliday;
@@ -116,6 +117,28 @@ final class HolidayChildEventTest extends TestCase
 
         $this->assertNull($child->fresh()->parent_event_id);
         $this->assertDatabaseHas('events', ['id' => $child->id]);
+    }
+
+    public function test_holiday_dates_cannot_be_changed_to_exclude_an_attached_child(): void
+    {
+        $administrator = User::factory()->create(['is_admin' => true]);
+        $parent = $this->holiday();
+        $child = $this->child(EventType::Social, '2026-10-03 19:00:00', '2026-10-03 22:00:00');
+        app(AssignHolidayChild::class)->handle($parent, $child);
+
+        try {
+            app(UpdateHoliday::class)->handle($parent->holiday, $administrator, [
+                'title' => $parent->title,
+                'slug' => $parent->slug,
+                'starts_at' => '2026-10-04 09:00:00',
+                'ends_at' => '2026-10-05 10:00:00',
+            ]);
+            $this->fail('Expected child date validation to fail.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('dates', $exception->errors());
+        }
+
+        $this->assertSame('2026-10-02 16:00:00', $parent->fresh()->starts_at->format('Y-m-d H:i:s'));
     }
 
     private function holiday(string $title = 'Coast weekend'): Event
