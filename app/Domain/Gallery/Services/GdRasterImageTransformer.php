@@ -39,7 +39,14 @@ final class GdRasterImageTransformer implements RasterImageTransformer
         }
 
         $source = $this->createSourceImage($sourcePath);
-        $normalised = $this->normaliseOrientation($source, $orientation);
+
+        try {
+            $normalised = $this->normaliseOrientation($source, $orientation);
+        } catch (\Throwable $exception) {
+            imagedestroy($source);
+
+            throw $exception;
+        }
 
         if ($normalised !== $source) {
             imagedestroy($source);

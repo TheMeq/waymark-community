@@ -86,6 +86,16 @@ final readonly class ImageProcessingConfiguration
         }
 
         if ($outputMimeType === null) {
+            foreach (['image/jpeg', 'image/png'] as $coreMimeType) {
+                if ($transformer->supportsOutput($coreMimeType)) {
+                    $outputMimeType = $coreMimeType;
+
+                    break;
+                }
+            }
+        }
+
+        if ($outputMimeType === null) {
             throw new RuntimeException('Gallery image processing configuration is invalid.');
         }
 

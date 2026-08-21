@@ -44,42 +44,44 @@ final readonly class IngestCommunityPhoto
             throw ValidationException::withMessages(['photo' => 'The uploaded photo could not be decoded for processing.']);
         }
 
-        $diskName = (string) config('gallery.photos.disk', 'local');
-        $directory = trim((string) config('gallery.photos.directory', 'community-photos'), '/').'/'.Str::uuid()->toString();
-        $disk = Storage::disk($diskName);
-
         try {
-            $retainedSource = null;
+            $diskName = (string) config('gallery.photos.disk', 'local');
+            $directory = trim((string) config('gallery.photos.directory', 'community-photos'), '/').'/'.Str::uuid()->toString();
+            $disk = Storage::disk($diskName);
 
-            if ($configuration->retainedSource !== null) {
-                $retainedSource = $this->storeVariant(
-                    $diskName,
-                    $disk,
-                    $directory,
-                    $source,
-                    $configuration->retainedSource,
-                    $configuration->outputMimeType,
-                );
+            try {
+                $retainedSource = null;
+
+                if ($configuration->retainedSource !== null) {
+                    $retainedSource = $this->storeVariant(
+                        $diskName,
+                        $disk,
+                        $directory,
+                        $source,
+                        $configuration->retainedSource,
+                        $configuration->outputMimeType,
+                    );
+                }
+
+                $variants = [];
+
+                foreach ($configuration->variants as $name => $definition) {
+                    $variants[$name] = $this->storeVariant(
+                        $diskName,
+                        $disk,
+                        $directory,
+                        $source,
+                        $definition,
+                        $configuration->outputMimeType,
+                    );
+                }
+
+                return new ProcessedCommunityPhoto($retainedSource, $variants, $width, $height, $metadata->capturedAt);
+            } catch (\Throwable $exception) {
+                $disk->deleteDirectory($directory);
+
+                throw $exception;
             }
-
-            $variants = [];
-
-            foreach ($configuration->variants as $name => $definition) {
-                $variants[$name] = $this->storeVariant(
-                    $diskName,
-                    $disk,
-                    $directory,
-                    $source,
-                    $definition,
-                    $configuration->outputMimeType,
-                );
-            }
-
-            return new ProcessedCommunityPhoto($retainedSource, $variants, $width, $height, $metadata->capturedAt);
-        } catch (\Throwable $exception) {
-            $disk->deleteDirectory($directory);
-
-            throw $exception;
         } finally {
             $source->release();
         }

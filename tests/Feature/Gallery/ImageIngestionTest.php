@@ -298,6 +298,32 @@ final class ImageIngestionTest extends TestCase
         $this->assertSame('jpg', pathinfo($result->variants['master']->path, PATHINFO_EXTENSION));
     }
 
+    public function test_optional_only_output_preferences_fall_back_to_a_supported_core_codec(): void
+    {
+        $transformer = new RecordingRasterTransformer(['image/jpeg']);
+        config()->set('gallery.processing.preferred_output_mime_types', ['image/avif']);
+
+        $result = $this->ingestor($transformer)->handle($this->upload('walk.png', 'image/png', $this->pngFixture()));
+
+        $this->assertSame('image/jpeg', $result->variants['master']->mimeType);
+    }
+
+    public function test_decoded_raster_is_released_when_storage_disk_resolution_fails(): void
+    {
+        $transformer = new RecordingRasterTransformer;
+        Storage::shouldReceive('disk')->with('local')->andThrow(new RuntimeException('Storage disk is unavailable.'));
+
+        try {
+            $this->ingestor($transformer)->handle($this->upload('walk.png', 'image/png', $this->pngFixture()));
+            $this->fail('A storage disk resolution failure was not propagated.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Storage disk is unavailable.', $exception->getMessage());
+            $this->assertTrue($transformer->decodedRasters[0]->released);
+        } finally {
+            Storage::clearResolvedInstance('filesystem');
+        }
+    }
+
     public function test_a_transform_failure_removes_only_the_generated_photo_directory(): void
     {
         $transformer = new RecordingRasterTransformer(throwOnVariant: 'medium');
@@ -406,14 +432,7 @@ final class ImageIngestionTest extends TestCase
 
     private function webpFixture(): string
     {
-        $image = imagecreatetruecolor(1, 1);
-        imagefill($image, 0, 0, imagecolorallocate($image, 55, 89, 39));
-        ob_start();
-        imagewebp($image);
-        $contents = ob_get_clean();
-        imagedestroy($image);
-
-        return is_string($contents) ? $contents : '';
+        return base64_decode('UklGRjIAAABXRUJQVlA4ICYAAABQAQCdASoBAAEAAUAmJQBOgCgAAP70GLfFfyq9ZS99eqWuTcAAAA==', true) ?: '';
     }
 
     private function orientedCaptureJpegFixture(): string
@@ -474,6 +493,9 @@ final class RecordingRasterTransformer implements RasterImageTransformer
     /** @var list<int> */
     public array $decodedOrientations = [];
 
+    /** @var list<RecordingDecodedRaster> */
+    public array $decodedRasters = [];
+
     /**
      * @param  list<string>  $supportedOutputMimeTypes
      * @param  list<string>  $supportedInputMimeTypes
@@ -499,7 +521,7 @@ final class RecordingRasterTransformer implements RasterImageTransformer
         $this->decodedPaths[] = $sourcePath;
         $this->decodedOrientations[] = $orientation;
 
-        return new RecordingDecodedRaster;
+        return tap(new RecordingDecodedRaster, fn (RecordingDecodedRaster $raster) => $this->decodedRasters[] = $raster);
     }
 
     public function transform(DecodedRasterImage $source, ImageVariantDefinition $variant, string $mimeType): TransformedRasterImage
@@ -516,6 +538,8 @@ final class RecordingRasterTransformer implements RasterImageTransformer
 
 final class RecordingDecodedRaster implements DecodedRasterImage
 {
+    public bool $released = false;
+
     public function width(): int
     {
         return 1;
@@ -526,7 +550,10 @@ final class RecordingDecodedRaster implements DecodedRasterImage
         return 1;
     }
 
-    public function release(): void {}
+    public function release(): void
+    {
+        $this->released = true;
+    }
 }
 
 final readonly class FixedImageMetadataReader implements ImageMetadataReader
