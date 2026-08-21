@@ -18,11 +18,11 @@ use App\Domain\Holidays\Models\Holiday;
 use App\Domain\Socials\Models\Social;
 use App\Domain\Walks\Models\Walk;
 use App\Models\User;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 final class CommunityPhotoUploadTest extends TestCase
@@ -112,6 +112,17 @@ final class CommunityPhotoUploadTest extends TestCase
         ])->assertCreated();
 
         $this->assertDatabaseHas('community_photos', ['event_id' => $child->id]);
+    }
+
+    public function test_completed_public_event_with_its_matching_extension_is_uploadable(): void
+    {
+        Storage::fake('local');
+        $this->useUploadProcessorDouble();
+        $account = User::factory()->create();
+        $event = $this->uploadableEvent(['type' => EventType::Social, 'status' => EventStatus::Completed]);
+
+        $this->actingAs($account)->postJson(route('community-photos.upload.store'), ['context' => 'event:'.$event->id, 'accept_photo_policy' => true, 'photos' => [$this->pngUpload('completed.png')]])->assertCreated();
+        $this->assertDatabaseHas('community_photos', ['event_id' => $event->id]);
     }
 
     public function test_named_photo_upload_route_returns_429_before_processing_after_its_limit(): void

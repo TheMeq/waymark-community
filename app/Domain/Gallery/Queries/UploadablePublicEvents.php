@@ -13,7 +13,7 @@ final class UploadablePublicEvents
     public function query(): Builder
     {
         return Event::query()->where('is_public', true)->whereNotNull('published_at')->where('published_at', '<=', now())
-            ->whereIn('status', [EventStatus::Published, EventStatus::Changed, EventStatus::Postponed, EventStatus::Cancelled])
+            ->whereIn('status', [EventStatus::Published, EventStatus::Changed, EventStatus::Postponed, EventStatus::Cancelled, EventStatus::Completed])
             ->where(function (Builder $query): void {
                 $query->where(fn (Builder $query): Builder => $query->where('type', EventType::Walk)->whereHas('walk'))
                     ->orWhere(fn (Builder $query): Builder => $query->where('type', EventType::Social)->whereHas('social'))
