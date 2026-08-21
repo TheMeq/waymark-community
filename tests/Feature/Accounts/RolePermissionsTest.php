@@ -3,6 +3,7 @@
 namespace Tests\Feature\Accounts;
 
 use App\Domain\Accounts\Actions\ConfigureRoleCapabilities;
+use App\Domain\Accounts\Actions\ConfigureRoleCapabilityMatrix;
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Accounts\Models\RoleCapability;
@@ -357,11 +358,134 @@ final class RolePermissionsTest extends TestCase
         $this->assertFalse($legacyWalkLeader->hasCapability(ModuleCapability::ManageSocials));
     }
 
+    public function test_explicit_role_does_not_inherit_legacy_administrator_or_walk_manager_flags(): void
+    {
+        $moderatorWithLegacyWalkManager = User::factory()->create([
+            'role' => AccountRole::Moderator,
+            'can_manage_walks' => true,
+        ]);
+        $registeredUserWithLegacyAdministrator = User::factory()->create([
+            'role' => AccountRole::RegisteredUser,
+            'is_admin' => true,
+        ]);
+
+        $this->assertTrue($moderatorWithLegacyWalkManager->hasCapability(ModuleCapability::ManageSocials));
+        $this->assertFalse($moderatorWithLegacyWalkManager->hasCapability(ModuleCapability::CreateWalks));
+        $this->assertFalse($registeredUserWithLegacyAdministrator->hasCapability(ModuleCapability::ManagePermissions));
+    }
+
+    public function test_null_role_uses_central_legacy_fallback_while_a_new_unassigned_account_resolves_as_registered(): void
+    {
+        $legacyAdministrator = User::factory()->create([
+            'role' => null,
+            'is_admin' => true,
+        ]);
+        $legacyWalkLeader = User::factory()->create([
+            'role' => null,
+            'can_manage_walks' => true,
+        ]);
+        $newUnassignedAccount = User::factory()->create(['role' => null]);
+
+        $this->assertTrue($legacyAdministrator->hasCapability(ModuleCapability::ManagePermissions));
+        $this->assertTrue($legacyWalkLeader->hasCapability(ModuleCapability::CreateWalks));
+        $this->assertFalse($newUnassignedAccount->hasCapability(ModuleCapability::ManagePermissions));
+        $this->assertFalse($newUnassignedAccount->hasCapability(ModuleCapability::CreateWalks));
+    }
+
+    public function test_invalid_complete_matrix_preserves_an_earlier_valid_role_change(): void
+    {
+        if (! class_exists(ConfigureRoleCapabilityMatrix::class)) {
+            $this->fail('The atomic role capability matrix action has not been implemented.');
+        }
+
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator]);
+
+        try {
+            app(ConfigureRoleCapabilityMatrix::class)->handle($administrator, [
+                AccountRole::RegisteredUser->value => [],
+                AccountRole::VerifiedMember->value => [],
+                AccountRole::WalkLeader->value => [
+                    ModuleCapability::AccessAdministration,
+                    ModuleCapability::CreateWalks,
+                    ModuleCapability::ManageOwnWalks,
+                    ModuleCapability::ManageOwnEventUpdates,
+                ],
+                AccountRole::Moderator->value => [
+                    ModuleCapability::AccessAdministration,
+                    ModuleCapability::ManageHolidays,
+                ],
+                AccountRole::Administrator->value => [
+                    ModuleCapability::AccessAdministration,
+                ],
+            ]);
+            $this->fail('An invalid later Administrator matrix was accepted.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('roles.administrator', $exception->errors());
+        }
+
+        $this->assertSame([
+            ModuleCapability::AccessAdministration->value,
+            ModuleCapability::ManageSocials->value,
+        ], $this->capabilitiesFor(AccountRole::Moderator));
+    }
+
+    public function test_valid_complete_matrix_replaces_every_role_in_one_save(): void
+    {
+        if (! class_exists(ConfigureRoleCapabilityMatrix::class)) {
+            $this->fail('The atomic role capability matrix action has not been implemented.');
+        }
+
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator]);
+
+        app(ConfigureRoleCapabilityMatrix::class)->handle($administrator, [
+            AccountRole::RegisteredUser->value => [],
+            AccountRole::VerifiedMember->value => [],
+            AccountRole::WalkLeader->value => [
+                ModuleCapability::AccessAdministration,
+                ModuleCapability::CreateWalks,
+            ],
+            AccountRole::Moderator->value => [
+                ModuleCapability::AccessAdministration,
+                ModuleCapability::ManageHolidays,
+            ],
+            AccountRole::Administrator->value => [
+                ModuleCapability::AccessAdministration,
+                ModuleCapability::ManagePermissions,
+            ],
+        ]);
+
+        $this->assertSame([], $this->capabilitiesFor(AccountRole::RegisteredUser));
+        $this->assertSame([], $this->capabilitiesFor(AccountRole::VerifiedMember));
+        $this->assertSame([
+            ModuleCapability::AccessAdministration->value,
+            ModuleCapability::CreateWalks->value,
+        ], $this->capabilitiesFor(AccountRole::WalkLeader));
+        $this->assertSame([
+            ModuleCapability::AccessAdministration->value,
+            ModuleCapability::ManageHolidays->value,
+        ], $this->capabilitiesFor(AccountRole::Moderator));
+        $this->assertSame([
+            ModuleCapability::AccessAdministration->value,
+            ModuleCapability::ManagePermissions->value,
+        ], $this->capabilitiesFor(AccountRole::Administrator));
+    }
+
     private function walkFor(User $organiser): Walk
     {
         return Walk::query()->create([
             'event_id' => Event::factory()->for($organiser, 'organiser')->create()->id,
             'primary_leader_id' => $organiser->id,
         ]);
+    }
+
+    /** @return array<int, string> */
+    private function capabilitiesFor(AccountRole $role): array
+    {
+        return RoleCapability::query()
+            ->where('role', $role->value)
+            ->orderBy('capability')
+            ->get()
+            ->map(static fn (RoleCapability $assignment): string => $assignment->capability->value)
+            ->all();
     }
 }

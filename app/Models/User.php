@@ -31,7 +31,6 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     protected $attributes = [
         'account_status' => 'active',
         'membership_status' => 'unverified',
-        'role' => 'registered_user',
         'is_admin' => false,
         'can_manage_walks' => false,
     ];
@@ -49,19 +48,28 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
             return false;
         }
 
+        if ($this->role !== null) {
+            return $this->hasRoleCapability($this->role, $capability);
+        }
+
         if ($this->hasLegacyCapability($capability)) {
             return true;
         }
 
-        return RoleCapability::query()
-            ->where('role', $this->role->value)
-            ->where('capability', $capability->value)
-            ->exists();
+        return $this->hasRoleCapability(AccountRole::RegisteredUser, $capability);
     }
 
     public function isActive(): bool
     {
         return $this->account_status === AccountStatus::Active;
+    }
+
+    private function hasRoleCapability(AccountRole $role, ModuleCapability $capability): bool
+    {
+        return RoleCapability::query()
+            ->where('role', $role->value)
+            ->where('capability', $capability->value)
+            ->exists();
     }
 
     public function publicDisplayName(): string
@@ -112,7 +120,8 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
 
     private function isWalkLeader(): bool
     {
-        return $this->role === AccountRole::WalkLeader || (! $this->is_admin && $this->can_manage_walks);
+        return $this->role === AccountRole::WalkLeader
+            || ($this->role === null && ! $this->is_admin && $this->can_manage_walks);
     }
 
     private function hasLegacyCapability(ModuleCapability $capability): bool

@@ -2,7 +2,7 @@
 
 namespace App\Filament\Pages;
 
-use App\Domain\Accounts\Actions\ConfigureRoleCapabilities;
+use App\Domain\Accounts\Actions\ConfigureRoleCapabilityMatrix;
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Accounts\Models\RoleCapability;
@@ -77,9 +77,7 @@ final class RolePermissionSettings extends Page
         $user = auth()->user();
         $roles = $this->form->getState()['roles'] ?? [];
 
-        foreach (AccountRole::cases() as $role) {
-            app(ConfigureRoleCapabilities::class)->handle($user, $role, $roles[$role->value] ?? []);
-        }
+        app(ConfigureRoleCapabilityMatrix::class)->handle($user, $roles);
 
         Notification::make()
             ->success()
