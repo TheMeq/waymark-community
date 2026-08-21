@@ -2,7 +2,10 @@
 
 namespace App\Models;
 
+use App\Domain\Accounts\Enums\AccountRole;
+use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Accounts\Models\CommunicationPreference;
+use App\Domain\Accounts\Models\RoleCapability;
 use App\Domain\Membership\Enums\AccountStatus;
 use App\Domain\Membership\Enums\MembershipStatus;
 use Database\Factories\UserFactory;
@@ -28,6 +31,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     protected $attributes = [
         'account_status' => 'active',
         'membership_status' => 'unverified',
+        'role' => 'registered_user',
         'is_admin' => false,
         'can_manage_walks' => false,
     ];
@@ -35,8 +39,29 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     public function canAccessPanel(Panel $panel): bool
     {
         return $panel->getId() === 'admin'
-            && ($this->is_admin || ($this->can_manage_walks && $this->hasVerifiedEmail()))
-            && $this->account_status === AccountStatus::Active;
+            && $this->hasCapability(ModuleCapability::AccessAdministration)
+            && (! $this->isWalkLeader() || $this->hasVerifiedEmail());
+    }
+
+    public function hasCapability(ModuleCapability $capability): bool
+    {
+        if (! $this->isActive()) {
+            return false;
+        }
+
+        if ($this->hasLegacyCapability($capability)) {
+            return true;
+        }
+
+        return RoleCapability::query()
+            ->where('role', $this->role->value)
+            ->where('capability', $capability->value)
+            ->exists();
+    }
+
+    public function isActive(): bool
+    {
+        return $this->account_status === AccountStatus::Active;
     }
 
     public function publicDisplayName(): string
@@ -76,11 +101,31 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         return [
             'account_status' => AccountStatus::class,
             'membership_status' => MembershipStatus::class,
+            'role' => AccountRole::class,
             'is_admin' => 'boolean',
             'can_manage_walks' => 'boolean',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
         ];
+    }
+
+    private function isWalkLeader(): bool
+    {
+        return $this->role === AccountRole::WalkLeader || (! $this->is_admin && $this->can_manage_walks);
+    }
+
+    private function hasLegacyCapability(ModuleCapability $capability): bool
+    {
+        if ($this->is_admin) {
+            return true;
+        }
+
+        return $this->can_manage_walks && in_array($capability, [
+            ModuleCapability::AccessAdministration,
+            ModuleCapability::CreateWalks,
+            ModuleCapability::ManageOwnWalks,
+            ModuleCapability::ManageOwnEventUpdates,
+        ], true);
     }
 }

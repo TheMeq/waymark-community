@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Walks\Models\Grade;
 use App\Domain\Walks\Models\Tag;
 use App\Domain\Walks\Models\Walk;
@@ -130,7 +131,7 @@ final class WalkResource extends Resource
         $query = parent::getEloquentQuery()->with(['event', 'primaryLeader']);
         $user = auth()->user();
 
-        if ($user?->is_admin) {
+        if ($user instanceof User && $user->hasCapability(ModuleCapability::ManageAllWalks)) {
             return $query;
         }
 

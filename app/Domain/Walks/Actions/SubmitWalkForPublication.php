@@ -2,6 +2,7 @@
 
 namespace App\Domain\Walks\Actions;
 
+use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Events\Actions\ChangeEventStatus;
 use App\Domain\Events\Actions\PublishEvent;
 use App\Domain\Events\Enums\EventStatus;
@@ -22,7 +23,8 @@ final readonly class SubmitWalkForPublication
         Gate::forUser($actor)->authorize('publish', $walk);
 
         $walk->loadMissing('event');
-        $canPublishDirectly = $actor->is_admin || WalkFieldSettings::current()->leaders_can_publish_directly;
+        $canPublishDirectly = $actor->hasCapability(ModuleCapability::ManageAllWalks)
+            || WalkFieldSettings::current()->leaders_can_publish_directly;
 
         if ($canPublishDirectly) {
             $this->publishEvent->handle($walk->event, $actor);

@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Models\User;
@@ -14,8 +15,8 @@ final class EventUpdatePolicy
             return false;
         }
 
-        return $user->is_admin || (
-            $user->can_manage_walks
+        return $user->hasCapability(ModuleCapability::ManageAllEventUpdates) || (
+            $user->hasCapability(ModuleCapability::ManageOwnEventUpdates)
             && $user->hasVerifiedEmail()
             && $event->organiser_id === $user->id
         );
