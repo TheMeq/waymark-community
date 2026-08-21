@@ -29,7 +29,8 @@ final readonly class PublicWalkCardViewModel
             'ascent' => self::measurement($walk?->ascent, $siteProfile->ascent_unit),
             'difficulty' => $walk?->grade?->name,
             'capacity' => PublicEventStatus::isExceptional($event->status) || $walk?->capacity === null ? null : ($walk->availability ?? (string) $walk->capacity),
-            'leader' => $walk?->primaryLeader?->name,
+            'leader' => $walk?->primaryLeader?->publicDisplayName(),
+            'leader_url' => $walk?->primaryLeader?->publicLeaderProfileUrl(),
             'status' => PublicEventStatus::card($event->status, $walk?->availability),
         ], static fn (mixed $value): bool => $value !== null && $value !== '');
     }

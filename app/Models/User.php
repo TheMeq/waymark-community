@@ -20,7 +20,17 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
-#[Fillable(['name', 'display_name', 'email', 'phone', 'password', 'can_manage_walks'])]
+#[Fillable([
+    'name',
+    'display_name',
+    'email',
+    'phone',
+    'password',
+    'can_manage_walks',
+    'public_profile_enabled',
+    'public_profile_slug',
+    'public_profile_introduction',
+])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class User extends Authenticatable implements FilamentUser, MustVerifyEmail
 {
@@ -91,6 +101,29 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         }
 
         return $nameParts[0].' '.mb_strtoupper(mb_substr((string) end($nameParts), 0, 1)).'.';
+    }
+
+    public function hasPublicLeaderProfile(): bool
+    {
+        return $this->public_profile_enabled
+            && filled($this->public_profile_slug)
+            && $this->isEligibleWalkLeader();
+    }
+
+    public function publicLeaderProfileUrl(): ?string
+    {
+        if (! $this->hasPublicLeaderProfile()) {
+            return null;
+        }
+
+        return route('leaders.show', $this->public_profile_slug);
+    }
+
+    public function isEligibleWalkLeader(): bool
+    {
+        return $this->isActive()
+            && $this->hasVerifiedEmail()
+            && $this->isWalkLeader();
     }
 
     /** @return HasMany<CommunicationPreference, $this> */

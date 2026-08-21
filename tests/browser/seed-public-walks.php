@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
@@ -24,7 +25,16 @@ $grade = Grade::query()->create([
     'name' => 'Moderate',
     'description' => 'A steady pace over mixed terrain.',
 ]);
-$leader = User::factory()->create(['name' => 'Morgan Walker']);
+$leader = User::factory()->create([
+    'name' => 'Morgan Walker',
+    'display_name' => 'Morgan W.',
+    'email' => 'morgan.leader@example.test',
+    'role' => AccountRole::WalkLeader,
+    'public_profile_enabled' => true,
+    'public_profile_slug' => 'morgan-w',
+    'public_profile_introduction' => 'I enjoy sharing friendly, varied walks and helping people feel at home outdoors.',
+    'profile_photo_reference' => '/images/demo/lakeside-friends.png',
+]);
 
 foreach ([
     ['Ridge and reservoir', 'hero-walkers.png', 8.5, 250, '2026-08-22 09:30:00'],
@@ -55,6 +65,7 @@ foreach ([
         'terrain_notes' => 'Mixed paths with uneven ground in places.',
         'availability' => 'Places available',
         'featured_image_path' => '/images/demo/'.$image,
+        'private_organiser_notes' => 'Check the route access before leaving.',
     ]);
 }
 

@@ -204,7 +204,7 @@ final class PublicWalkPagesTest extends TestCase
         $response = $this->get('/walks')->assertOk();
 
         $this->assertMatchesRegularExpression(
-            '/<option value="'.$coLeader->id.'"[^>]*>Co-leader Only<\/option>/',
+            '/<option value="'.$coLeader->id.'"[^>]*>Co-leader O\.<\/option>/',
             $response->getContent(),
         );
     }
@@ -271,8 +271,8 @@ final class PublicWalkPagesTest extends TestCase
             ->assertOk()
             ->assertSeeInOrder(['Riverside ridge walk', 'Updated details', 'A long ridge above the river.', 'Bring boots for the stony paths.'])
             ->assertSee('Moderate')
-            ->assertSee('Morgan Walker')
-            ->assertSee('Casey Walker')
+            ->assertSee('Morgan W.')
+            ->assertSee('Casey W.')
             ->assertSee('Riverside car park')
             ->assertSee('Rocky paths and a short climb.')
             ->assertSee('Public transport')

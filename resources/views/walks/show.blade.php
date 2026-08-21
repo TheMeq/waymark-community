@@ -50,9 +50,14 @@
                 @if ($walk['grade'])<div style="{!! $walk['grade']['accent_style'] !!}" class="border-l-4 border-[var(--wm-grade-accent,var(--wm-border))] pl-3"><dt class="text-xs font-semibold uppercase tracking-[0.1em] text-ink-muted">Difficulty</dt><dd class="mt-1 font-semibold text-ink">{{ $walk['grade']['name'] }}</dd><dd class="mt-1 text-sm text-ink-muted">{{ $walk['grade']['description'] }}</dd></div>@endif
             </dl>
 
-            @if ($walk['leaders'] !== [] || $walk['tags'] !== [])
+            @if ($walk['leader_attribution'] || $walk['tags'] !== [])
                 <div class="mt-7 grid gap-5 sm:grid-cols-2">
-                    @if ($walk['leaders'] !== [])<section aria-labelledby="leaders-heading"><h2 id="leaders-heading" class="text-xl text-ink">Walk leaders</h2><p class="mt-2 text-ink-muted">{{ implode(', ', $walk['leaders']) }}</p></section>@endif
+                    @if ($walk['leader_attribution'])
+                        <section aria-labelledby="leaders-heading">
+                            <h2 id="leaders-heading" class="text-xl text-ink">Walk leaders</h2>
+                            <p class="mt-2 text-ink-muted">{!! $walk['leader_attribution'] !!}</p>
+                        </section>
+                    @endif
                     @if ($walk['tags'] !== [])<section aria-labelledby="tags-heading"><h2 id="tags-heading" class="text-xl text-ink">Walk themes</h2><ul class="mt-2 flex flex-wrap gap-2">@foreach ($walk['tags'] as $tag)<li class="rounded-[var(--wm-radius-pill)] bg-surface-soft px-3 py-1 text-sm text-ink">{{ $tag }}</li>@endforeach</ul></section>@endif
                 </div>
             @endif

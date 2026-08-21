@@ -11,6 +11,8 @@ use App\Domain\Walks\Data\WalkAttachment;
 use App\Domain\Walks\Data\WalkFeaturedImage;
 use App\Domain\Walks\Data\WalkPublicDetails;
 use App\Domain\Walks\Models\WalkFieldSettings;
+use App\Models\User;
+use Illuminate\Support\Collection;
 
 final readonly class PublicWalkDetailViewModel
 {
@@ -48,10 +50,10 @@ final readonly class PublicWalkDetailViewModel
                 'accent' => GradeAccent::from($walk->grade->colour),
                 'accent_style' => GradeAccent::style($walk->grade->colour),
             ],
-            'leaders' => array_values(array_filter([
-                $walk->primaryLeader?->name,
-                ...($settings->isEnabled('co_leaders') ? $walk->coLeaders->pluck('name')->all() : []),
-            ])),
+            'leader_attribution' => self::leaderAttribution(collect([
+                $walk->primaryLeader,
+                ...($settings->isEnabled('co_leaders') ? $walk->coLeaders->all() : []),
+            ])->filter()),
             'tags' => $walk->tags->pluck('name')->all(),
             'sections' => $sections,
             'attachments' => $settings->isEnabled('attachments') ? WalkAttachment::availableForWalk($walk) : [],
@@ -68,6 +70,21 @@ final readonly class PublicWalkDetailViewModel
             EventStatus::Cancelled => 'Cancelled',
             default => null,
         };
+    }
+
+    /** @param Collection<int, User> $leaders */
+    private static function leaderAttribution(Collection $leaders): ?string
+    {
+        $attribution = $leaders->map(function ($leader): string {
+            $name = e($leader->publicDisplayName());
+            $url = $leader->publicLeaderProfileUrl();
+
+            return $url === null
+                ? $name
+                : '<a class="font-medium text-brand underline decoration-brand/30 underline-offset-2" href="'.e($url).'">'.$name.'</a>';
+        })->implode(', ');
+
+        return $attribution === '' ? null : $attribution;
     }
 
     private static function measurement(?string $value, string $unit): ?string
