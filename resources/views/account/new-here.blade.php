@@ -25,6 +25,18 @@
                 </article>
             </div>
 
+            @auth
+                @if (! auth()->user()->hasVerifiedEmail())
+                    <aside class="mt-6 rounded-[var(--wm-radius-md)] border border-brand/30 bg-surface-soft p-5 sm:flex sm:items-center sm:justify-between sm:gap-6" aria-labelledby="verify-email-heading">
+                        <div>
+                            <h2 id="verify-email-heading" class="text-2xl text-ink">Verify your email</h2>
+                            <p class="mt-2 text-sm text-ink-muted">Open the verification link we sent, or request a fresh one to unlock identity-checked features.</p>
+                        </div>
+                        <x-public.button class="mt-5 shrink-0 sm:mt-0" :href="route('verification.notice')" variant="secondary">Verify your email</x-public.button>
+                    </aside>
+                @endif
+            @endauth
+
             <div class="mt-8 rounded-[var(--wm-radius-md)] bg-surface-soft p-5 sm:flex sm:items-center sm:justify-between sm:gap-6">
                 <div>
                     <h2 class="text-2xl text-ink">Membership</h2>
