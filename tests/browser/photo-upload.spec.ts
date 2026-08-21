@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Browser, type Page } from '@playwright/test';
 
 async function signIn(page: Page) {
     await page.goto('/login');
@@ -54,4 +54,20 @@ test('photo upload keeps each failed file available for an accessible retry', as
     await expect(page.getByRole('link', { name: 'Skip to main content' })).toBeFocused();
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});
+
+test('no-JavaScript upload fallback returns focus to its error summary', async ({ browser }: { browser: Browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    await signIn(page);
+    await page.goto('/photos/upload?event=1');
+    await page.getByLabel('Photos', { exact: true }).setInputFiles({ name: 'broken.png', mimeType: 'image/png', buffer: Buffer.from('broken') });
+    await Promise.all([
+        page.waitForURL('**/photos/upload'),
+        page.getByRole('button', { name: 'Upload photos' }).click(),
+    ]);
+    const alert = page.getByRole('alert');
+    await expect(alert).toContainText('Please review the photo upload.');
+    await expect(alert).toBeFocused();
+    await context.close();
 });
