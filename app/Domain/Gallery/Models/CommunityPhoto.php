@@ -103,4 +103,9 @@ final class CommunityPhoto extends Model
             PhotoStorageReference::from((string) $this->storage_disk, $path);
         }
     }
+
+    public function presentationRotationStyle(): string
+    {
+        return 'transform: rotate('.((int) $this->presentation_rotation % 360).'deg)';
+    }
 }

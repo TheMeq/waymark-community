@@ -71,7 +71,8 @@ final class CommunityPhotoModerationTest extends TestCase
         $this->assertFalse($first->fresh()->is_featured);
         $this->assertTrue($second->fresh()->is_featured);
         $this->assertSame('Sunset ridge', $second->fresh()->caption);
-        $this->assertSame(5, CommunityPhotoModerationAudit::query()->count());
+        $this->assertSame(6, CommunityPhotoModerationAudit::query()->count());
+        $this->assertSame('feature_displaced', CommunityPhotoModerationAudit::query()->orderBy('id')->skip(3)->value('action'));
         $this->assertSame('edited', CommunityPhotoModerationAudit::query()->latest('id')->value('action'));
     }
 
@@ -158,6 +159,37 @@ final class CommunityPhotoModerationTest extends TestCase
 
         $this->assertSame('pending', $photo->fresh()->moderation_status);
         $this->assertDatabaseCount('community_photo_moderation_audits', 0);
+    }
+
+    public function test_invalid_or_repeated_lifecycle_transitions_do_not_change_photo_or_create_audit(): void
+    {
+        $moderator = User::factory()->create(['role' => AccountRole::Moderator]);
+        $photo = $this->photoFor(Event::factory()->create());
+        $action = app(ModerateCommunityPhoto::class);
+
+        $action->approve($moderator, $photo);
+        $publishedAt = $photo->fresh()->published_at;
+        $action->approve($moderator, $photo);
+        $this->assertSame($publishedAt?->toISOString(), $photo->fresh()->published_at?->toISOString());
+        $this->assertSame(1, CommunityPhotoModerationAudit::query()->count());
+
+        try {
+            $action->reject($moderator, $photo);
+            $this->fail('An approved photo was rejected directly.');
+        } catch (ValidationException) {
+            // Explicit lifecycle only.
+        }
+
+        $action->remove($moderator, $photo);
+        try {
+            $action->edit($moderator, $photo, new CommunityPhotoModerationRequest(caption: 'No change'));
+            $this->fail('A removed photo was edited.');
+        } catch (ValidationException) {
+            // Removed records are retained but no longer mutable.
+        }
+
+        $this->assertSame('removed', $photo->fresh()->moderation_status);
+        $this->assertSame(2, CommunityPhotoModerationAudit::query()->count());
     }
 
     private function photoFor(Event|SpecialAlbum $context, array $overrides = []): CommunityPhoto

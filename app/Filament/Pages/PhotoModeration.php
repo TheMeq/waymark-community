@@ -3,9 +3,11 @@
 namespace App\Filament\Pages;
 
 use App\Domain\Accounts\Enums\ModuleCapability;
+use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Actions\ModerateCommunityPhoto;
 use App\Domain\Gallery\Data\CommunityPhotoModerationRequest;
 use App\Domain\Gallery\Models\CommunityPhoto;
+use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Gallery\Queries\ModeratableCommunityPhotos;
 use App\Models\User;
 use Filament\Notifications\Notification;
@@ -25,6 +27,14 @@ final class PhotoModeration extends Page
 
     /** @var array<int, int> */
     public array $selectedPhotoIds = [];
+
+    public ?int $editingPhotoId = null;
+
+    public string $caption = '';
+
+    public string $photographerName = '';
+
+    public string $targetContext = '';
 
     public static function getSlug(?Panel $panel = null): string
     {
@@ -117,5 +127,38 @@ final class PhotoModeration extends Page
         /** @var User $actor */
         $actor = auth()->user();
         app(ModerateCommunityPhoto::class)->feature($actor, CommunityPhoto::query()->findOrFail($photoId));
+    }
+
+    public function beginEditing(int $photoId): void
+    {
+        /** @var User $actor */
+        $actor = auth()->user();
+        $photo = app(ModeratableCommunityPhotos::class)->for($actor, ['pending', 'approved'])->findOrFail($photoId);
+        $this->editingPhotoId = $photo->id;
+        $this->caption = (string) $photo->caption;
+        $this->photographerName = (string) $photo->photographer_name;
+        $this->targetContext = $photo->event_id !== null ? 'event:'.$photo->event_id : 'album:'.$photo->special_album_id;
+    }
+
+    public function saveEditing(): void
+    {
+        if ($this->editingPhotoId === null) {
+            return;
+        }
+        /** @var User $actor */
+        $actor = auth()->user();
+        $photo = CommunityPhoto::query()->findOrFail($this->editingPhotoId);
+        $action = app(ModerateCommunityPhoto::class);
+        $action->edit($actor, $photo, new CommunityPhotoModerationRequest($this->caption, $this->photographerName));
+        $action->move($actor, $photo, $this->targetContext);
+        $this->editingPhotoId = null;
+        Notification::make()->success()->title('Photo details saved')->send();
+    }
+
+    /** @return array<string, string> */
+    public function contextOptions(): array
+    {
+        return Event::query()->orderBy('starts_at')->pluck('title', 'id')->mapWithKeys(fn (string $title, int $id): array => ['event:'.$id => 'Event: '.$title])
+            ->merge(SpecialAlbum::query()->orderBy('title')->pluck('title', 'id')->mapWithKeys(fn (string $title, int $id): array => ['album:'.$id => 'Album: '.$title]))->all();
     }
 }

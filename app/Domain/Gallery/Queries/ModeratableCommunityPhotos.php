@@ -10,11 +10,11 @@ use Illuminate\Database\Eloquent\Builder;
 final class ModeratableCommunityPhotos
 {
     /** @return Builder<CommunityPhoto> */
-    public function for(User $actor): Builder
+    public function for(User $actor, array $statuses = ['pending']): Builder
     {
         $query = CommunityPhoto::query()
             ->with(['event:id,title,organiser_id', 'specialAlbum:id,title', 'uploader:id,name,display_name'])
-            ->where('moderation_status', 'pending')
+            ->whereIn('moderation_status', $statuses)
             ->orderBy('created_at')
             ->orderBy('id');
 

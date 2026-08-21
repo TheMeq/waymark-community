@@ -17,61 +17,85 @@ final class ModerateCommunityPhoto
 {
     public function approve(User $actor, CommunityPhoto $photo): CommunityPhoto
     {
-        return $this->mutate($actor, $photo, 'approved', function (CommunityPhoto $locked): void {
+        return $this->mutate($actor, $photo, 'approved', function (CommunityPhoto $locked): bool {
             $this->assertProcessed($locked);
-            if ($locked->moderation_status === 'approved') {
-                return;
+            if ($locked->moderation_status !== 'pending') {
+                if ($locked->moderation_status === 'approved') {
+                    return false;
+                }
+                throw ValidationException::withMessages(['photo' => 'Only pending photos can be approved.']);
             }
             $locked->forceFill(['moderation_status' => 'approved', 'published_at' => now()])->save();
+
+            return true;
         });
     }
 
     public function reject(User $actor, CommunityPhoto $photo): CommunityPhoto
     {
-        return $this->mutate($actor, $photo, 'rejected', function (CommunityPhoto $locked): void {
-            if ($locked->moderation_status === 'rejected') {
-                return;
+        return $this->mutate($actor, $photo, 'rejected', function (CommunityPhoto $locked): bool {
+            if ($locked->moderation_status !== 'pending') {
+                if ($locked->moderation_status === 'rejected') {
+                    return false;
+                }
+                throw ValidationException::withMessages(['photo' => 'Only pending photos can be rejected.']);
             }
             $locked->forceFill(['moderation_status' => 'rejected', 'published_at' => null, 'is_featured' => false])->save();
+
+            return true;
         });
     }
 
     public function remove(User $actor, CommunityPhoto $photo): CommunityPhoto
     {
-        return $this->mutate($actor, $photo, 'removed', function (CommunityPhoto $locked): void {
+        return $this->mutate($actor, $photo, 'removed', function (CommunityPhoto $locked): bool {
             if ($locked->moderation_status !== 'approved') {
                 throw ValidationException::withMessages(['photo' => 'Only published photos can be removed.']);
             }
             $locked->forceFill(['moderation_status' => 'removed', 'published_at' => null, 'is_featured' => false])->save();
+
+            return true;
         });
     }
 
     public function edit(User $actor, CommunityPhoto $photo, CommunityPhotoModerationRequest $request): CommunityPhoto
     {
-        return $this->mutate($actor, $photo, 'edited', function (CommunityPhoto $locked) use ($request): void {
+        return $this->mutate($actor, $photo, 'edited', function (CommunityPhoto $locked) use ($request): bool {
+            $this->assertEditable($locked);
             $caption = $this->nullableText($request->caption, 2000, 'caption');
             $photographer = $this->nullableText($request->photographerName, 255, 'photographer_name');
+            if ($locked->caption === $caption && $locked->photographer_name === $photographer) {
+                return false;
+            }
             $locked->forceFill(['caption' => $caption, 'photographer_name' => $photographer])->save();
+
+            return true;
         });
     }
 
     public function move(User $actor, CommunityPhoto $photo, string $target): CommunityPhoto
     {
-        return $this->mutate($actor, $photo, 'moved', function (CommunityPhoto $locked) use ($actor, $target): void {
+        return $this->mutate($actor, $photo, 'moved', function (CommunityPhoto $locked) use ($actor, $target): bool {
+            $this->assertEditable($locked);
             [$event, $album] = $this->target($target);
             $this->assertTargetScope($actor, $event, $album);
             $locked->forceFill(['event_id' => $event?->id, 'special_album_id' => $album?->id])->save();
+
+            return true;
         });
     }
 
     public function rotate(User $actor, CommunityPhoto $photo, int $degrees): CommunityPhoto
     {
-        return $this->mutate($actor, $photo, 'rotated', function (CommunityPhoto $locked) use ($degrees): void {
+        return $this->mutate($actor, $photo, 'rotated', function (CommunityPhoto $locked) use ($degrees): bool {
+            $this->assertEditable($locked);
             $this->assertProcessed($locked);
             if (! in_array($degrees, [90, 180, 270], true)) {
                 throw ValidationException::withMessages(['rotation' => 'Rotation must be a quarter turn.']);
             }
             $locked->forceFill(['presentation_rotation' => ((int) $locked->presentation_rotation + $degrees) % 360])->save();
+
+            return true;
         });
     }
 
@@ -86,7 +110,17 @@ final class ModerateCommunityPhoto
             }
             $before = $this->snapshot($locked);
             $context = $locked->event_id !== null ? ['event_id' => $locked->event_id] : ['special_album_id' => $locked->special_album_id];
-            CommunityPhoto::query()->where($context)->whereKeyNot($locked->id)->where('is_featured', true)->update(['is_featured' => false]);
+            if ($locked->event_id !== null) {
+                Event::query()->lockForUpdate()->findOrFail($locked->event_id);
+            } else {
+                SpecialAlbum::query()->lockForUpdate()->findOrFail($locked->special_album_id);
+            }
+            $displaced = CommunityPhoto::query()->where($context)->whereKeyNot($locked->id)->where('is_featured', true)->orderBy('id')->lockForUpdate()->get();
+            foreach ($displaced as $previous) {
+                $previousBefore = $this->snapshot($previous);
+                $previous->forceFill(['is_featured' => false])->save();
+                $this->audit($actor, $previous, 'feature_displaced', $previousBefore, $this->snapshot($previous));
+            }
             $locked->forceFill(['is_featured' => true])->save();
             $this->audit($actor, $locked, 'featured', $before, $this->snapshot($locked));
 
@@ -112,8 +146,9 @@ final class ModerateCommunityPhoto
             $locked = CommunityPhoto::query()->lockForUpdate()->findOrFail($photo->id);
             $this->authorize($actor, $locked);
             $before = $this->snapshot($locked);
-            $mutation($locked);
-            $this->audit($actor, $locked, $action, $before, $this->snapshot($locked));
+            if ($mutation($locked)) {
+                $this->audit($actor, $locked, $action, $before, $this->snapshot($locked));
+            }
 
             return $locked;
         });
@@ -134,6 +169,9 @@ final class ModerateCommunityPhoto
             }
             foreach ($ids as $id) {
                 $this->authorize($actor, $photos[$id]);
+                if ($photos[$id]->moderation_status !== 'pending') {
+                    throw ValidationException::withMessages(['photo' => 'Bulk moderation accepts pending photos only.']);
+                }
                 if ($status === 'approved') {
                     $this->assertProcessed($photos[$id]);
                 }
@@ -178,6 +216,13 @@ final class ModerateCommunityPhoto
     {
         if ($photo->processing_status !== 'complete' || ! is_array($photo->processed_variants) || $photo->processed_variants === []) {
             throw ValidationException::withMessages(['photo' => 'Only safely processed photos can be approved or featured.']);
+        }
+    }
+
+    private function assertEditable(CommunityPhoto $photo): void
+    {
+        if (! in_array($photo->moderation_status, ['pending', 'approved'], true)) {
+            throw ValidationException::withMessages(['photo' => 'Only pending or approved photos can be edited.']);
         }
     }
 
