@@ -5,6 +5,7 @@ namespace Tests\Feature\Gallery;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
+use App\Domain\Gallery\Actions\ProcessDeferredCommunityPhotos;
 use App\Domain\Gallery\Actions\UploadCommunityPhoto;
 use App\Domain\Gallery\Contracts\DecodedRasterImage;
 use App\Domain\Gallery\Contracts\ImageMetadataReader;
@@ -13,6 +14,7 @@ use App\Domain\Gallery\Data\ImageMetadata;
 use App\Domain\Gallery\Data\ImageVariantDefinition;
 use App\Domain\Gallery\Data\TransformedRasterImage;
 use App\Domain\Gallery\Models\CommunityPhoto;
+use App\Domain\Gallery\Models\CommunityPhotoProcessingJob;
 use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Holidays\Models\Holiday;
 use App\Domain\Socials\Models\Social;
@@ -23,6 +25,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
+use Mockery;
 use Tests\TestCase;
 
 final class CommunityPhotoUploadTest extends TestCase
@@ -250,6 +253,44 @@ final class CommunityPhotoUploadTest extends TestCase
         ]);
     }
 
+    public function test_a_false_staging_write_keeps_the_durable_staging_lease_until_bounded_expiry_recovery(): void
+    {
+        $this->useUploadProcessorDouble();
+        config()->set('gallery.deferred.enabled', true);
+        config()->set('gallery.deferred.manual_fallback', false);
+        config()->set('gallery.deferred.size_threshold_bytes', 1);
+        $account = User::factory()->create();
+        $event = $this->uploadableEvent();
+        $disk = Mockery::mock();
+        $disk->shouldReceive('put')->twice()->andReturnFalse();
+        Storage::shouldReceive('disk')->with('local')->andReturn($disk);
+
+        foreach (['first-staging-failure.png', 'second-staging-failure.png'] as $name) {
+            try {
+                app(UploadCommunityPhoto::class)->handle($account, $this->pngUpload($name), 'event:'.$event->id, null, null, true);
+                $this->fail('The failed staging write was accepted.');
+            } catch (\RuntimeException $exception) {
+                $this->assertSame('The photo could not be staged for processing.', $exception->getMessage());
+            }
+        }
+
+        $jobs = CommunityPhotoProcessingJob::query()->orderBy('id')->get();
+        $this->assertCount(2, $jobs);
+        $this->assertTrue($jobs->every(fn (CommunityPhotoProcessingJob $job): bool => $job->status === 'staging'
+            && is_string($job->staged_source_path)
+            && $job->staging_lease_expires_at?->isFuture() === true));
+        $this->assertTrue(CommunityPhoto::query()->where('processing_status', 'staging')->count() === 2);
+
+        $this->restoreLocalStorageFake();
+        $jobs->each(fn (CommunityPhotoProcessingJob $job) => $job->update(['staging_lease_expires_at' => now()->subSecond()]));
+
+        $this->assertSame(1, app(ProcessDeferredCommunityPhotos::class)->handle(1));
+        $this->assertSame('terminal_failed', $jobs->first()->fresh()->status);
+        $this->assertNull($jobs->first()->fresh()->staged_source_path);
+        $this->assertSame('staging', $jobs->last()->fresh()->status);
+        $this->assertNotNull($jobs->last()->fresh()->staged_source_path);
+    }
+
     public function test_manual_fallback_processes_a_durable_deferred_job_when_cron_is_unavailable(): void
     {
         Storage::fake('local');
@@ -295,6 +336,54 @@ final class CommunityPhotoUploadTest extends TestCase
             ->assertJsonPath('photos.1.status', 'processing');
 
         $this->assertDatabaseCount('community_photo_processing_jobs', 2);
+    }
+
+    public function test_terminal_deferred_failure_returns_a_json_422_result(): void
+    {
+        Storage::fake('local');
+        $this->useFailingUploadProcessorDouble();
+        config()->set('gallery.deferred.enabled', true);
+        config()->set('gallery.deferred.manual_fallback', true);
+        config()->set('gallery.deferred.max_attempts', 1);
+        config()->set('gallery.deferred.size_threshold_bytes', 1);
+        $account = User::factory()->create();
+        $event = $this->uploadableEvent();
+
+        $this->actingAs($account)->postJson(route('community-photos.upload.store'), [
+            'context' => 'event:'.$event->id,
+            'accept_photo_policy' => true,
+            'photos' => [$this->pngUpload('terminal.json.png')],
+        ])->assertUnprocessable()
+            ->assertJsonPath('photos.0.status', 'failed')
+            ->assertJsonPath('photos.0.errors.0', 'This photo could not be processed.');
+
+        $this->assertDatabaseHas('community_photos', ['processing_status' => 'failed']);
+        $this->assertDatabaseHas('community_photo_processing_jobs', ['status' => 'terminal_failed']);
+    }
+
+    public function test_terminal_deferred_failure_flashes_a_no_javascript_upload_error_after_redirect(): void
+    {
+        Storage::fake('local');
+        $this->useFailingUploadProcessorDouble();
+        config()->set('gallery.deferred.enabled', true);
+        config()->set('gallery.deferred.manual_fallback', true);
+        config()->set('gallery.deferred.max_attempts', 1);
+        config()->set('gallery.deferred.size_threshold_bytes', 1);
+        $account = User::factory()->create();
+        $event = $this->uploadableEvent();
+
+        $response = $this->actingAs($account)->from(route('community-photos.upload.create'))->post(route('community-photos.upload.store'), [
+            'context' => 'event:'.$event->id,
+            'accept_photo_policy' => true,
+            'photos' => [$this->pngUpload('terminal.html.png')],
+        ]);
+
+        $response->assertRedirect();
+        $this->followRedirects($response)
+            ->assertSee('Please review the photo upload.')
+            ->assertSee('terminal.html.png')
+            ->assertSee('Not uploaded')
+            ->assertSee('This photo could not be processed.');
     }
 
     public function test_upload_requires_the_current_policy_when_no_explicit_acceptance_is_supplied(): void
@@ -427,6 +516,19 @@ final class CommunityPhotoUploadTest extends TestCase
         app()->bind(ImageMetadataReader::class, fn (): UploadTestMetadataReader => new UploadTestMetadataReader);
     }
 
+    private function useFailingUploadProcessorDouble(): void
+    {
+        app()->bind(RasterImageTransformer::class, fn (): UploadTestRasterTransformer => new UploadTestRasterTransformer(failsOnDecode: true));
+        app()->bind(ImageMetadataReader::class, fn (): UploadTestMetadataReader => new UploadTestMetadataReader);
+    }
+
+    private function restoreLocalStorageFake(): void
+    {
+        $this->app->forgetInstance('filesystem');
+        Storage::clearResolvedInstance('filesystem');
+        Storage::fake('local');
+    }
+
     private function pngUpload(string $name): UploadedFile
     {
         return UploadedFile::fake()->createWithContent(
@@ -455,6 +557,8 @@ final class CommunityPhotoUploadTest extends TestCase
 
 final class UploadTestRasterTransformer implements RasterImageTransformer
 {
+    public function __construct(private readonly bool $failsOnDecode = false) {}
+
     public function supportsInput(string $mimeType): bool
     {
         return in_array($mimeType, ['image/jpeg', 'image/png'], true);
@@ -467,6 +571,10 @@ final class UploadTestRasterTransformer implements RasterImageTransformer
 
     public function decode(string $sourcePath, string $mimeType, int $orientation): DecodedRasterImage
     {
+        if ($this->failsOnDecode) {
+            throw new \RuntimeException('Image decoder unavailable.');
+        }
+
         return new UploadTestDecodedRaster;
     }
 

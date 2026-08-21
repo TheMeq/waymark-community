@@ -54,6 +54,7 @@ export default defineConfig({
             SESSION_DRIVER: 'file',
             SESSION_EXPIRE_ON_CLOSE: 'true',
             QUEUE_CONNECTION: 'sync',
+            GALLERY_DEFERRED_PROCESSING_MANUAL_FALLBACK: 'false',
             MAIL_MAILER: 'log',
             WAYMARK_TEST_NOW: '2026-08-20 12:00:00',
         },

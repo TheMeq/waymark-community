@@ -19,8 +19,10 @@ test('photo upload keeps each failed file available for an accessible retry', as
     await expect(page.getByLabel('Add to')).toHaveValue('event:1');
     await expect(page).toHaveScreenshot(`photo-upload-${testInfo.project.name}.png`, { fullPage: true });
     let requests = 0;
+    const requestBodies: string[] = [];
     await page.route('**/photos/upload', async (route) => {
         requests++;
+        requestBodies.push(route.request().postData() ?? '');
         if (requests === 2) {
             await route.fulfill({ status: 503, contentType: 'application/json', body: '{}' });
             return;
@@ -43,6 +45,12 @@ test('photo upload keeps each failed file available for an accessible retry', as
     await page.getByRole('button', { name: 'Retry' }).click();
     await expect(page.getByText('retry.png').locator('..')).toContainText('Submitted');
     expect(requests).toBe(3);
+    expect(requestBodies).toHaveLength(3);
+    for (const body of requestBodies) {
+        expect(body).toContain('name="batch_size"');
+        expect(body).toContain('\r\n\r\n2\r\n');
+        expect(body).not.toContain('name="defer_processing"');
+    }
 
     const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
@@ -72,24 +80,30 @@ test('no-JavaScript upload fallback returns focus to its error summary', async (
     await context.close();
 });
 
-test('forced deferred upload remains processing without a retry or duplicate request', async ({ page }) => {
+test('three-file threshold defers real uploads without retries or duplicate requests', async ({ page }) => {
     await signIn(page);
     await page.goto('/photos/upload?event=1');
-    let requests = 0;
+    const requestBodies: string[] = [];
     await page.route('**/photos/upload', async (route) => {
-        requests++;
-        await route.fulfill({
-            status: 201,
-            contentType: 'application/json',
-            body: JSON.stringify({ photos: [{ status: 'processing', photo_id: 42 }] }),
-        });
+        requestBodies.push(route.request().postData() ?? '');
+        await route.continue();
     });
     const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADElEQVQImWNgYGAAAAAEAAGjChXjAAAAAElFTkSuQmCC', 'base64');
-    await page.getByLabel('Photos', { exact: true }).setInputFiles({ name: 'deferred.png', mimeType: 'image/png', buffer: png });
+    await page.getByLabel('Photos', { exact: true }).setInputFiles([
+        { name: 'deferred-one.png', mimeType: 'image/png', buffer: png },
+        { name: 'deferred-two.png', mimeType: 'image/png', buffer: png },
+        { name: 'deferred-three.png', mimeType: 'image/png', buffer: png },
+    ]);
 
     await page.getByRole('button', { name: 'Upload photos' }).click();
 
-    await expect(page.getByText('deferred.png').locator('..')).toContainText('Processing');
+    await expect.poll(() => page.getByText('Processing', { exact: true }).evaluateAll((elements) => elements.filter((element) => getComputedStyle(element).display !== 'none').length)).toBe(3);
     await expect(page.getByRole('button', { name: 'Retry' })).toHaveCount(0);
-    expect(requests).toBe(1);
+    expect(requestBodies).toHaveLength(3);
+    for (const body of requestBodies) {
+        expect(body).toContain('name="defer_processing"');
+        expect(body).toContain('\r\n\r\n1\r\n');
+        expect(body).toContain('name="batch_size"');
+        expect(body).toContain('\r\n\r\n3\r\n');
+    }
 });

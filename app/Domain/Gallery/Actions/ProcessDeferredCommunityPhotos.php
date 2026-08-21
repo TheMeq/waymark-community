@@ -76,7 +76,10 @@ final readonly class ProcessDeferredCommunityPhotos
         } catch (Throwable $exception) {
             report($exception);
             $this->fail($job->id, $job->claim_token);
-            $this->cleanUp(1);
+
+            if (CommunityPhotoProcessingJob::query()->whereKey($job->id)->value('status') === 'terminal_failed') {
+                $this->cleanUp(2);
+            }
 
             return true;
         } finally {

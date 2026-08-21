@@ -15,8 +15,11 @@ use App\Domain\Gallery\Data\TransformedRasterImage;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\CommunityPhotoProcessingJob;
 use App\Models\User;
+use Illuminate\Database\Migrations\Migration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Mockery;
 use Tests\TestCase;
 
 final class DeferredCommunityPhotoProcessingTest extends TestCase
@@ -70,6 +73,81 @@ final class DeferredCommunityPhotoProcessingTest extends TestCase
         $this->assertSame(1, $job->fresh()->attempts);
         $this->assertNull($job->fresh()->staged_source_path);
         Storage::disk('local')->assertMissing($photo->source_path);
+    }
+
+    public function test_completed_raw_cleanup_keeps_its_reference_after_a_false_delete_then_clears_it_after_a_later_success(): void
+    {
+        Storage::fake('local');
+        [$photo, $job] = $this->queuedJob();
+        $job->update(['status' => 'completed']);
+        $path = $job->staged_source_path;
+        $disk = Mockery::mock();
+        $disk->shouldReceive('exists')->with($path)->once()->andReturnTrue();
+        $disk->shouldReceive('delete')->with($path)->once()->andReturnFalse();
+        Storage::shouldReceive('disk')->with('local')->andReturn($disk);
+
+        app(ProcessDeferredCommunityPhotos::class)->handle(1);
+
+        $this->assertSame($path, $job->fresh()->staged_source_path);
+
+        $this->restoreLocalStorageFake();
+        Storage::disk('local')->put($path, 'staged source');
+        app(ProcessDeferredCommunityPhotos::class)->handle(1);
+
+        $this->assertNull($job->fresh()->staged_source_path);
+        Storage::disk('local')->assertMissing($path);
+    }
+
+    public function test_terminal_raw_cleanup_keeps_its_reference_after_a_false_delete_then_clears_an_already_absent_source(): void
+    {
+        Storage::fake('local');
+        [, $job] = $this->queuedJob();
+        $path = $job->staged_source_path;
+        $job->update(['status' => 'terminal_failed']);
+        $disk = Mockery::mock();
+        $disk->shouldReceive('exists')->with($path)->once()->andReturnTrue();
+        $disk->shouldReceive('delete')->with($path)->once()->andReturnFalse();
+        Storage::shouldReceive('disk')->with('local')->andReturn($disk);
+
+        app(ProcessDeferredCommunityPhotos::class)->handle(1);
+
+        $this->assertSame($path, $job->fresh()->staged_source_path);
+
+        $this->restoreLocalStorageFake();
+        app(ProcessDeferredCommunityPhotos::class)->handle(1);
+
+        $this->assertNull($job->fresh()->staged_source_path);
+    }
+
+    public function test_failed_output_cleanup_keeps_the_reserved_directory_and_prevents_reclaim_until_later_cleanup(): void
+    {
+        Storage::fake('local');
+        [$photo, $job] = $this->queuedJob();
+        $directory = 'community-photos/failed-output';
+        Storage::disk('local')->put($directory.'/master.jpg', 'partial derivative');
+        $job->update(['status' => 'retry', 'available_at' => now(), 'output_directory' => $directory]);
+        $photo->update(['processing_status' => 'retry']);
+        $disk = Mockery::mock();
+        $disk->shouldReceive('exists')->with($directory)->once()->andReturnTrue();
+        $disk->shouldReceive('deleteDirectory')->with($directory)->once()->andReturnFalse();
+        Storage::shouldReceive('disk')->with('local')->andReturn($disk);
+
+        $this->assertSame(0, app(ProcessDeferredCommunityPhotos::class)->handle(1));
+        $this->assertSame($directory, $job->fresh()->output_directory);
+        $this->assertSame(0, $job->fresh()->attempts);
+
+        $this->restoreLocalStorageFake();
+        $job->update(['available_at' => now()->addMinute()]);
+        Storage::disk('local')->put($directory.'/master.jpg', 'partial derivative');
+        app(ProcessDeferredCommunityPhotos::class)->handle(1);
+
+        $this->assertNull($job->fresh()->output_directory);
+        Storage::disk('local')->assertMissing($directory.'/master.jpg');
+
+        $job->update(['output_directory' => 'community-photos/already-absent']);
+        app(ProcessDeferredCommunityPhotos::class)->handle(1);
+
+        $this->assertNull($job->fresh()->output_directory);
     }
 
     public function test_stale_processing_claim_recovery_is_bounded_by_the_processor_limit(): void
@@ -167,7 +245,7 @@ final class DeferredCommunityPhotoProcessingTest extends TestCase
         $this->assertSame('completed', $successful->fresh()->status);
     }
 
-    public function test_finalisation_failure_removes_partial_derivatives_without_removing_the_retryable_staged_source(): void
+    public function test_finalisation_failure_keeps_the_reserved_output_reference_until_a_later_cleanup(): void
     {
         Storage::fake('local');
         $this->useProcessorDouble();
@@ -185,7 +263,34 @@ final class DeferredCommunityPhotoProcessingTest extends TestCase
         $this->assertSame('retry', $photo->fresh()->processing_status);
         $this->assertSame('retry', $job->fresh()->status);
         Storage::disk('local')->assertExists($photo->source_path);
+        $outputDirectory = $job->fresh()->output_directory;
+        $this->assertNotNull($outputDirectory);
+        $this->assertNotSame([$photo->source_path], Storage::disk('local')->allFiles('community-photos'));
+
+        app(ProcessDeferredCommunityPhotos::class)->handle(1);
+
+        $this->assertNull($job->fresh()->output_directory);
         $this->assertSame([$photo->source_path], Storage::disk('local')->allFiles('community-photos'));
+    }
+
+    public function test_deferred_job_hardening_migrations_roll_back_and_restore_their_fields(): void
+    {
+        $stagingLease = $this->stagingLeaseMigration();
+        $hardening = $this->hardeningMigration();
+
+        $stagingLease->down();
+        $hardening->down();
+
+        $this->assertFalse(Schema::hasColumn('community_photo_processing_jobs', 'claim_token'));
+        $this->assertFalse(Schema::hasColumn('community_photo_processing_jobs', 'output_directory'));
+        $this->assertFalse(Schema::hasColumn('community_photo_processing_jobs', 'staging_lease_expires_at'));
+
+        $hardening->up();
+        $stagingLease->up();
+
+        $this->assertTrue(Schema::hasColumn('community_photo_processing_jobs', 'claim_token'));
+        $this->assertTrue(Schema::hasColumn('community_photo_processing_jobs', 'output_directory'));
+        $this->assertTrue(Schema::hasColumn('community_photo_processing_jobs', 'staging_lease_expires_at'));
     }
 
     public function test_the_cron_command_and_manual_processor_share_the_bounded_job_path(): void
@@ -227,6 +332,23 @@ final class DeferredCommunityPhotoProcessingTest extends TestCase
     {
         app()->bind(RasterImageTransformer::class, fn (): DeferredProcessorRasterTransformer => new DeferredProcessorRasterTransformer);
         app()->bind(ImageMetadataReader::class, fn (): DeferredProcessorMetadataReader => new DeferredProcessorMetadataReader);
+    }
+
+    private function restoreLocalStorageFake(): void
+    {
+        $this->app->forgetInstance('filesystem');
+        Storage::clearResolvedInstance('filesystem');
+        Storage::fake('local');
+    }
+
+    private function hardeningMigration(): Migration
+    {
+        return require database_path('migrations/2026_08_21_163000_harden_community_photo_processing_jobs.php');
+    }
+
+    private function stagingLeaseMigration(): Migration
+    {
+        return require database_path('migrations/2026_08_21_164000_add_staging_lease_to_community_photo_processing_jobs.php');
     }
 }
 
