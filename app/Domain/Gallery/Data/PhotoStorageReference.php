@@ -31,4 +31,15 @@ final readonly class PhotoStorageReference
             $path,
         ) === 1;
     }
+
+    public static function isSafeDirectory(string $disk, string $path): bool
+    {
+        if ($disk !== (string) config('gallery.photos.disk', 'local')) {
+            return false;
+        }
+
+        $directory = trim((string) config('gallery.photos.directory', 'community-photos'), '/');
+
+        return preg_match('#\A'.preg_quote($directory, '#').'/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\z#Di', $path) === 1;
+    }
 }

@@ -54,12 +54,13 @@
             <h2 id="photo-reports" class="text-lg font-semibold">Open photo reports</h2>
             @php($reports = $this->openReports())
             @forelse ($reports as $report)
+                @php($preview = $report->photo ? $this->previewFor($report->photo) : null)
                 <article class="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-amber-200 p-3 dark:border-amber-800">
-                    <div><p class="font-semibold">{{ str_replace('_', ' ', $report->reason) }}</p>
+                    <div class="flex items-center gap-3">@if ($preview)<img src="{{ $preview->url }}" alt="{{ $preview->alt }}" class="h-16 w-20 rounded-lg object-cover" style="{{ $report->photo->presentationRotationStyle() }}" />@endif<div><p class="font-semibold">{{ str_replace('_', ' ', $report->reason) }}</p>
                     <p class="text-sm text-gray-600">{{ $report->photo?->caption ?: 'Community photo' }} · {{ $report->photo?->event?->title ?? $report->photo?->specialAlbum?->title }}</p>
                     @if ($report->detail)<p class="mt-1 text-sm">{{ $report->detail }}</p>@endif
-                    @if ($report->contact)<p class="mt-1 text-sm">{{ $report->contact }}</p>@endif</div>
-                    <span class="flex gap-2"><x-filament::button size="md" color="gray" wire:click="resolveReport({{ $report->id }}, 'reviewed')">Review</x-filament::button><x-filament::button size="md" color="gray" wire:click="resolveReport({{ $report->id }}, 'dismissed')">Dismiss</x-filament::button></span>
+                    @if ($report->contact)<p class="mt-1 text-sm">{{ $report->contact }}</p>@endif</div></div>
+                    <span class="flex gap-2"><x-filament::button size="md" color="gray" wire:click="removeReportedPhoto({{ $report->id }})">Remove photo</x-filament::button><x-filament::button size="md" color="gray" wire:click="resolveReport({{ $report->id }}, 'reviewed')">Review</x-filament::button><x-filament::button size="md" color="gray" wire:click="resolveReport({{ $report->id }}, 'dismissed')">Dismiss</x-filament::button></span>
                 </article>
             @empty
                 <p class="rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-600">No open photo reports.</p>
@@ -69,9 +70,10 @@
             <h2 id="photo-removal-requests" class="text-lg font-semibold">Open removal requests</h2>
             @php($removalRequests = $this->openRemovalRequests())
             @forelse ($removalRequests as $request)
+                @php($preview = $request->photo ? $this->previewFor($request->photo) : null)
                 <article class="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-amber-200 p-3 dark:border-amber-800">
-                    <div><p class="font-semibold">Uploader removal request</p><p class="text-sm text-gray-600">{{ $request->photo?->caption ?: 'Community photo' }} · {{ $request->photo?->event?->title ?? $request->photo?->specialAlbum?->title }}</p>@if ($request->detail)<p class="mt-1 text-sm">{{ $request->detail }}</p>@endif</div>
-                    <span class="flex gap-2"><x-filament::button size="md" color="gray" wire:click="resolveRemovalRequest({{ $request->id }}, 'reviewed')">Review</x-filament::button><x-filament::button size="md" color="gray" wire:click="resolveRemovalRequest({{ $request->id }}, 'dismissed')">Dismiss</x-filament::button></span>
+                    <div class="flex items-center gap-3">@if ($preview)<img src="{{ $preview->url }}" alt="{{ $preview->alt }}" class="h-16 w-20 rounded-lg object-cover" style="{{ $request->photo->presentationRotationStyle() }}" />@endif<div><p class="font-semibold">Uploader removal request</p><p class="text-sm text-gray-600">{{ $request->photo?->caption ?: 'Community photo' }} · {{ $request->photo?->event?->title ?? $request->photo?->specialAlbum?->title }}</p>@if ($request->detail)<p class="mt-1 text-sm">{{ $request->detail }}</p>@endif</div></div>
+                    <span class="flex gap-2"><x-filament::button size="md" color="gray" wire:click="removeRequestedPhoto({{ $request->id }})">Remove photo</x-filament::button><x-filament::button size="md" color="gray" wire:click="resolveRemovalRequest({{ $request->id }}, 'reviewed')">Review</x-filament::button><x-filament::button size="md" color="gray" wire:click="resolveRemovalRequest({{ $request->id }}, 'dismissed')">Dismiss</x-filament::button></span>
                 </article>
             @empty
                 <p class="rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-600">No open removal requests.</p>

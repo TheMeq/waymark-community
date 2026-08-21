@@ -13,10 +13,10 @@ async function signIn(page: Page) {
 
 test('photo upload keeps each failed file available for an accessible retry', async ({ page }, testInfo) => {
     await signIn(page);
-    await page.goto('/photos/upload?event=1');
+    await page.goto('/photos/upload?event=2');
 
     await expect(page.getByRole('heading', { name: 'Share photos' })).toBeVisible();
-    await expect(page.getByLabel('Add to')).toHaveValue('event:1');
+    await expect(page.getByLabel('Add to')).toHaveValue('event:2');
     await expect(page).toHaveScreenshot(`photo-upload-${testInfo.project.name}.png`, { fullPage: true });
     let requests = 0;
     const requestBodies: string[] = [];
@@ -57,7 +57,7 @@ test('photo upload keeps each failed file available for an accessible retry', as
         .analyze();
     expect(results.violations).toEqual([]);
 
-    await page.goto('/photos/upload?event=1');
+    await page.goto('/photos/upload?event=2');
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Skip to main content' })).toBeFocused();
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
@@ -68,7 +68,7 @@ test('no-JavaScript upload fallback returns focus to its error summary', async (
     const context = await browser.newContext({ javaScriptEnabled: false });
     const page = await context.newPage();
     await signIn(page);
-    await page.goto('/photos/upload?event=1');
+    await page.goto('/photos/upload?event=2');
     await page.getByLabel('Photos', { exact: true }).setInputFiles({ name: 'broken.png', mimeType: 'image/png', buffer: Buffer.from('broken') });
     await Promise.all([
         page.waitForURL('**/photos/upload*'),
@@ -82,7 +82,7 @@ test('no-JavaScript upload fallback returns focus to its error summary', async (
 
 test('three-file threshold defers real uploads without retries or duplicate requests', async ({ page }) => {
     await signIn(page);
-    await page.goto('/photos/upload?event=1');
+    await page.goto('/photos/upload?event=2');
     const requestBodies: string[] = [];
     await page.route('**/photos/upload', async (route) => {
         requestBodies.push(route.request().postData() ?? '');
@@ -106,4 +106,20 @@ test('three-file threshold defers real uploads without retries or duplicate requ
         expect(body).toContain('name="batch_size"');
         expect(body).toContain('\r\n\r\n3\r\n');
     }
+});
+
+test('uploader can delete a pending photo and request removal of a published photo', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/photos/upload?event=2');
+    const ownPhotos = page.getByRole('region', { name: 'Your photos' });
+    const pending = ownPhotos.locator('article').filter({ has: page.getByText('Pending', { exact: true }) }).first();
+    const published = ownPhotos.locator('article').filter({ has: page.getByText('Approved', { exact: true }) }).first();
+
+    await expect(pending.getByRole('button', { name: 'Delete pending photo' })).toBeVisible();
+    await pending.getByRole('button', { name: 'Delete pending photo' }).click();
+    await expect(page.getByText('Your pending photo has been deleted.')).toBeVisible();
+
+    await published.getByLabel(`Removal details (optional)`).fill('Please remove this browser fixture.');
+    await published.getByRole('button', { name: 'Request removal' }).click();
+    await expect(page.getByText('Your removal request has been sent to the moderators.')).toBeVisible();
 });

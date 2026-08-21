@@ -15,7 +15,7 @@ final class DeletePendingCommunityPhoto
 {
     public function handle(User $actor, CommunityPhoto $photo): void
     {
-        $paths = DB::transaction(function () use ($actor, $photo): array {
+        [$disk, $paths, $outputDirectory] = DB::transaction(function () use ($actor, $photo): array {
             // Match the deferred worker order: processing job, then photo.
             $job = CommunityPhotoProcessingJob::query()->where('community_photo_id', $photo->id)->lockForUpdate()->first();
             $locked = CommunityPhoto::query()->lockForUpdate()->findOrFail($photo->id);
@@ -30,13 +30,16 @@ final class DeletePendingCommunityPhoto
             }
             $locked->update(['processing_status' => 'deleting']);
 
-            return array_values(array_unique(array_filter(array_merge([$locked->source_path], array_values($locked->processed_variants ?? [])), fn ($path): bool => is_string($path) && PhotoStorageReference::isSafe($locked->storage_disk, $path))));
+            return [(string) $locked->storage_disk, array_values(array_unique(array_filter(array_merge([$locked->source_path], array_values($locked->processed_variants ?? []), [$job?->staged_source_path]), fn ($path): bool => is_string($path) && PhotoStorageReference::isSafe($locked->storage_disk, $path)))), $job?->output_directory];
         });
 
         foreach ($paths as $path) {
-            if (! Storage::disk($photo->storage_disk)->delete($path)) {
+            if (! Storage::disk($disk)->delete($path)) {
                 throw new \RuntimeException('The pending photo could not be safely deleted. Please try again.');
             }
+        }
+        if (is_string($outputDirectory) && PhotoStorageReference::isSafeDirectory($disk, $outputDirectory) && ! Storage::disk($disk)->deleteDirectory($outputDirectory)) {
+            throw new \RuntimeException('The pending photo could not be safely deleted. Please try again.');
         }
 
         DB::transaction(function () use ($photo): void {

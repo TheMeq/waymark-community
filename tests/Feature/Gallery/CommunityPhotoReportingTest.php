@@ -6,16 +6,19 @@ use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Actions\DeletePendingCommunityPhoto;
+use App\Domain\Gallery\Actions\ProcessDeferredCommunityPhotos;
 use App\Domain\Gallery\Actions\RequestCommunityPhotoRemoval;
 use App\Domain\Gallery\Actions\ResolveCommunityPhotoRemovalRequest;
 use App\Domain\Gallery\Actions\ResolveCommunityPhotoReport;
 use App\Domain\Gallery\Actions\SubmitCommunityPhotoReport;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\CommunityPhotoProcessingJob;
+use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Gallery\Queries\ModeratableCommunityPhotoReports;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -110,7 +113,9 @@ final class CommunityPhotoReportingTest extends TestCase
     {
         $uploader = User::factory()->create();
         $photo = $this->publishedPhoto(['uploader_id' => $uploader->id, 'moderation_status' => 'pending', 'published_at' => null]);
-        CommunityPhotoProcessingJob::query()->create(['community_photo_id' => $photo->id, 'status' => 'queued', 'attempts' => 0, 'staged_source_path' => $photo->source_path]);
+        $outputDirectory = 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301';
+        Storage::disk('local')->put($outputDirectory.'/master.jpg', 'processed');
+        CommunityPhotoProcessingJob::query()->create(['community_photo_id' => $photo->id, 'status' => 'queued', 'attempts' => 0, 'staged_source_path' => $photo->source_path, 'output_directory' => $outputDirectory]);
         Storage::shouldReceive('disk->delete')->andReturnFalse();
 
         try {
@@ -119,7 +124,59 @@ final class CommunityPhotoReportingTest extends TestCase
         } catch (\RuntimeException) {
             $this->assertDatabaseHas('community_photos', ['id' => $photo->id, 'processing_status' => 'deleting']);
             $this->assertDatabaseHas('community_photo_processing_jobs', ['community_photo_id' => $photo->id, 'status' => 'cancelled']);
+            $this->assertDatabaseHas('community_photo_processing_jobs', ['community_photo_id' => $photo->id, 'output_directory' => $outputDirectory]);
         }
+    }
+
+    public function test_a_failed_output_directory_delete_keeps_all_cleanup_references_for_a_safe_retry(): void
+    {
+        $uploader = User::factory()->create();
+        $photo = $this->publishedPhoto(['uploader_id' => $uploader->id, 'moderation_status' => 'pending', 'published_at' => null]);
+        $outputDirectory = 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301';
+        CommunityPhotoProcessingJob::query()->create(['community_photo_id' => $photo->id, 'status' => 'queued', 'attempts' => 0, 'staged_source_path' => $photo->source_path, 'output_directory' => $outputDirectory]);
+
+        Storage::shouldReceive('disk->delete')->andReturnTrue();
+        Storage::shouldReceive('disk->deleteDirectory')->once()->with($outputDirectory)->andReturnFalse();
+
+        try {
+            app(DeletePendingCommunityPhoto::class)->handle($uploader, $photo);
+            $this->fail('Expected failed output-directory cleanup.');
+        } catch (\RuntimeException) {
+            $this->assertDatabaseHas('community_photos', ['id' => $photo->id, 'processing_status' => 'deleting']);
+            $this->assertDatabaseHas('community_photo_processing_jobs', ['community_photo_id' => $photo->id, 'status' => 'cancelled', 'staged_source_path' => $photo->source_path, 'output_directory' => $outputDirectory]);
+        }
+    }
+
+    public function test_a_cancelled_pending_delete_cannot_be_finalised_by_a_deferred_worker(): void
+    {
+        $uploader = User::factory()->create();
+        $photo = $this->publishedPhoto(['uploader_id' => $uploader->id, 'moderation_status' => 'pending', 'published_at' => null, 'processing_status' => 'queued']);
+        $job = CommunityPhotoProcessingJob::query()->create(['community_photo_id' => $photo->id, 'status' => 'queued', 'attempts' => 0, 'staged_source_path' => $photo->source_path]);
+        Storage::shouldReceive('disk->delete')->andReturnFalse();
+
+        try {
+            app(DeletePendingCommunityPhoto::class)->handle($uploader, $photo);
+            $this->fail('Expected a durable cleanup retry state.');
+        } catch (\RuntimeException) {
+            $this->assertFalse(app(ProcessDeferredCommunityPhotos::class)->process($job->id));
+            $this->assertDatabaseHas('community_photo_processing_jobs', ['id' => $job->id, 'status' => 'cancelled']);
+            $this->assertDatabaseHas('community_photos', ['id' => $photo->id, 'processing_status' => 'deleting']);
+        }
+    }
+
+    public function test_report_limiter_is_bounded_per_anonymous_identity_and_decays(): void
+    {
+        $photo = $this->publishedPhoto();
+        RateLimiter::clear('photo-report:account:ip:127.0.0.1');
+        RateLimiter::clear('photo-report:ip:127.0.0.1');
+
+        for ($attempt = 0; $attempt < 6; $attempt++) {
+            $this->post(route('community-photos.reports.store', $photo), ['reason' => 'privacy', 'website' => ''])->assertRedirect();
+        }
+        $this->post(route('community-photos.reports.store', $photo), ['reason' => 'privacy', 'website' => ''])->assertStatus(429);
+
+        $this->travel(61)->seconds();
+        $this->post(route('community-photos.reports.store', $photo), ['reason' => 'privacy', 'website' => ''])->assertRedirect();
     }
 
     public function test_http_report_rejection_has_the_same_generic_response_for_private_and_missing_photos(): void
@@ -158,6 +215,7 @@ final class CommunityPhotoReportingTest extends TestCase
         app(ResolveCommunityPhotoReport::class)->handle($moderator, $report, 'dismissed');
 
         $this->assertDatabaseHas('community_photo_reports', ['id' => $report->id, 'status' => 'dismissed', 'resolved_by_user_id' => $moderator->id]);
+        $this->assertDatabaseHas('community_photo_moderation_audits', ['community_photo_id' => $photo->id, 'actor_user_id' => $moderator->id, 'action' => 'report_dismissed']);
     }
 
     public function test_an_authorised_moderator_can_review_an_uploader_removal_request_once(): void
@@ -170,6 +228,69 @@ final class CommunityPhotoReportingTest extends TestCase
         app(ResolveCommunityPhotoRemovalRequest::class)->handle($moderator, $request, 'reviewed');
 
         $this->assertDatabaseHas('community_photo_removal_requests', ['id' => $request->id, 'status' => 'reviewed', 'resolved_by_user_id' => $moderator->id]);
+        $this->assertDatabaseHas('community_photo_moderation_audits', ['community_photo_id' => $photo->id, 'actor_user_id' => $moderator->id, 'action' => 'removal_request_reviewed']);
+    }
+
+    public function test_authorised_moderator_removes_photo_and_resolves_open_report_atomically_with_audit(): void
+    {
+        $moderator = User::factory()->create(['role' => AccountRole::Moderator]);
+        $photo = $this->publishedPhoto();
+        $report = app(SubmitCommunityPhotoReport::class)->handle($photo, 'privacy');
+
+        app(ResolveCommunityPhotoReport::class)->removePhoto($moderator, $report);
+
+        $this->assertDatabaseHas('community_photos', ['id' => $photo->id, 'moderation_status' => 'removed', 'published_at' => null]);
+        $this->assertDatabaseHas('community_photo_reports', ['id' => $report->id, 'status' => 'reviewed', 'resolved_by_user_id' => $moderator->id]);
+        $this->assertDatabaseHas('community_photo_moderation_audits', ['community_photo_id' => $photo->id, 'actor_user_id' => $moderator->id, 'action' => 'removed']);
+        $this->assertDatabaseHas('community_photo_moderation_audits', ['community_photo_id' => $photo->id, 'actor_user_id' => $moderator->id, 'action' => 'report_removed_photo']);
+    }
+
+    public function test_authorised_moderator_removes_photo_and_resolves_open_uploader_request_atomically_with_audit(): void
+    {
+        $moderator = User::factory()->create(['role' => AccountRole::Moderator]);
+        $uploader = User::factory()->create();
+        $photo = $this->publishedPhoto(['uploader_id' => $uploader->id]);
+        $request = app(RequestCommunityPhotoRemoval::class)->handle($uploader, $photo);
+
+        app(ResolveCommunityPhotoRemovalRequest::class)->removePhoto($moderator, $request);
+
+        $this->assertDatabaseHas('community_photos', ['id' => $photo->id, 'moderation_status' => 'removed', 'published_at' => null]);
+        $this->assertDatabaseHas('community_photo_removal_requests', ['id' => $request->id, 'status' => 'reviewed', 'resolved_by_user_id' => $moderator->id]);
+        $this->assertDatabaseHas('community_photo_moderation_audits', ['community_photo_id' => $photo->id, 'actor_user_id' => $moderator->id, 'action' => 'removal_request_removed_photo']);
+    }
+
+    public function test_own_event_moderators_cannot_forge_queue_resolution_for_another_event_or_special_album(): void
+    {
+        $leader = User::factory()->create(['role' => AccountRole::WalkLeader]);
+        $other = $this->publishedPhoto();
+        $special = $this->publishedPhoto(['event_id' => null, 'special_album_id' => SpecialAlbum::query()->create(['title' => 'Global album', 'slug' => 'global-album'])->id]);
+        $otherReport = app(SubmitCommunityPhotoReport::class)->handle($other, 'privacy');
+        $specialReport = app(SubmitCommunityPhotoReport::class)->handle($special, 'privacy');
+
+        foreach ([$otherReport, $specialReport] as $report) {
+            try {
+                app(ResolveCommunityPhotoReport::class)->handle($leader, $report, 'reviewed');
+                $this->fail('A forged out-of-scope report resolution was accepted.');
+            } catch (AuthorizationException) {
+                $this->assertDatabaseHas('community_photo_reports', ['id' => $report->id, 'status' => 'open']);
+            }
+        }
+    }
+
+    public function test_active_uploader_can_manage_only_their_own_pending_and_published_photos_from_their_photos_section(): void
+    {
+        $uploader = User::factory()->create(['email_verified_at' => now()]);
+        $pending = $this->publishedPhoto(['uploader_id' => $uploader->id, 'moderation_status' => 'pending', 'published_at' => null, 'caption' => 'My pending photo']);
+        $published = $this->publishedPhoto(['uploader_id' => $uploader->id, 'caption' => 'My published photo']);
+        $other = $this->publishedPhoto(['caption' => 'Other uploader photo']);
+
+        $this->actingAs($uploader)->get(route('community-photos.upload.create'))
+            ->assertOk()->assertSeeText('Your photos')->assertSeeText($pending->caption)->assertSeeText($published->caption)
+            ->assertDontSeeText($other->caption);
+        $this->actingAs($uploader)->delete(route('community-photos.destroy', $pending))->assertRedirect();
+        $this->assertDatabaseMissing('community_photos', ['id' => $pending->id]);
+        $this->actingAs($uploader)->post(route('community-photos.removal-request.store', $published), ['detail' => 'Please remove this.'])->assertRedirect();
+        $this->assertDatabaseHas('community_photo_removal_requests', ['community_photo_id' => $published->id, 'requester_user_id' => $uploader->id]);
     }
 
     private function publishedPhoto(array $overrides = []): CommunityPhoto

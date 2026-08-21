@@ -25,7 +25,7 @@ final class CommunityPhotoReportController
 
     public function __invoke(Request $request, ?int $photo, SubmitCommunityPhotoReport $reports): RedirectResponse
     {
-        $validated = $request->validate(['reason' => ['required', 'string'], 'detail' => ['nullable', 'string', 'max:1000'], 'contact' => ['nullable', 'string', 'max:255'], 'website' => ['nullable', 'max:0']]);
+        $validated = $request->validate(['reason' => ['required', 'string', 'in:in_photo,privacy,copyright,inappropriate,other'], 'detail' => ['nullable', 'string', 'max:1000', 'required_if:reason,other'], 'contact' => ['nullable', 'email:rfc,dns', 'max:255'], 'website' => ['nullable', 'max:0']]);
         try {
             $photo = is_int($photo) ? CommunityPhoto::query()->find($photo) : null;
             if (! $photo instanceof CommunityPhoto) {

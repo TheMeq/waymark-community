@@ -6,6 +6,7 @@ use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Actions\AcceptCurrentPhotoUploadPolicy;
 use App\Domain\Gallery\Models\CommunityPhoto;
+use App\Domain\Gallery\Models\CommunityPhotoReport;
 use App\Domain\Holidays\Actions\AssignHolidayChild;
 use App\Domain\Holidays\Actions\SaveHolidayDetails;
 use App\Domain\Operations\Actions\UpdateSiteProfile;
@@ -55,6 +56,7 @@ $moderationEvent = Event::query()->create([
     'organiser_id' => $leader->id,
 ]);
 $preview = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADElEQVQImWNgYGAAAAAEAAGjChXjAAAAAElFTkSuQmCC', true);
+$reportingUploader = User::factory()->create();
 
 foreach (range(1, 21) as $number) {
     Storage::disk('local')->put('community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/browser-'.$number.'.jpg', $preview);
@@ -85,6 +87,31 @@ CommunityPhoto::query()->create([
     'published_at' => CarbonImmutable::parse('2026-08-20 10:00:00'),
     'caption' => 'Browser published moderation photo',
 ]);
+
+foreach (range(1, 3) as $number) {
+    $pendingPath = 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/browser-own-pending-'.$number.'.jpg';
+    $publishedPath = 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/browser-own-published-'.$number.'.jpg';
+    Storage::disk('local')->put($pendingPath, $preview);
+    Storage::disk('local')->put($publishedPath, $preview);
+    CommunityPhoto::query()->create([
+        'event_id' => $moderationEvent->id, 'uploader_id' => $leader->id, 'media_type' => 'image', 'processing_status' => 'complete', 'storage_disk' => 'local',
+        'source_path' => $pendingPath, 'processed_variants' => ['master' => $pendingPath], 'moderation_status' => 'pending', 'caption' => 'Browser own pending '.$number,
+    ]);
+    $published = CommunityPhoto::query()->create([
+        'event_id' => $moderationEvent->id, 'uploader_id' => $leader->id, 'media_type' => 'image', 'processing_status' => 'complete', 'storage_disk' => 'local',
+        'source_path' => $publishedPath, 'processed_variants' => ['master' => $publishedPath], 'moderation_status' => 'approved', 'published_at' => CarbonImmutable::parse('2026-08-20 10:00:00'), 'caption' => 'Browser own published '.$number,
+    ]);
+    $reportPath = 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/browser-report-'.$number.'.jpg';
+    Storage::disk('local')->put($reportPath, $preview);
+    $reportPhoto = CommunityPhoto::query()->create([
+        'event_id' => $moderationEvent->id, 'uploader_id' => $reportingUploader->id, 'media_type' => 'image', 'processing_status' => 'complete', 'storage_disk' => 'local',
+        'source_path' => $reportPath, 'processed_variants' => ['master' => $reportPath], 'moderation_status' => 'approved', 'published_at' => CarbonImmutable::parse('2026-08-20 10:00:00'), 'caption' => 'Browser report photo '.$number,
+    ]);
+    CommunityPhotoReport::query()->create([
+        'community_photo_id' => $reportPhoto->id, 'reason' => 'privacy', 'status' => 'open', 'detail' => 'Browser moderation report '.$number,
+        'context_snapshot' => ['photo_id' => $reportPhoto->id, 'event_id' => $moderationEvent->id, 'special_album_id' => null, 'caption' => $reportPhoto->caption],
+    ]);
+}
 
 $securityUser = User::factory()->create([
     'name' => 'Security Walker',

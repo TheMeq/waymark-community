@@ -41,7 +41,7 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(30)->by('photo-upload:ip:'.$request->ip()),
         ]);
         RateLimiter::for('photo-report', fn (Request $request) => [
-            Limit::perMinute(6)->by('photo-report:account:'.($request->user()?->id ?? 'guest')),
+            Limit::perMinute(6)->by('photo-report:account:'.($request->user()?->id ?? 'ip:'.$request->ip())),
             Limit::perMinute(12)->by('photo-report:ip:'.$request->ip()),
         ]);
         Gate::policy(InstallationOwnership::class, InstallationOwnershipPolicy::class);

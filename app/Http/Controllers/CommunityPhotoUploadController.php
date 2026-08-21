@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Gallery\Actions\DeletePendingCommunityPhoto;
+use App\Domain\Gallery\Actions\RequestCommunityPhotoRemoval;
 use App\Domain\Gallery\Actions\UploadCommunityPhoto;
+use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Gallery\PhotoUploadPolicyGate;
 use App\Domain\Gallery\Queries\UploadablePublicEvents;
@@ -39,6 +42,7 @@ final class CommunityPhotoUploadController
             'specialAlbums' => SpecialAlbum::query()->orderBy('title')->orderBy('id')->get(),
             'selectedContext' => $selectedEvent === null ? null : 'event:'.$selectedEvent->id,
             'policyDecision' => $policyGate->for($account),
+            'ownPhotos' => CommunityPhoto::query()->where('uploader_id', $account->id)->latest('id')->paginate(10, ['*'], 'yourPhotosPage'),
         ]);
     }
 
@@ -108,5 +112,22 @@ final class CommunityPhotoUploadController
 
         return redirect()->route('community-photos.upload.create')
             ->with('status', 'Your photos have been submitted for moderation.');
+    }
+
+    public function destroy(Request $request, CommunityPhoto $photo, DeletePendingCommunityPhoto $delete): RedirectResponse
+    {
+        abort_unless($request->user()?->isActive() && $request->user()->hasVerifiedEmail(), 403);
+        $delete->handle($request->user(), $photo);
+
+        return back()->with('status', 'Your pending photo has been deleted.');
+    }
+
+    public function requestRemoval(Request $request, CommunityPhoto $photo, RequestCommunityPhotoRemoval $removals): RedirectResponse
+    {
+        abort_unless($request->user()?->isActive() && $request->user()->hasVerifiedEmail(), 403);
+        $validated = $request->validate(['detail' => ['nullable', 'string', 'max:1000']]);
+        $removals->handle($request->user(), $photo, $validated['detail'] ?? null);
+
+        return back()->with('status', 'Your removal request has been sent to the moderators.');
     }
 }

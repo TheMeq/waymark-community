@@ -22,8 +22,9 @@ test('authorised moderation workflow is operable and accessible at every review 
     await expect(page.getByRole('button', { name: 'Rotate' }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Edit' }).first()).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Published photos' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Feature' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Remove' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Open photo reports' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Feature' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Remove' }).first()).toBeVisible();
     await expect(page.locator('nav').filter({ hasText: 'Next' }).first()).toBeVisible();
 
     const photoNumber = { desktop: 1, tablet: 2, mobile: 3 }[testInfo.project.name] ?? 1;
@@ -32,7 +33,7 @@ test('authorised moderation workflow is operable and accessible at every review 
     const pendingPreview = pendingRow.getByRole('img', { name: `Preview: ${caption}` });
     await expect(pendingPreview).toBeVisible();
     expect(await pendingPreview.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
-    const published = page.locator('article').filter({ hasText: 'Browser published moderation photo' });
+    const published = page.getByRole('region', { name: 'Published photos' }).locator('article').filter({ hasText: 'Browser published moderation photo' });
     await expect(published.getByRole('img', { name: 'Preview: Browser published moderation photo' })).toBeVisible();
     await expect(published.getByRole('button', { name: 'Edit' })).toBeVisible();
     await expect(published.getByRole('button', { name: 'Rotate' })).toBeVisible();
@@ -42,6 +43,12 @@ test('authorised moderation workflow is operable and accessible at every review 
     await page.keyboard.press('Enter');
     await expect(pendingPreview).toHaveAttribute('style', /rotate\(90deg\)/);
     await expect(page.getByText('Photo approved')).toHaveCount(0);
+
+    const reportNumber = { desktop: 1, tablet: 2, mobile: 3 }[testInfo.project.name] ?? 1;
+    const reportRow = page.locator('article').filter({ hasText: `Browser moderation report ${reportNumber}` });
+    await expect(reportRow).toBeVisible();
+    await reportRow.getByRole('button', { name: 'Remove photo' }).click();
+    await expect(page.getByText('Reported photo removed')).toBeVisible();
 
     const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])

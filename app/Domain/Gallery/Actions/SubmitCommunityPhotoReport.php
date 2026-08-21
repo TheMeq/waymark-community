@@ -25,9 +25,14 @@ final class SubmitCommunityPhotoReport
             throw ValidationException::withMessages(['detail' => 'Please tell us what needs review.']);
         }
 
+        $contact = $this->text($contact, 255, 'contact');
+        if ($contact !== null && filter_var($contact, FILTER_VALIDATE_EMAIL) === false) {
+            throw ValidationException::withMessages(['contact' => 'Enter a valid email address.']);
+        }
+
         return CommunityPhotoReport::query()->create([
             'community_photo_id' => $photo->id, 'reporter_user_id' => $reporter?->id,
-            'reason' => $reason, 'status' => 'open', 'contact' => $this->text($contact, 255, 'contact'),
+            'reason' => $reason, 'status' => 'open', 'contact' => $contact,
             'detail' => $detail, 'context_snapshot' => $this->context($photo),
         ]);
     }

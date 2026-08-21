@@ -92,6 +92,14 @@ final class PhotoModeration extends Page
         Notification::make()->success()->title('Report '.$status)->send();
     }
 
+    public function removeReportedPhoto(int $reportId): void
+    {
+        /** @var User $actor */
+        $actor = auth()->user();
+        app(ResolveCommunityPhotoReport::class)->removePhoto($actor, CommunityPhotoReport::query()->findOrFail($reportId));
+        Notification::make()->success()->title('Reported photo removed')->send();
+    }
+
     /** @return LengthAwarePaginator<int, CommunityPhotoRemovalRequest> */
     public function openRemovalRequests(): LengthAwarePaginator
     {
@@ -107,6 +115,14 @@ final class PhotoModeration extends Page
         $actor = auth()->user();
         app(ResolveCommunityPhotoRemovalRequest::class)->handle($actor, CommunityPhotoRemovalRequest::query()->findOrFail($requestId), $status);
         Notification::make()->success()->title('Removal request '.$status)->send();
+    }
+
+    public function removeRequestedPhoto(int $requestId): void
+    {
+        /** @var User $actor */
+        $actor = auth()->user();
+        app(ResolveCommunityPhotoRemovalRequest::class)->removePhoto($actor, CommunityPhotoRemovalRequest::query()->findOrFail($requestId));
+        Notification::make()->success()->title('Requested photo removed')->send();
     }
 
     public function previewFor(CommunityPhoto $photo): ?CommunityPhotoModerationPreview

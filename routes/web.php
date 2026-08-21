@@ -41,6 +41,8 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/admin/photo-moderation/{photo}/preview', CommunityPhotoModerationPreviewController::class)->name('admin.photo-moderation.preview');
     Route::get('/photos/upload', [CommunityPhotoUploadController::class, 'create'])->name('community-photos.upload.create');
     Route::post('/photos/upload', [CommunityPhotoUploadController::class, 'store'])->middleware('throttle:photo-upload')->name('community-photos.upload.store');
+    Route::delete('/photos/{photo}', [CommunityPhotoUploadController::class, 'destroy'])->name('community-photos.destroy');
+    Route::post('/photos/{photo}/removal-request', [CommunityPhotoUploadController::class, 'requestRemoval'])->name('community-photos.removal-request.store');
     Route::get('/account/profile', [AccountProfileController::class, 'edit'])->name('account.profile.edit');
     Route::patch('/account/profile', [AccountProfileController::class, 'update'])->name('account.profile.update');
     Route::get('/account/privacy', [AccountPrivacyController::class, 'show'])->name('account.privacy.show');
