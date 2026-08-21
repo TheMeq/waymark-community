@@ -6,7 +6,7 @@ async function signIn(page: Page) {
     await page.getByLabel('Email address').fill('morgan.leader@example.test');
     await page.getByLabel('Password').fill('password');
     await Promise.all([
-        page.waitForURL('**/'),
+        page.waitForURL('**/new-here'),
         page.getByRole('button', { name: 'Sign in' }).click(),
     ]);
 }
@@ -27,13 +27,13 @@ test('photo upload keeps each failed file available for an accessible retry', as
         }
         await route.continue();
     });
-    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL82QAAAABJRU5ErkJggg==', 'base64');
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADElEQVQImWNgYGAAAAAEAAGjChXjAAAAAElFTkSuQmCC', 'base64');
     await page.getByLabel('Photos', { exact: true }).setInputFiles([
         { name: 'first.png', mimeType: 'image/png', buffer: png },
         { name: 'retry.png', mimeType: 'image/png', buffer: png },
     ]);
     await expect(page.getByText('first.png')).toBeVisible();
-    await expect(page.getByText('Ready')).toBeVisible();
+    await expect(page.getByText('Ready')).toHaveCount(2);
     await page.getByRole('button', { name: 'Upload photos' }).click();
     await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible();
     await expect(page.getByText('first.png').locator('..')).toContainText('Submitted');

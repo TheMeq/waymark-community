@@ -70,6 +70,10 @@ final class CommunityPhotoUploadController
                 );
                 $results[] = ['index' => $index, 'name' => $photo->getClientOriginalName(), 'status' => 'uploaded', 'photo_id' => $communityPhoto->id];
             } catch (ValidationException|\RuntimeException $exception) {
+                if ($exception instanceof \RuntimeException) {
+                    report($exception);
+                }
+
                 $failed = true;
                 $results[] = [
                     'index' => $index,
