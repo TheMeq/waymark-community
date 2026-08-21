@@ -139,6 +139,30 @@ final class CommunityPhotoUploadTest extends TestCase
         $this->actingAs($account)->postJson(route('community-photos.upload.store'), ['context' => 'event:'.$holiday->id, 'accept_photo_policy' => true, 'photos' => [$this->pngUpload('completed-holiday.png')]])->assertCreated();
     }
 
+    public function test_archived_public_events_are_excluded_from_the_chooser_preselection_and_mutation(): void
+    {
+        Storage::fake('local');
+        $this->useUploadProcessorDouble();
+        $account = User::factory()->create();
+        $archived = $this->uploadableEvent([
+            'type' => EventType::Walk,
+            'status' => EventStatus::Archived,
+            'title' => 'Archived ridge walk',
+        ]);
+
+        $this->actingAs($account)->get(route('community-photos.upload.create'))
+            ->assertDontSee($archived->title);
+        $this->actingAs($account)->get(route('community-photos.upload.create', ['event' => $archived->id]))
+            ->assertDontSee('value="event:'.$archived->id.'" selected', false);
+        $this->actingAs($account)->postJson(route('community-photos.upload.store'), [
+            'context' => 'event:'.$archived->id,
+            'accept_photo_policy' => true,
+            'photos' => [$this->pngUpload('archived.png')],
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseCount('community_photos', 0);
+    }
+
     public function test_named_photo_upload_route_returns_429_before_processing_after_its_limit(): void
     {
         RateLimiter::for('photo-upload', fn ($request) => [Limit::perMinute(1)->by('account:'.$request->user()->id), Limit::perMinute(20)->by('ip:'.$request->ip())]);
