@@ -125,6 +125,20 @@ final class CommunityPhotoUploadTest extends TestCase
         $this->assertDatabaseHas('community_photos', ['event_id' => $event->id]);
     }
 
+    public function test_completed_walk_social_and_holiday_contexts_remain_available_at_every_upload_boundary(): void
+    {
+        Storage::fake('local');
+        $this->useUploadProcessorDouble();
+        $account = User::factory()->create();
+        $walk = $this->uploadableEvent(['type' => EventType::Walk, 'status' => EventStatus::Completed, 'title' => 'Completed walk']);
+        $social = $this->uploadableEvent(['type' => EventType::Social, 'status' => EventStatus::Completed, 'title' => 'Completed social']);
+        $holiday = $this->uploadableEvent(['type' => EventType::Holiday, 'status' => EventStatus::Completed, 'title' => 'Completed holiday']);
+
+        $this->actingAs($account)->get(route('community-photos.upload.create'))->assertSee($walk->title)->assertSee($social->title)->assertSee($holiday->title);
+        $this->actingAs($account)->get(route('community-photos.upload.create', ['event' => $social->id]))->assertSee('value="event:'.$social->id.'" selected', false);
+        $this->actingAs($account)->postJson(route('community-photos.upload.store'), ['context' => 'event:'.$holiday->id, 'accept_photo_policy' => true, 'photos' => [$this->pngUpload('completed-holiday.png')]])->assertCreated();
+    }
+
     public function test_named_photo_upload_route_returns_429_before_processing_after_its_limit(): void
     {
         RateLimiter::for('photo-upload', fn ($request) => [Limit::perMinute(1)->by('account:'.$request->user()->id), Limit::perMinute(20)->by('ip:'.$request->ip())]);
