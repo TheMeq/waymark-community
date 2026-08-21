@@ -2,10 +2,12 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Domain\Accounts\Models\CommunicationPreference;
 use App\Models\User;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Route;
@@ -226,6 +228,69 @@ final class PublicAccountAccessTest extends TestCase
             ->assertSessionHasErrors(['name', 'display_name', 'phone']);
     }
 
+    public function test_profile_saves_preserve_existing_consent_and_record_a_new_opt_in_after_an_opt_out(): void
+    {
+        $account = User::factory()->create(['name' => 'Alex Walker']);
+        $originalConsent = Carbon::parse('2026-08-20 09:00:00');
+
+        $preference = new CommunicationPreference([
+            'category' => 'group_news',
+            'is_subscribed' => true,
+            'consented_at' => $originalConsent,
+        ]);
+        $preference->user()->associate($account);
+        $preference->save();
+
+        try {
+            Carbon::setTestNow('2026-08-21 09:00:00');
+
+            $this->actingAs($account)
+                ->patch('/account/profile', [
+                    'name' => 'Alexandra Walker',
+                    'preferences' => ['group_news' => '1'],
+                ])
+                ->assertRedirect('/account/profile');
+
+            $this->assertTrue($originalConsent->equalTo($this->groupNewsPreferenceFor($account)->consented_at));
+
+            Carbon::setTestNow('2026-08-21 10:00:00');
+
+            $this->actingAs($account)
+                ->patch('/account/profile', [
+                    'name' => 'Alexandra Walker',
+                    'display_name' => 'Alex',
+                    'preferences' => ['group_news' => '1'],
+                ])
+                ->assertRedirect('/account/profile');
+
+            $this->assertTrue($originalConsent->equalTo($this->groupNewsPreferenceFor($account)->consented_at));
+
+            $this->actingAs($account)
+                ->patch('/account/profile', [
+                    'name' => 'Alexandra Walker',
+                ])
+                ->assertRedirect('/account/profile');
+
+            $this->assertFalse($this->groupNewsPreferenceFor($account)->is_subscribed);
+            $this->assertNull($this->groupNewsPreferenceFor($account)->consented_at);
+
+            Carbon::setTestNow('2026-08-21 11:00:00');
+
+            $this->actingAs($account)
+                ->patch('/account/profile', [
+                    'name' => 'Alexandra Walker',
+                    'preferences' => ['group_news' => '1'],
+                ])
+                ->assertRedirect('/account/profile');
+
+            $preference = $this->groupNewsPreferenceFor($account);
+            $this->assertTrue($preference->is_subscribed);
+            $this->assertTrue(Carbon::parse('2026-08-21 11:00:00')->equalTo($preference->consented_at));
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_public_attribution_uses_an_explicit_display_name_or_a_safe_privacy_fallback(): void
     {
         $user = new User(['name' => '  Alex   Walker  ', 'display_name' => null]);
@@ -257,5 +322,13 @@ final class PublicAccountAccessTest extends TestCase
 
         $this->assertTrue(Gate::forUser($account)->allows('updateProfile', $account));
         $this->assertFalse(Gate::forUser($account)->allows('updateProfile', $otherAccount));
+    }
+
+    private function groupNewsPreferenceFor(User $account): CommunicationPreference
+    {
+        return CommunicationPreference::query()
+            ->where('user_id', $account->id)
+            ->where('category', 'group_news')
+            ->sole();
     }
 }

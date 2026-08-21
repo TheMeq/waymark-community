@@ -22,9 +22,15 @@ final class UpdateAccountProfile
                     'category' => $category,
                 ]);
 
+                $consentedAt = match (true) {
+                    ! $isSubscribed => null,
+                    ! $preference->exists, ! $preference->is_subscribed => now(),
+                    default => $preference->consented_at,
+                };
+
                 $preference->fill([
                     'is_subscribed' => $isSubscribed,
-                    'consented_at' => $isSubscribed ? now() : null,
+                    'consented_at' => $consentedAt,
                 ])->save();
             }
         });
