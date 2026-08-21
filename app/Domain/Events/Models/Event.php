@@ -32,6 +32,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'completion_override',
     'organiser_id',
     'parent_event_id',
+    'recurring_series_id',
+    'occurrence_number',
 ])]
 final class Event extends Model
 {
@@ -59,6 +61,12 @@ final class Event extends Model
     public function children(): HasMany
     {
         return $this->hasMany(self::class, 'parent_event_id')->orderBy('starts_at')->orderBy('id');
+    }
+
+    /** @return BelongsTo<RecurringSeries, $this> */
+    public function recurringSeries(): BelongsTo
+    {
+        return $this->belongsTo(RecurringSeries::class);
     }
 
     /** @return HasOne<Walk, $this> */
@@ -136,6 +144,7 @@ final class Event extends Model
             'is_public' => 'boolean',
             'published_at' => 'datetime',
             'completion_override' => 'boolean',
+            'occurrence_number' => 'integer',
         ];
     }
 }
