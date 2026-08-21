@@ -2,8 +2,10 @@
 
 namespace App\Domain\Gallery\Actions;
 
+use App\Domain\Gallery\Contracts\DecodedRasterImage;
 use App\Domain\Gallery\Contracts\ImageMetadataReader;
 use App\Domain\Gallery\Contracts\RasterImageTransformer;
+use App\Domain\Gallery\Data\ImageProcessingConfiguration;
 use App\Domain\Gallery\Data\ImageVariantDefinition;
 use App\Domain\Gallery\Data\PhotoStorageReference;
 use App\Domain\Gallery\Data\ProcessedCommunityPhoto;
@@ -24,12 +26,24 @@ final readonly class IngestCommunityPhoto
 
     public function handle(UploadedFile $upload): ProcessedCommunityPhoto
     {
-        [$path, $decodedMimeType, $width, $height] = $this->inspect($upload);
+        $configuration = ImageProcessingConfiguration::from((array) config('gallery.processing', []), $this->transformer);
+        [$path, $decodedMimeType, $width, $height] = $this->inspect($upload, $configuration);
+
+        if (! $this->transformer->supportsInput($decodedMimeType)) {
+            throw ValidationException::withMessages(['photo' => 'The uploaded photo format is not supported by this server.']);
+        }
+
         $metadata = $this->metadataReader->read($path, $decodedMimeType);
         $orientation = $metadata->orientation >= 1 && $metadata->orientation <= 8 ? $metadata->orientation : 1;
         [$width, $height] = $this->normalisedDimensions($width, $height, $orientation);
-        $this->ensureMemoryBudget($width, $height);
-        $outputMimeType = $this->outputMimeType($decodedMimeType);
+        $this->ensureMemoryBudget($width, $height, $orientation, $configuration);
+
+        try {
+            $source = $this->transformer->decode($path, $decodedMimeType, $orientation);
+        } catch (\Throwable) {
+            throw ValidationException::withMessages(['photo' => 'The uploaded photo could not be decoded for processing.']);
+        }
+
         $diskName = (string) config('gallery.photos.disk', 'local');
         $directory = trim((string) config('gallery.photos.directory', 'community-photos'), '/').'/'.Str::uuid()->toString();
         $disk = Storage::disk($diskName);
@@ -37,29 +51,27 @@ final readonly class IngestCommunityPhoto
         try {
             $retainedSource = null;
 
-            if ((bool) config('gallery.processing.source_retention', false)) {
+            if ($configuration->retainedSource !== null) {
                 $retainedSource = $this->storeVariant(
                     $diskName,
                     $disk,
                     $directory,
-                    $path,
-                    $orientation,
-                    $this->retainedSourceDefinition(),
-                    $outputMimeType,
+                    $source,
+                    $configuration->retainedSource,
+                    $configuration->outputMimeType,
                 );
             }
 
             $variants = [];
 
-            foreach ((array) config('gallery.processing.variants', []) as $name => $definition) {
-                $variants[(string) $name] = $this->storeVariant(
+            foreach ($configuration->variants as $name => $definition) {
+                $variants[$name] = $this->storeVariant(
                     $diskName,
                     $disk,
                     $directory,
-                    $path,
-                    $orientation,
-                    $this->variantDefinition((string) $name, $definition),
-                    $outputMimeType,
+                    $source,
+                    $definition,
+                    $configuration->outputMimeType,
                 );
             }
 
@@ -68,11 +80,13 @@ final readonly class IngestCommunityPhoto
             $disk->deleteDirectory($directory);
 
             throw $exception;
+        } finally {
+            $source->release();
         }
     }
 
     /** @return array{string, string, int, int} */
-    private function inspect(UploadedFile $upload): array
+    private function inspect(UploadedFile $upload, ImageProcessingConfiguration $configuration): array
     {
         if ($upload->getError() !== UPLOAD_ERR_OK) {
             throw ValidationException::withMessages(['photo' => 'The photo upload failed.']);
@@ -85,7 +99,7 @@ final readonly class IngestCommunityPhoto
         }
 
         $declaredMimeType = strtolower((string) $upload->getClientMimeType());
-        $allowedMimeTypes = (array) config('gallery.processing.allowed_mime_types', []);
+        $allowedMimeTypes = $configuration->allowedMimeTypes;
 
         if (! in_array($declaredMimeType, $allowedMimeTypes, true)) {
             throw ValidationException::withMessages(['photo' => 'The uploaded photo has an unapproved MIME type.']);
@@ -93,7 +107,7 @@ final readonly class IngestCommunityPhoto
 
         $size = $upload->getSize() ?? filesize($path) ?: 0;
 
-        if ($size > (int) config('gallery.processing.max_upload_bytes', 10 * 1024 * 1024)) {
+        if ($size > $configuration->maxUploadBytes) {
             throw ValidationException::withMessages(['photo' => 'The uploaded photo exceeds the file-size limit.']);
         }
 
@@ -116,94 +130,52 @@ final readonly class IngestCommunityPhoto
         $width = (int) $image[0];
         $height = (int) $image[1];
 
-        if ($width > (int) config('gallery.processing.max_width', 6000)
-            || $height > (int) config('gallery.processing.max_height', 6000)) {
+        if ($width > $configuration->maxWidth || $height > $configuration->maxHeight) {
             throw ValidationException::withMessages(['photo' => 'The uploaded photo exceeds the dimension limit.']);
         }
 
-        if ($width * $height > (int) config('gallery.processing.max_pixels', 24000000)) {
+        if ($width * $height > $configuration->maxPixels) {
             throw ValidationException::withMessages(['photo' => 'The uploaded photo exceeds the pixel budget.']);
         }
 
         return [$path, $decodedMimeType, $width, $height];
     }
 
-    private function ensureMemoryBudget(int $width, int $height): void
+    private function ensureMemoryBudget(int $width, int $height, int $orientation, ImageProcessingConfiguration $configuration): void
     {
         $largestTargetPixels = 0;
-        $definitions = (array) config('gallery.processing.variants', []);
+        $definitions = $configuration->variants;
 
-        if ((bool) config('gallery.processing.source_retention', false)) {
-            $definitions['source'] = (array) config('gallery.processing.retained_source', []);
+        if ($configuration->retainedSource !== null) {
+            $definitions['source'] = $configuration->retainedSource;
         }
 
         foreach ($definitions as $definition) {
-            if (! is_array($definition)) {
-                continue;
-            }
 
             $largestTargetPixels = max(
                 $largestTargetPixels,
-                min($width, (int) ($definition['max_width'] ?? $width)) * min($height, (int) ($definition['max_height'] ?? $height)),
+                min($width, $definition->maxWidth) * min($height, $definition->maxHeight),
             );
         }
 
-        $estimatedBytes = (($width * $height) + $largestTargetPixels) * 5;
+        $sourcePixels = $width * $height;
+        $orientationPixels = in_array($orientation, [5, 6, 7, 8], true) ? $sourcePixels : 0;
+        $estimatedBytes = ($sourcePixels + $orientationPixels + $largestTargetPixels) * 5;
 
-        if ($estimatedBytes > (int) config('gallery.processing.max_memory_bytes', 128 * 1024 * 1024)) {
+        if ($estimatedBytes > $configuration->maxMemoryBytes) {
             throw ValidationException::withMessages(['photo' => 'The uploaded photo exceeds the processing memory budget.']);
         }
-    }
-
-    private function outputMimeType(string $decodedMimeType): string
-    {
-        foreach ((array) config('gallery.processing.preferred_output_mime_types', []) as $mimeType) {
-            if (is_string($mimeType) && $this->transformer->supports($mimeType)) {
-                return $mimeType;
-            }
-        }
-
-        if ($this->transformer->supports($decodedMimeType)) {
-            return $decodedMimeType;
-        }
-
-        throw new RuntimeException('Image processing is unavailable because this server has no supported raster codec.');
-    }
-
-    private function retainedSourceDefinition(): ImageVariantDefinition
-    {
-        return $this->variantDefinition('source', (array) config('gallery.processing.retained_source', []));
-    }
-
-    private function variantDefinition(string $name, mixed $definition): ImageVariantDefinition
-    {
-        if (! is_array($definition)
-            || ! preg_match('/\A[a-z][a-z0-9_-]*\z/D', $name)
-            || (int) ($definition['max_width'] ?? 0) < 1
-            || (int) ($definition['max_height'] ?? 0) < 1
-            || (int) ($definition['quality'] ?? -1) < 0
-            || (int) ($definition['quality'] ?? 101) > 100) {
-            throw new RuntimeException('Gallery image processing configuration is invalid.');
-        }
-
-        return new ImageVariantDefinition(
-            $name,
-            (int) $definition['max_width'],
-            (int) $definition['max_height'],
-            (int) $definition['quality'],
-        );
     }
 
     private function storeVariant(
         string $diskName,
         FilesystemAdapter $disk,
         string $directory,
-        string $sourcePath,
-        int $orientation,
+        DecodedRasterImage $source,
         ImageVariantDefinition $definition,
         string $mimeType,
     ): ProcessedPhotoVariant {
-        $raster = $this->transformer->transform($sourcePath, $orientation, $definition, $mimeType);
+        $raster = $this->transformer->transform($source, $definition, $mimeType);
         $path = $directory.'/'.$definition->name.'.'.$this->extensionFor($raster->mimeType);
         PhotoStorageReference::from($diskName, $path);
 

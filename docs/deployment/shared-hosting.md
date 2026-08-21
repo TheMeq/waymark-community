@@ -4,7 +4,7 @@ Shared hosting is an official target, not a fallback.
 
 ## Destination host requirements
 
-- supported PHP version and required extensions;
+- supported PHP version with the required extensions, including GD and EXIF for community-photo processing;
 - MySQL or MariaDB;
 - web server capable of serving Laravel public entry point;
 - writable storage directories;

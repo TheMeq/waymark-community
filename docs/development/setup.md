@@ -5,7 +5,7 @@ These steps reproduce the Phase 1 developer environment from a clean source clon
 ## Prerequisites
 
 - Git 2.x.
-- PHP 8.3 or 8.4 with `ctype`, `curl`, `dom`, `fileinfo`, `filter`, `hash`, `intl`, `json`, `mbstring`, `openssl`, `pdo`, `pdo_mysql`, `session`, `tokenizer`, `xml`, and `zip` enabled. SQLite extensions are useful for the default fast test suite.
+- PHP 8.3 or 8.4 with `ctype`, `curl`, `dom`, `exif`, `fileinfo`, `filter`, `gd`, `hash`, `intl`, `json`, `mbstring`, `openssl`, `pdo`, `pdo_mysql`, `session`, `tokenizer`, `xml`, and `zip` enabled. SQLite extensions are useful for the default fast test suite.
 - Composer 2.x.
 - Node.js 24.x and npm 11.x for the locked Phase 1 frontend toolchain.
 - MySQL or MariaDB for MySQL-compatible development and matrix checks. CI covers MySQL 8.4 and MariaDB 11.4; the Phase 1 local gate was also exercised on MariaDB 12.3.

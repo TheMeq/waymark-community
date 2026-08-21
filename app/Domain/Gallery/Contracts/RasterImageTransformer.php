@@ -7,7 +7,11 @@ use App\Domain\Gallery\Data\TransformedRasterImage;
 
 interface RasterImageTransformer
 {
-    public function supports(string $mimeType): bool;
+    public function supportsInput(string $mimeType): bool;
 
-    public function transform(string $sourcePath, int $orientation, ImageVariantDefinition $variant, string $mimeType): TransformedRasterImage;
+    public function supportsOutput(string $mimeType): bool;
+
+    public function decode(string $sourcePath, string $mimeType, int $orientation): DecodedRasterImage;
+
+    public function transform(DecodedRasterImage $source, ImageVariantDefinition $variant, string $mimeType): TransformedRasterImage;
 }

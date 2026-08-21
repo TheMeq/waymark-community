@@ -2,6 +2,7 @@
 
 namespace App\Domain\Gallery\Services;
 
+use App\Domain\Gallery\Contracts\DecodedRasterImage;
 use App\Domain\Gallery\Contracts\RasterImageTransformer;
 use App\Domain\Gallery\Data\ImageVariantDefinition;
 use App\Domain\Gallery\Data\TransformedRasterImage;
@@ -9,20 +10,31 @@ use RuntimeException;
 
 final class GdRasterImageTransformer implements RasterImageTransformer
 {
-    public function supports(string $mimeType): bool
+    public function supportsInput(string $mimeType): bool
     {
         return match ($mimeType) {
-            'image/jpeg' => function_exists('imagecreatefromjpeg') && function_exists('imagejpeg'),
-            'image/png' => function_exists('imagecreatefrompng') && function_exists('imagepng'),
-            'image/webp' => function_exists('imagecreatefromwebp') && function_exists('imagewebp'),
-            'image/avif' => function_exists('imagecreatefromavif') && function_exists('imageavif'),
+            'image/jpeg' => function_exists('imagecreatefromjpeg'),
+            'image/png' => function_exists('imagecreatefrompng'),
+            'image/webp' => function_exists('imagecreatefromwebp'),
+            'image/avif' => function_exists('imagecreatefromavif'),
             default => false,
         };
     }
 
-    public function transform(string $sourcePath, int $orientation, ImageVariantDefinition $variant, string $mimeType): TransformedRasterImage
+    public function supportsOutput(string $mimeType): bool
     {
-        if (! $this->supports($mimeType)) {
+        return match ($mimeType) {
+            'image/jpeg' => function_exists('imagejpeg'),
+            'image/png' => function_exists('imagepng'),
+            'image/webp' => function_exists('imagewebp'),
+            'image/avif' => function_exists('imageavif'),
+            default => false,
+        };
+    }
+
+    public function decode(string $sourcePath, string $mimeType, int $orientation): DecodedRasterImage
+    {
+        if (! $this->supportsInput($mimeType)) {
             throw new RuntimeException('Image processing is unavailable because the server does not support the requested raster codec.');
         }
 
@@ -33,34 +45,40 @@ final class GdRasterImageTransformer implements RasterImageTransformer
             imagedestroy($source);
         }
 
+        return new GdDecodedRasterImage($normalised);
+    }
+
+    public function transform(DecodedRasterImage $source, ImageVariantDefinition $variant, string $mimeType): TransformedRasterImage
+    {
+        if (! $source instanceof GdDecodedRasterImage || ! $this->supportsOutput($mimeType)) {
+            throw new RuntimeException('Image processing is unavailable because the server does not support the requested raster codec.');
+        }
+
+        $sourceImage = $source->image();
+        $width = $source->width();
+        $height = $source->height();
+        [$targetWidth, $targetHeight] = $this->boundedDimensions($width, $height, $variant);
+        $target = imagecreatetruecolor($targetWidth, $targetHeight);
+
+        if ($target === false) {
+            throw new RuntimeException('Image processing could not allocate the target raster.');
+        }
+
         try {
-            $width = imagesx($normalised);
-            $height = imagesy($normalised);
-            [$targetWidth, $targetHeight] = $this->boundedDimensions($width, $height, $variant);
-            $target = imagecreatetruecolor($targetWidth, $targetHeight);
+            $this->prepareTransparency($target, $mimeType);
 
-            if ($target === false) {
-                throw new RuntimeException('Image processing could not allocate the target raster.');
+            if (! imagecopyresampled($target, $sourceImage, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height)) {
+                throw new RuntimeException('Image processing could not resize the raster.');
             }
 
-            try {
-                $this->prepareTransparency($target, $mimeType);
-
-                if (! imagecopyresampled($target, $normalised, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height)) {
-                    throw new RuntimeException('Image processing could not resize the raster.');
-                }
-
-                return new TransformedRasterImage(
-                    $this->encode($target, $mimeType, $variant->quality),
-                    $targetWidth,
-                    $targetHeight,
-                    $mimeType,
-                );
-            } finally {
-                imagedestroy($target);
-            }
+            return new TransformedRasterImage(
+                $this->encode($target, $mimeType, $variant->quality),
+                $targetWidth,
+                $targetHeight,
+                $mimeType,
+            );
         } finally {
-            imagedestroy($normalised);
+            imagedestroy($target);
         }
     }
 

@@ -3,12 +3,14 @@
 namespace Tests\Feature\Gallery;
 
 use App\Domain\Gallery\Actions\IngestCommunityPhoto;
+use App\Domain\Gallery\Contracts\DecodedRasterImage;
 use App\Domain\Gallery\Contracts\ImageMetadataReader;
 use App\Domain\Gallery\Contracts\RasterImageTransformer;
 use App\Domain\Gallery\Data\ImageMetadata;
 use App\Domain\Gallery\Data\ImageVariantDefinition;
 use App\Domain\Gallery\Data\TransformedRasterImage;
 use App\Domain\Gallery\Services\GdRasterImageTransformer;
+use App\Domain\Gallery\Services\PhpExifImageMetadataReader;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -68,13 +70,39 @@ final class ImageIngestionTest extends TestCase
         }
     }
 
+    public function test_header_valid_but_truncated_raster_is_rejected_at_the_decoder_boundary_before_storage(): void
+    {
+        try {
+            $this->ingestor(new GdRasterImageTransformer)->handle($this->upload('truncated.png', 'image/png', $this->truncatedPngFixture()));
+            $this->fail('A header-valid but truncated PNG was accepted.');
+        } catch (ValidationException $exception) {
+            $this->assertStringContainsString('decoded', $exception->errors()['photo'][0]);
+            $this->assertSame([], Storage::disk('local')->allFiles('community-photos'));
+        }
+    }
+
+    public function test_optional_input_codec_without_a_decoder_is_rejected_before_transform_or_storage(): void
+    {
+        $transformer = new RecordingRasterTransformer;
+        config()->set('gallery.processing.allowed_mime_types', ['image/png', 'image/jpeg', 'image/webp']);
+
+        try {
+            $this->ingestor($transformer)->handle($this->upload('optional.webp', 'image/webp', $this->webpFixture()));
+            $this->fail('An optional image type without a decoder was accepted.');
+        } catch (ValidationException $exception) {
+            $this->assertStringContainsString('not supported by this server', $exception->errors()['photo'][0]);
+            $this->assertSame([], $transformer->calls);
+            $this->assertSame([], Storage::disk('local')->allFiles('community-photos'));
+        }
+    }
+
     public function test_size_and_pixel_budgets_are_enforced_before_the_transformer_is_called(): void
     {
         $transformer = new RecordingRasterTransformer;
-        config()->set('gallery.processing.max_pixels', 0);
+        config()->set('gallery.processing.max_pixels', 1);
 
         try {
-            $this->ingestor($transformer)->handle($this->upload('too-many-pixels.png', 'image/png', $this->pngFixture()));
+            $this->ingestor($transformer)->handle($this->upload('too-many-pixels.png', 'image/png', $this->pngFixture(2, 1)));
             $this->fail('A raster exceeding the pixel budget was accepted.');
         } catch (ValidationException $exception) {
             $this->assertStringContainsString('pixel budget', $exception->errors()['photo'][0]);
@@ -147,6 +175,80 @@ final class ImageIngestionTest extends TestCase
         }
     }
 
+    public function test_rotated_raster_is_rejected_when_its_second_orientation_canvas_exceeds_the_memory_budget(): void
+    {
+        $transformer = new RecordingRasterTransformer;
+        config()->set('gallery.processing.variants', [
+            'master' => ['max_width' => 1, 'max_height' => 1, 'quality' => 86],
+            'large' => ['max_width' => 1, 'max_height' => 1, 'quality' => 84],
+            'medium' => ['max_width' => 1, 'max_height' => 1, 'quality' => 82],
+            'thumbnail' => ['max_width' => 1, 'max_height' => 1, 'quality' => 80],
+        ]);
+        config()->set('gallery.processing.max_memory_bytes', 5000);
+
+        try {
+            $this->ingestor($transformer, new FixedImageMetadataReader(new ImageMetadata(6, null)))
+                ->handle($this->upload('rotated.png', 'image/png', $this->pngFixture(40, 20)));
+            $this->fail('A rotated raster exceeding the processing memory budget was accepted.');
+        } catch (ValidationException $exception) {
+            $this->assertStringContainsString('memory budget', $exception->errors()['photo'][0]);
+            $this->assertSame([], $transformer->calls);
+        }
+    }
+
+    public function test_processing_configuration_is_complete_before_metadata_or_transform_work_begins(): void
+    {
+        $transformer = new RecordingRasterTransformer;
+        $metadataReader = new RecordingMetadataReader;
+        config()->set('gallery.processing.variants', [
+            'large' => ['max_width' => 1200, 'max_height' => 1200, 'quality' => 84],
+            'medium' => ['max_width' => 800, 'max_height' => 800, 'quality' => 82],
+            'thumbnail' => ['max_width' => 400, 'max_height' => 400, 'quality' => 80],
+        ]);
+
+        try {
+            $this->ingestor($transformer, $metadataReader)->handle($this->upload('walk.png', 'image/png', $this->pngFixture()));
+            $this->fail('Processing started with a missing master variant definition.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('configuration', $exception->getMessage());
+            $this->assertSame([], $metadataReader->paths);
+            $this->assertSame([], $transformer->calls);
+            $this->assertSame([], Storage::disk('local')->allFiles('community-photos'));
+        }
+    }
+
+    public function test_processing_configuration_rejects_non_positive_resource_limits_before_metadata_or_transform_work(): void
+    {
+        $transformer = new RecordingRasterTransformer;
+        $metadataReader = new RecordingMetadataReader;
+        config()->set('gallery.processing.max_memory_bytes', 0);
+
+        try {
+            $this->ingestor($transformer, $metadataReader)->handle($this->upload('walk.png', 'image/png', $this->pngFixture()));
+            $this->fail('Processing started with a non-positive memory limit.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('configuration', $exception->getMessage());
+            $this->assertSame([], $metadataReader->paths);
+            $this->assertSame([], $transformer->calls);
+        }
+    }
+
+    public function test_processing_configuration_rejects_empty_output_preferences_before_metadata_or_transform_work(): void
+    {
+        $transformer = new RecordingRasterTransformer;
+        $metadataReader = new RecordingMetadataReader;
+        config()->set('gallery.processing.preferred_output_mime_types', []);
+
+        try {
+            $this->ingestor($transformer, $metadataReader)->handle($this->upload('walk.png', 'image/png', $this->pngFixture()));
+            $this->fail('Processing started without a usable output codec preference.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('configuration', $exception->getMessage());
+            $this->assertSame([], $metadataReader->paths);
+            $this->assertSame([], $transformer->calls);
+        }
+    }
+
     public function test_ingestion_normalises_orientation_extracts_capture_time_and_stores_exif_free_bounded_variants(): void
     {
         $transformer = new RecordingRasterTransformer;
@@ -160,8 +262,9 @@ final class ImageIngestionTest extends TestCase
         $this->assertSame(1, $result->height);
         $this->assertNull($result->retainedSource);
         $this->assertSame(['master', 'large', 'medium', 'thumbnail'], array_keys($result->variants));
+        $this->assertCount(1, $transformer->decodedPaths);
         $this->assertCount(4, $transformer->calls);
-        $this->assertSame(6, $transformer->calls[0]['orientation']);
+        $this->assertSame([6], $transformer->decodedOrientations);
 
         foreach ($result->variants as $variant) {
             $this->assertMatchesRegularExpression('#^community-photos/[0-9a-f-]+/(?:master|large|medium|thumbnail)\.jpg$#', $variant->path);
@@ -233,6 +336,37 @@ final class ImageIngestionTest extends TestCase
         }
     }
 
+    public function test_genuine_exif_orientation_and_capture_time_are_extracted_normalised_and_stripped_from_every_stored_output(): void
+    {
+        config()->set('gallery.processing.variants', [
+            'master' => ['max_width' => 20, 'max_height' => 40, 'quality' => 100],
+            'large' => ['max_width' => 20, 'max_height' => 40, 'quality' => 100],
+            'medium' => ['max_width' => 20, 'max_height' => 40, 'quality' => 100],
+            'thumbnail' => ['max_width' => 20, 'max_height' => 40, 'quality' => 100],
+        ]);
+        config()->set('gallery.processing.source_retention', true);
+        config()->set('gallery.processing.retained_source', ['max_width' => 20, 'max_height' => 40, 'quality' => 100]);
+
+        $result = (new IngestCommunityPhoto(new GdRasterImageTransformer, new PhpExifImageMetadataReader))
+            ->handle($this->upload('oriented-capture.jpg', 'image/jpeg', $this->orientedCaptureJpegFixture()));
+
+        $this->assertSame('2026-08-20 09:15:00', $result->capturedAt?->toDateTimeString());
+        $this->assertSame([20, 40], [$result->width, $result->height]);
+        $this->assertSame([20, 40], $this->imageDimensions($result->variants['master']->path));
+
+        $master = imagecreatefromstring(Storage::disk('local')->get($result->variants['master']->path));
+        $top = imagecolorsforindex($master, imagecolorat($master, 10, 5));
+        $bottom = imagecolorsforindex($master, imagecolorat($master, 10, 35));
+        imagedestroy($master);
+        $this->assertGreaterThan($top['blue'], $top['red']);
+        $this->assertGreaterThan($bottom['red'], $bottom['blue']);
+
+        foreach ([...$result->variants, $result->retainedSource] as $variant) {
+            $this->assertNotNull($variant);
+            $this->assertFalse($this->hasExif(Storage::disk('local')->get($variant->path)));
+        }
+    }
+
     private function ingestor(RasterImageTransformer $transformer, ?ImageMetadataReader $metadataReader = null): IngestCommunityPhoto
     {
         return new IngestCommunityPhoto($transformer, $metadataReader ?? new FixedImageMetadataReader(new ImageMetadata(1, null)));
@@ -262,12 +396,70 @@ final class ImageIngestionTest extends TestCase
         return base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL2fQAAAABJRU5ErkJggg==', true) ?: '';
     }
 
+    private function truncatedPngFixture(): string
+    {
+        $header = pack('NNCCCCC', 40, 20, 8, 2, 0, 0, 0);
+        $chunk = 'IHDR'.$header;
+
+        return "\x89PNG\r\n\x1a\n".pack('N', strlen($header)).$chunk.pack('N', crc32($chunk));
+    }
+
+    private function webpFixture(): string
+    {
+        $image = imagecreatetruecolor(1, 1);
+        imagefill($image, 0, 0, imagecolorallocate($image, 55, 89, 39));
+        ob_start();
+        imagewebp($image);
+        $contents = ob_get_clean();
+        imagedestroy($image);
+
+        return is_string($contents) ? $contents : '';
+    }
+
+    private function orientedCaptureJpegFixture(): string
+    {
+        $image = imagecreatetruecolor(40, 20);
+        $red = imagecolorallocate($image, 220, 30, 30);
+        $blue = imagecolorallocate($image, 25, 70, 210);
+        imagefilledrectangle($image, 0, 0, 19, 19, $red);
+        imagefilledrectangle($image, 20, 0, 39, 19, $blue);
+        ob_start();
+        imagejpeg($image, null, 100);
+        $jpeg = ob_get_clean();
+        imagedestroy($image);
+
+        $tiff = 'II'.pack('v', 42).pack('V', 8)
+            .pack('v', 2)
+            .pack('vvVv', 0x0112, 3, 1, 6).pack('v', 0)
+            .pack('vvVV', 0x8769, 4, 1, 38)
+            .pack('V', 0)
+            .pack('v', 1)
+            .pack('vvVV', 0x9003, 2, 20, 56)
+            .pack('V', 0)
+            ."2026:08:20 09:15:00\0";
+        $payload = "Exif\0\0".$tiff;
+
+        return is_string($jpeg)
+            ? substr($jpeg, 0, 2)."\xFF\xE1".pack('n', strlen($payload) + 2).$payload.substr($jpeg, 2)
+            : '';
+    }
+
     /** @return array{int, int} */
     private function imageDimensions(string $path): array
     {
         $image = getimagesizefromstring(Storage::disk('local')->get($path));
 
         return [(int) $image[0], (int) $image[1]];
+    }
+
+    private function hasExif(string $contents): bool
+    {
+        $path = tempnam(sys_get_temp_dir(), 'waymark-exif-test-');
+        file_put_contents($path, $contents);
+        $metadata = @exif_read_data($path, null, true, false);
+        unlink($path);
+
+        return is_array($metadata) && array_key_exists('IFD0', $metadata);
     }
 }
 
@@ -276,17 +468,43 @@ final class RecordingRasterTransformer implements RasterImageTransformer
     /** @var list<array{variant: string, orientation: int, mimeType: string}> */
     public array $calls = [];
 
-    /** @param list<string> $supportedMimeTypes */
-    public function __construct(private array $supportedMimeTypes = ['image/jpeg'], private ?string $throwOnVariant = null) {}
+    /** @var list<string> */
+    public array $decodedPaths = [];
 
-    public function supports(string $mimeType): bool
+    /** @var list<int> */
+    public array $decodedOrientations = [];
+
+    /**
+     * @param  list<string>  $supportedOutputMimeTypes
+     * @param  list<string>  $supportedInputMimeTypes
+     */
+    public function __construct(
+        private array $supportedOutputMimeTypes = ['image/jpeg'],
+        private ?string $throwOnVariant = null,
+        private array $supportedInputMimeTypes = ['image/jpeg', 'image/png'],
+    ) {}
+
+    public function supportsInput(string $mimeType): bool
     {
-        return in_array($mimeType, $this->supportedMimeTypes, true);
+        return in_array($mimeType, $this->supportedInputMimeTypes, true);
     }
 
-    public function transform(string $sourcePath, int $orientation, ImageVariantDefinition $variant, string $mimeType): TransformedRasterImage
+    public function supportsOutput(string $mimeType): bool
     {
-        $this->calls[] = ['variant' => $variant->name, 'orientation' => $orientation, 'mimeType' => $mimeType];
+        return in_array($mimeType, $this->supportedOutputMimeTypes, true);
+    }
+
+    public function decode(string $sourcePath, string $mimeType, int $orientation): DecodedRasterImage
+    {
+        $this->decodedPaths[] = $sourcePath;
+        $this->decodedOrientations[] = $orientation;
+
+        return new RecordingDecodedRaster;
+    }
+
+    public function transform(DecodedRasterImage $source, ImageVariantDefinition $variant, string $mimeType): TransformedRasterImage
+    {
+        $this->calls[] = ['variant' => $variant->name, 'orientation' => 1, 'mimeType' => $mimeType];
 
         if ($variant->name === $this->throwOnVariant) {
             throw new RuntimeException('Raster transform failed.');
@@ -296,6 +514,21 @@ final class RecordingRasterTransformer implements RasterImageTransformer
     }
 }
 
+final class RecordingDecodedRaster implements DecodedRasterImage
+{
+    public function width(): int
+    {
+        return 1;
+    }
+
+    public function height(): int
+    {
+        return 1;
+    }
+
+    public function release(): void {}
+}
+
 final readonly class FixedImageMetadataReader implements ImageMetadataReader
 {
     public function __construct(private ImageMetadata $metadata) {}
@@ -303,5 +536,18 @@ final readonly class FixedImageMetadataReader implements ImageMetadataReader
     public function read(string $path, string $mimeType): ImageMetadata
     {
         return $this->metadata;
+    }
+}
+
+final class RecordingMetadataReader implements ImageMetadataReader
+{
+    /** @var list<string> */
+    public array $paths = [];
+
+    public function read(string $path, string $mimeType): ImageMetadata
+    {
+        $this->paths[] = $path;
+
+        return new ImageMetadata(1, null);
     }
 }
