@@ -153,6 +153,77 @@ final class PublicWalkPagesTest extends TestCase
             ->assertDontSee('Different walk');
     }
 
+    public function test_leader_filter_returns_a_walk_led_by_the_selected_primary_leader(): void
+    {
+        $primaryLeader = User::factory()->create(['name' => 'Primary Match']);
+        $match = $this->publishedWalk('Primary-led walk', '+1 week');
+        app(SaveWalkDetails::class)->handle($match, [
+            'primary_leader_id' => $primaryLeader->id,
+        ]);
+
+        $this->get('/walks?leader='.$primaryLeader->id)
+            ->assertOk()
+            ->assertSee('Primary-led walk');
+    }
+
+    public function test_leader_filter_returns_a_walk_led_by_the_selected_co_leader(): void
+    {
+        $primaryLeader = User::factory()->create(['name' => 'Primary Leader']);
+        $coLeader = User::factory()->create(['name' => 'Co-leader Match']);
+        $match = $this->publishedWalk('Co-led walk', '+1 week');
+        app(SaveWalkDetails::class)->handle($match, [
+            'primary_leader_id' => $primaryLeader->id,
+            'co_leader_ids' => [$coLeader->id],
+        ]);
+
+        $this->get('/walks?leader='.$coLeader->id)
+            ->assertOk()
+            ->assertSee('Co-led walk');
+    }
+
+    public function test_leader_filter_excludes_a_walk_unrelated_to_the_selected_leader(): void
+    {
+        $unrelatedLeader = User::factory()->create(['name' => 'Unrelated Leader']);
+        $this->publishedWalk('Unrelated walk', '+1 week');
+
+        $this->get('/walks?leader='.$unrelatedLeader->id)
+            ->assertOk()
+            ->assertDontSee('Unrelated walk');
+    }
+
+    public function test_leader_filter_options_include_a_person_who_only_co_leads_an_upcoming_public_walk(): void
+    {
+        $primaryLeader = User::factory()->create(['name' => 'Primary Leader']);
+        $coLeader = User::factory()->create(['name' => 'Co-leader Only']);
+        $walk = $this->publishedWalk('Shared-lead walk', '+1 week');
+        app(SaveWalkDetails::class)->handle($walk, [
+            'primary_leader_id' => $primaryLeader->id,
+            'co_leader_ids' => [$coLeader->id],
+        ]);
+
+        $response = $this->get('/walks')->assertOk();
+
+        $this->assertMatchesRegularExpression(
+            '/<option value="'.$coLeader->id.'"[^>]*>Co-leader Only<\/option>/',
+            $response->getContent(),
+        );
+    }
+
+    public function test_leader_filter_does_not_duplicate_a_walk_with_multiple_leader_relationships(): void
+    {
+        $primaryLeader = User::factory()->create(['name' => 'Primary Match']);
+        $coLeaders = User::factory()->count(2)->create();
+        $walk = $this->publishedWalk('Duplicate-safe walk', '+1 week');
+        app(SaveWalkDetails::class)->handle($walk, [
+            'primary_leader_id' => $primaryLeader->id,
+            'co_leader_ids' => $coLeaders->modelKeys(),
+        ]);
+
+        $response = $this->get('/walks?leader='.$primaryLeader->id)->assertOk();
+
+        $this->assertSame(1, substr_count($response->getContent(), 'Duplicate-safe walk'));
+    }
+
     public function test_public_walk_detail_renders_rich_optional_information_without_private_organiser_notes(): void
     {
         $grade = Grade::query()->create([

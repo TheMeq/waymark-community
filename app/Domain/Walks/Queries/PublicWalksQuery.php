@@ -6,7 +6,9 @@ use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Domain\Walks\Data\PublicWalkFilters;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 final class PublicWalksQuery
 {
@@ -65,6 +67,22 @@ final class PublicWalksQuery
         return $query->whereRaw('WEEKDAY(starts_at) in (5, 6)');
     }
 
+    /** @return Collection<int, User> */
+    public function upcomingLeaders(): Collection
+    {
+        return $this->upcoming()
+            ->with('walk.coLeaders')
+            ->get()
+            ->flatMap(fn (Event $event): array => [
+                $event->walk?->primaryLeader,
+                ...($event->walk?->coLeaders->all() ?? []),
+            ])
+            ->filter()
+            ->unique('id')
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+    }
+
     /** @return Builder<Event> */
     public function filteredUpcoming(PublicWalkFilters $filters): Builder
     {
@@ -99,7 +117,10 @@ final class PublicWalksQuery
         }
 
         if ($filters->leaderId !== null) {
-            $query->whereHas('walk', fn (Builder $walks) => $walks->where('primary_leader_id', $filters->leaderId));
+            $query->whereHas('walk', fn (Builder $walks) => $walks->where(function (Builder $leaders) use ($filters): void {
+                $leaders->where('primary_leader_id', $filters->leaderId)
+                    ->orWhereHas('coLeaders', fn (Builder $coLeaders) => $coLeaders->where('users.id', $filters->leaderId));
+            }));
         }
 
         if ($filters->location !== null) {

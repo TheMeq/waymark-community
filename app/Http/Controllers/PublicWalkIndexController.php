@@ -28,12 +28,7 @@ final class PublicWalkIndexController
             'filters' => $filters,
             'grades' => Grade::query()->orderBy('display_order')->orderBy('name')->get(),
             'tags' => Tag::query()->orderBy('name')->get(),
-            'leaders' => $walks->upcoming()->get()
-                ->pluck('walk.primaryLeader')
-                ->filter()
-                ->unique('id')
-                ->sortBy('name')
-                ->values(),
+            'leaders' => $walks->upcomingLeaders(),
             'walks' => $walks->filteredUpcoming($filters)
                 ->paginate(9)
                 ->withQueryString()
