@@ -93,6 +93,25 @@ final class WhatsOnTest extends TestCase
             ->assertSee('View October events as a list');
     }
 
+    public function test_exceptional_lifecycle_state_overrides_availability_on_cards_details_and_calendar(): void
+    {
+        $social = $this->event(EventType::Social, 'Cancelled community supper', '2026-10-04 19:00:00', EventStatus::Cancelled);
+        $social->social->update(['availability' => 'Places available']);
+
+        $this->get('/whats-on')->assertOk()->assertSee('Cancelled')->assertDontSee('Places available');
+        $this->get('/whats-on/calendar?month=2026-10')->assertOk()->assertSee('Cancelled');
+        $this->get('/socials/'.$social->slug)->assertOk()->assertSee('Cancelled');
+    }
+
+    public function test_multi_day_event_spanning_into_month_is_present_on_each_applicable_calendar_day(): void
+    {
+        $holiday = $this->event(EventType::Holiday, 'Month-spanning holiday', '2026-09-30 16:00:00');
+        $holiday->update(['ends_at' => '2026-10-02 10:00:00']);
+
+        $response = $this->get('/whats-on/calendar?month=2026-10')->assertOk();
+        $this->assertSame(2, substr_count($response->getContent(), 'Month-spanning holiday'));
+    }
+
     private function event(EventType $type, string $title, string $startsAt, EventStatus $status = EventStatus::Published, bool $public = true): Event
     {
         $start = now()->parse($startsAt);

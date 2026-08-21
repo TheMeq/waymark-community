@@ -5,12 +5,16 @@ namespace Tests\Feature\Holidays;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Domain\Holidays\Actions\AssignHolidayChild;
+use App\Domain\Holidays\Actions\RemoveHolidayChild;
 use App\Domain\Holidays\Actions\SaveHolidayDetails;
 use App\Domain\Holidays\Data\HolidayGallerySource;
 use App\Domain\Socials\Actions\SaveSocialDetails;
+use App\Filament\Resources\HolidayResource\Pages\EditHoliday;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -86,6 +90,32 @@ final class HolidayChildEventTest extends TestCase
 
         $this->assertSame([$parent->id, $child->id], $source->eventIds);
         $this->assertFalse($source->mediaImplemented);
+    }
+
+    public function test_administrator_can_attach_a_child_from_the_holiday_admin_workflow(): void
+    {
+        $administrator = User::factory()->create(['is_admin' => true]);
+        $parent = $this->holiday();
+        $child = $this->child(EventType::Social, '2026-10-03 19:00:00', '2026-10-03 22:00:00');
+        $this->actingAs($administrator);
+
+        Livewire::test(EditHoliday::class, ['record' => $parent->holiday->id])
+            ->callAction('attachChild', data: ['child_event_id' => $child->id])
+            ->assertHasNoActionErrors();
+
+        $this->assertSame($parent->id, $child->fresh()->parent_event_id);
+    }
+
+    public function test_child_can_be_detached_without_deleting_its_event_identity(): void
+    {
+        $parent = $this->holiday();
+        $child = $this->child(EventType::Social, '2026-10-03 19:00:00', '2026-10-03 22:00:00');
+        app(AssignHolidayChild::class)->handle($parent, $child);
+
+        app(RemoveHolidayChild::class)->handle($parent, $child);
+
+        $this->assertNull($child->fresh()->parent_event_id);
+        $this->assertDatabaseHas('events', ['id' => $child->id]);
     }
 
     private function holiday(string $title = 'Coast weekend'): Event

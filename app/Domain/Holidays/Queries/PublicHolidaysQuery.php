@@ -25,6 +25,7 @@ final readonly class PublicHolidaysQuery
             ->where('type', EventType::Holiday)
             ->whereIn('status', [EventStatus::Published, EventStatus::Changed, EventStatus::Postponed, EventStatus::Cancelled])
             ->where('is_public', true)
-            ->whereNotNull('published_at');
+            ->whereNotNull('published_at')
+            ->where('published_at', '<=', now());
     }
 }

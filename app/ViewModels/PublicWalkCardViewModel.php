@@ -3,6 +3,7 @@
 namespace App\ViewModels;
 
 use App\Domain\Events\Models\Event;
+use App\Domain\Events\Presentation\PublicEventStatus;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Walks\Data\WalkFeaturedImage;
 
@@ -27,9 +28,9 @@ final readonly class PublicWalkCardViewModel
             'distance' => self::measurement($walk?->distance, $siteProfile->distance_unit),
             'ascent' => self::measurement($walk?->ascent, $siteProfile->ascent_unit),
             'difficulty' => $walk?->grade?->name,
-            'capacity' => $walk?->capacity === null ? null : ($walk->availability ?? (string) $walk->capacity),
+            'capacity' => PublicEventStatus::isExceptional($event->status) || $walk?->capacity === null ? null : ($walk->availability ?? (string) $walk->capacity),
             'leader' => $walk?->primaryLeader?->name,
-            'status' => $walk?->availability,
+            'status' => PublicEventStatus::card($event->status, $walk?->availability),
         ], static fn (mixed $value): bool => $value !== null && $value !== '');
     }
 

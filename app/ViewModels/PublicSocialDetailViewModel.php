@@ -3,6 +3,7 @@
 namespace App\ViewModels;
 
 use App\Domain\Events\Models\Event;
+use App\Domain\Events\Presentation\PublicEventStatus;
 use App\Domain\Socials\Data\SocialAttachment;
 
 final readonly class PublicSocialDetailViewModel
@@ -18,7 +19,7 @@ final readonly class PublicSocialDetailViewModel
             'description' => $event->description,
             'starts_at' => $event->starts_at->format('l j F Y, H:i'),
             'ends_at' => $event->ends_at?->format('l j F Y, H:i'),
-            'status' => $event->status->value === 'changed' ? 'Updated details' : ucfirst($event->status->value),
+            'status' => PublicEventStatus::lifecycle($event->status),
             'organiser' => $event->organiser?->name,
             'venue' => array_filter(['name' => $social?->venue_name, 'address' => $social?->venue_address]),
             'cost' => $social?->cost,

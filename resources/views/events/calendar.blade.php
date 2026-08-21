@@ -12,7 +12,7 @@
                 <a class="wm-button wm-button-secondary" href="{{ route('events.index', array_filter(['type' => $selectedType, 'month' => $month->format('Y-m')])) }}" aria-label="View {{ $month->format('F') }} events as a list">List view</a>
             </div>
 
-            <nav class="mt-6 flex items-center justify-between gap-3" aria-label="Calendar navigation">
+            <nav class="mt-6 flex flex-wrap items-center justify-between gap-3" aria-label="Calendar navigation">
                 <a class="min-h-11 rounded-[var(--wm-radius-pill)] border border-border px-5 py-2.5 font-semibold" href="{{ route('events.calendar', array_filter(['type' => $selectedType, 'month' => $month->subMonth()->format('Y-m')])) }}">&larr; Previous month</a>
                 <a class="min-h-11 rounded-[var(--wm-radius-pill)] border border-border px-5 py-2.5 font-semibold" href="{{ route('events.calendar', array_filter(['type' => $selectedType, 'month' => $month->addMonth()->format('Y-m')])) }}">Next month &rarr;</a>
             </nav>
@@ -27,7 +27,7 @@
                                 @foreach ($week as $day)
                                     <td class="h-32 w-[14.285%] border-b border-r border-border p-2 align-top {{ $day['in_month'] ? '' : 'bg-surface-soft text-ink-muted' }}">
                                         <time class="text-xs font-semibold" datetime="{{ $day['date']->format('Y-m-d') }}">{{ $day['date']->format('j') }}</time>
-                                        @if ($day['events'] !== [])<ul class="mt-2 grid gap-2">@foreach ($day['events'] as $event)<li><a class="block rounded-[var(--wm-radius-sm)] bg-surface-soft p-2 text-xs font-semibold text-ink hover:text-brand" href="{{ $event['url'] }}"><span class="block text-[0.65rem] font-normal text-brand">{{ $event['date'] }} &middot; {{ $event['type'] }}</span>{{ $event['title'] }}</a></li>@endforeach</ul>@endif
+                                        @if ($day['events'] !== [])<ul class="mt-2 grid gap-2">@foreach ($day['events'] as $event)<li><a class="block rounded-[var(--wm-radius-sm)] bg-surface-soft p-2 text-xs font-semibold text-ink hover:text-brand" href="{{ $event['url'] }}"><span class="block text-[0.65rem] font-normal text-brand">{{ $event['date'] }} &middot; {{ $event['type'] }}@if ($event['status']) &middot; {{ $event['status'] }}@endif</span>{{ $event['title'] }}</a></li>@endforeach</ul>@endif
                                     </td>
                                 @endforeach
                             </tr>

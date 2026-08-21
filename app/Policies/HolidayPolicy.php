@@ -7,6 +7,16 @@ use App\Models\User;
 
 final class HolidayPolicy
 {
+    public function viewAny(User $user): bool
+    {
+        return $user->is_admin;
+    }
+
+    public function view(User $user, Holiday $holiday): bool
+    {
+        return $user->is_admin;
+    }
+
     public function create(User $user): bool
     {
         return $user->is_admin;

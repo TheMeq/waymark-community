@@ -3,6 +3,7 @@
 namespace App\ViewModels;
 
 use App\Domain\Events\Models\Event;
+use App\Domain\Events\Presentation\PublicEventStatus;
 
 final readonly class PublicSocialCardViewModel
 {
@@ -19,10 +20,10 @@ final readonly class PublicSocialCardViewModel
             'day_number' => $event->starts_at->format('j'),
             'month' => $event->starts_at->format('M'),
             'location' => $event->social?->venue_name,
-            'capacity' => $event->social?->availability ?? ($event->social?->capacity === null ? null : (string) $event->social->capacity),
+            'capacity' => PublicEventStatus::isExceptional($event->status) ? null : ($event->social?->availability ?? ($event->social?->capacity === null ? null : (string) $event->social->capacity)),
             'leader' => $event->organiser?->name,
             'leader_label' => 'Organised by',
-            'status' => $event->social?->availability,
+            'status' => PublicEventStatus::card($event->status, $event->social?->availability),
         ], static fn (mixed $value): bool => $value !== null && $value !== '');
     }
 }

@@ -6,6 +6,7 @@ use App\Domain\Holidays\Models\Holiday;
 use App\Filament\Resources\HolidayResource\Pages\CreateHoliday;
 use App\Filament\Resources\HolidayResource\Pages\EditHoliday;
 use App\Filament\Resources\HolidayResource\Pages\ListHolidays;
+use App\Filament\Resources\HolidayResource\RelationManagers\ChildrenRelationManager;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DateTimePicker;
@@ -78,5 +79,11 @@ final class HolidayResource extends Resource
             'create' => CreateHoliday::route('/create'),
             'edit' => EditHoliday::route('/{record}/edit'),
         ];
+    }
+
+    /** @return array<int, class-string> */
+    public static function getRelations(): array
+    {
+        return [ChildrenRelationManager::class];
     }
 }

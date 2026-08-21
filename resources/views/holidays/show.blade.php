@@ -12,6 +12,7 @@
             @if ($holiday['image'])<img class="mt-6 aspect-[16/7] w-full rounded-[var(--wm-radius-lg)] object-cover" src="{{ $holiday['image']['url'] }}" alt="{{ $holiday['image']['alt'] }}">@endif
             <p class="mt-5 text-xs font-semibold uppercase tracking-[0.15em] text-brand">Weekend away</p>
             <h1 class="mt-2 text-4xl text-ink sm:text-5xl">{{ $event->title }}</h1>
+            @if ($holiday['status'])<p class="mt-4 inline-flex rounded-[var(--wm-radius-pill)] bg-surface-soft px-3 py-1 text-sm font-semibold text-ink">{{ $holiday['status'] }}</p>@endif
             <p class="mt-4 text-ink-muted"><time datetime="{{ $event->starts_at->toAtomString() }}">{{ $event->starts_at->format('l j F Y') }}</time>@if ($event->ends_at) &ndash; {{ $event->ends_at->format('l j F Y') }}@endif</p>
             @if ($event->summary)<p class="mt-6 text-lg text-ink-muted">{{ $event->summary }}</p>@endif
             @if ($event->description)<div class="prose mt-6 max-w-none text-ink">{{ $event->description }}</div>@endif

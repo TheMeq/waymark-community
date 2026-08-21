@@ -25,7 +25,18 @@ final class PublicHolidayPagesTest extends TestCase
         $this->get('/weekends')
             ->assertOk()
             ->assertSeeInOrder([$earlier->title, $later->title])
+            ->assertSee('3 nights')
+            ->assertDontSee('-3 nights')
             ->assertDontSee('Draft trip');
+    }
+
+    public function test_future_scheduled_publication_is_not_visible_yet(): void
+    {
+        $holiday = $this->publishedHoliday('Scheduled holiday', '+2 weeks', ['published_at' => now()->addDay()]);
+
+        $this->get('/weekends')->assertOk()->assertDontSee($holiday->title);
+        $this->get('/weekends/'.$holiday->slug)->assertNotFound();
+        $this->get('/')->assertOk()->assertDontSee($holiday->title);
     }
 
     public function test_holiday_detail_renders_structured_external_booking_information_without_an_internal_booking_form(): void

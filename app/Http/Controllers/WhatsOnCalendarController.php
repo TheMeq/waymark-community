@@ -22,7 +22,15 @@ final class WhatsOnCalendarController
         ])->validate();
         $month = isset($input['month']) ? CarbonImmutable::createFromFormat('!Y-m', $input['month']) : CarbonImmutable::now()->startOfMonth();
         $type = isset($input['type']) ? EventType::from($input['type']) : null;
-        $byDate = $events->forMonth($month, $type)->get()->groupBy(fn ($event): string => $event->starts_at->format('Y-m-d'));
+        $byDate = collect();
+        foreach ($events->forMonth($month, $type)->get() as $event) {
+            $firstEventDay = $event->starts_at->greaterThan($month->startOfMonth()) ? $event->starts_at->toImmutable()->startOfDay() : $month->startOfMonth();
+            $lastEventDay = ($event->ends_at ?? $event->starts_at)->lessThan($month->endOfMonth()) ? ($event->ends_at ?? $event->starts_at)->toImmutable()->startOfDay() : $month->endOfMonth()->startOfDay();
+            for ($eventDay = $firstEventDay; $eventDay <= $lastEventDay; $eventDay = $eventDay->addDay()) {
+                $key = $eventDay->format('Y-m-d');
+                $byDate->put($key, $byDate->get($key, collect())->push($event));
+            }
+        }
         $first = $month->startOfMonth()->startOfWeek();
         $last = $month->endOfMonth()->endOfWeek();
         $weeks = [];

@@ -10,6 +10,7 @@ use App\Domain\Holidays\Actions\SaveHolidayDetails;
 use App\Filament\Resources\HolidayResource\Pages\CreateHoliday as CreateHolidayPage;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -96,6 +97,7 @@ final class HolidayEventTest extends TestCase
         $this->assertFalse(Schema::hasTable('holiday_attendees'));
         $this->assertFalse(Schema::hasTable('holiday_payments'));
         $this->assertFalse(Schema::hasTable('holiday_bookings'));
+        $this->assertTrue(Gate::forUser($administrator)->allows('viewAny', get_class($holiday)));
     }
 
     public function test_administrator_can_create_a_holiday_through_filament(): void

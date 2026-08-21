@@ -5,6 +5,7 @@ namespace App\ViewModels;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
+use App\Domain\Events\Presentation\PublicEventStatus;
 use App\Domain\Holidays\Data\HolidayAttachment;
 use App\Domain\Holidays\Data\HolidayFeaturedImage;
 use App\Domain\Holidays\Data\HolidayGallerySource;
@@ -17,6 +18,7 @@ final readonly class PublicHolidayDetailViewModel
         $holiday = $event->holiday;
 
         return [
+            'status' => PublicEventStatus::lifecycle($event->status),
             'destination' => $holiday?->destination,
             'accommodation' => $holiday?->accommodation,
             'organiser' => $event->organiser?->name,

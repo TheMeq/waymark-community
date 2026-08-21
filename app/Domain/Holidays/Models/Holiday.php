@@ -6,6 +6,7 @@ use App\Domain\Events\Models\Event;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'event_id', 'show_child_events_in_global_calendar', 'destination', 'accommodation', 'pricing_type', 'price_amount', 'currency',
@@ -28,6 +29,12 @@ final class Holiday extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    /** @return HasMany<Event, $this> */
+    public function children(): HasMany
+    {
+        return $this->hasMany(Event::class, 'parent_event_id', 'event_id')->orderBy('starts_at')->orderBy('id');
     }
 
     /** @return array<string, string> */

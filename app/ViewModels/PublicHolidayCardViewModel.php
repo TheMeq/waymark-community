@@ -3,6 +3,7 @@
 namespace App\ViewModels;
 
 use App\Domain\Events\Models\Event;
+use App\Domain\Events\Presentation\PublicEventStatus;
 use App\Domain\Holidays\Data\HolidayFeaturedImage;
 
 final readonly class PublicHolidayCardViewModel
@@ -25,11 +26,11 @@ final readonly class PublicHolidayCardViewModel
             'location' => $holiday?->destination,
             'distance' => null,
             'ascent' => null,
-            'difficulty' => $event->ends_at?->diffInDays($event->starts_at).' nights',
+            'difficulty' => $event->ends_at === null ? null : $event->starts_at->diffInDays($event->ends_at).' nights',
             'capacity' => $holiday?->capacity === null ? null : (string) $holiday->capacity,
             'leader_label' => 'Organised by',
             'leader' => $event->organiser?->name,
-            'status' => $holiday?->availability ?: ucfirst($event->status->value),
+            'status' => PublicEventStatus::card($event->status, $holiday?->availability),
         ];
     }
 
@@ -38,7 +39,7 @@ final readonly class PublicHolidayCardViewModel
     {
         $holiday = $event->holiday;
         $image = HolidayFeaturedImage::resolve($holiday?->featured_image_path);
-        $nights = $event->ends_at?->diffInDays($event->starts_at);
+        $nights = $event->ends_at === null ? null : $event->starts_at->diffInDays($event->ends_at);
 
         return [
             'title' => $event->title,

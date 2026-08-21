@@ -11,6 +11,7 @@ use App\Filament\Resources\SocialResource\Pages\CreateSocial as CreateSocialPage
 use App\Models\User;
 use App\Policies\SocialPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -120,6 +121,8 @@ final class SocialEventTest extends TestCase
         $this->assertTrue($policy->update($administrator, $social));
         $this->assertFalse($policy->create($walkLeader));
         $this->assertFalse($policy->update($walkLeader, $social));
+        $this->assertTrue(Gate::forUser($administrator)->allows('viewAny', Social::class));
+        $this->assertFalse(Gate::forUser($walkLeader)->allows('viewAny', Social::class));
     }
 
     public function test_administrator_can_create_a_social_through_filament(): void
