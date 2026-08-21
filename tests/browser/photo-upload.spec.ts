@@ -63,7 +63,7 @@ test('no-JavaScript upload fallback returns focus to its error summary', async (
     await page.goto('/photos/upload?event=1');
     await page.getByLabel('Photos', { exact: true }).setInputFiles({ name: 'broken.png', mimeType: 'image/png', buffer: Buffer.from('broken') });
     await Promise.all([
-        page.waitForURL('**/photos/upload'),
+        page.waitForURL('**/photos/upload*'),
         page.getByRole('button', { name: 'Upload photos' }).click(),
     ]);
     const alert = page.getByRole('alert');
