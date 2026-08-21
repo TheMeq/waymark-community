@@ -38,10 +38,13 @@ final class AccountLifecycleSecurityCorrectionTest extends TestCase
         foreach ([$ready, $requested, $processing, $unsafe] as $export) {
             $export->refresh();
             $this->assertSame('revoked', $export->status);
-            $this->assertNull($export->storage_path);
             $this->assertNull($export->download_token);
             $this->assertNull($export->download_token_hash);
         }
+        $this->assertNull($ready->fresh()->storage_path);
+        $this->assertSame($requested->storage_path, $requested->fresh()->storage_path);
+        $this->assertSame($processing->storage_path, $processing->fresh()->storage_path);
+        $this->assertNull($unsafe->fresh()->storage_path);
         Storage::disk('local')->assertMissing($readyPath);
         Storage::disk('local')->assertExists('other-user.json');
     }
@@ -99,6 +102,7 @@ final class AccountLifecycleSecurityCorrectionTest extends TestCase
         $account = User::factory()->create();
         $stale = $this->export($account, 'processing');
         $stale->update(['processing_started_at' => now()->subMinutes(16), 'attempts' => 1]);
+        Storage::disk('local')->put($stale->storage_path, '{}');
         $fresh = $this->export(User::factory()->create(), 'processing');
         $fresh->update(['processing_started_at' => now()->subMinutes(1), 'attempts' => 1]);
         $capped = $this->export(User::factory()->create(), 'processing');
@@ -106,10 +110,15 @@ final class AccountLifecycleSecurityCorrectionTest extends TestCase
 
         app(ProcessPersonalDataExports::class)->handle();
 
-        $this->assertSame('ready', $stale->fresh()->status);
+        $this->assertSame('failed', $stale->fresh()->status);
+        $this->assertNull($stale->fresh()->storage_path);
         $this->assertSame('processing', $fresh->fresh()->status);
         $this->assertSame('failed', $capped->fresh()->status);
         $this->assertSame(3, $capped->fresh()->attempts);
+
+        app(ProcessPersonalDataExports::class)->handle();
+
+        $this->assertSame('ready', $stale->fresh()->status);
     }
 
     public function test_expiry_cleanup_revokes_corrupt_rows_without_deleting_an_unrelated_private_file(): void

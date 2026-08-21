@@ -13,7 +13,7 @@ final class CleanUpPersonalDataExports
     public function handle(int $limit = 25): void
     {
         PersonalDataExport::query()
-            ->whereIn('status', ['revoked', 'expired'])
+            ->whereIn('status', ['revoked', 'expired', 'failed'])
             ->whereNotNull('storage_path')
             ->orderBy('id')
             ->limit($limit)
@@ -29,7 +29,8 @@ final class CleanUpPersonalDataExports
         }
 
         try {
-            if (Storage::disk('local')->delete($path)) {
+            $disk = Storage::disk('local');
+            if ($disk->exists($path) && $disk->delete($path)) {
                 $this->clearPathAfterDeletion($exportId, $path);
             }
         } catch (Throwable) {
@@ -47,7 +48,7 @@ final class CleanUpPersonalDataExports
         return DB::transaction(function () use ($exportId, $ownerId): ?string {
             User::query()->lockForUpdate()->findOrFail($ownerId);
             $export = PersonalDataExport::query()->lockForUpdate()->findOrFail($exportId);
-            if (! in_array($export->status, ['revoked', 'expired'], true) || $export->storage_path === null) {
+            if (! in_array($export->status, ['revoked', 'expired', 'failed'], true) || $export->storage_path === null) {
                 return null;
             }
             if (! $export->hasSafeStoragePath()) {
@@ -70,7 +71,7 @@ final class CleanUpPersonalDataExports
         DB::transaction(function () use ($exportId, $ownerId, $path): void {
             User::query()->lockForUpdate()->findOrFail($ownerId);
             $export = PersonalDataExport::query()->lockForUpdate()->findOrFail($exportId);
-            if (in_array($export->status, ['revoked', 'expired'], true) && $export->storage_path === $path) {
+            if (in_array($export->status, ['revoked', 'expired', 'failed'], true) && $export->storage_path === $path) {
                 $export->update(['storage_path' => null]);
             }
         });

@@ -30,7 +30,7 @@ final readonly class ProcessPersonalDataExports
             PersonalDataExport::query()
                 ->where(function ($query): void {
                     $query->where('status', 'requested')
-                        ->orWhere(fn ($query) => $query->where('status', 'failed')->where('attempts', '<', 3));
+                        ->orWhere(fn ($query) => $query->where('status', 'failed')->whereNull('storage_path')->where('attempts', '<', 3));
                 })
                 ->orderBy('id')
                 ->limit($remaining)
@@ -48,8 +48,6 @@ final readonly class ProcessPersonalDataExports
 
     private function process(int $exportId): void
     {
-        $path = null;
-
         try {
             $export = $this->claim($exportId);
             if (! $export instanceof PersonalDataExport) {
@@ -63,14 +61,16 @@ final readonly class ProcessPersonalDataExports
                 return;
             }
 
-            $path = 'account-exports/'.$user->id.'/'.Str::uuid().'.json';
+            $path = $export->storage_path;
+            if (! is_string($path) || ! $export->hasSafeStoragePath()) {
+                return;
+            }
             Storage::disk('local')->put($path, json_encode($this->payload($user), JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
 
             if (! $this->finalise($export->id, $path, Str::random(64))) {
-                $this->deleteGeneratedFile($path);
+                $this->cleanup->handleExport($export->id);
             }
         } catch (Throwable) {
-            $this->deleteGeneratedFile($path);
             $this->failOrRevoke($exportId);
         }
     }
@@ -83,7 +83,9 @@ final readonly class ProcessPersonalDataExports
             $user = User::query()->lockForUpdate()->findOrFail($ownerId);
             $export = PersonalDataExport::query()->lockForUpdate()->findOrFail($exportId);
 
-            if (! in_array($export->status, ['requested', 'failed'], true) || $export->attempts >= 3) {
+            if (! in_array($export->status, ['requested', 'failed'], true)
+                || $export->attempts >= 3
+                || ($export->status === 'failed' && $export->storage_path !== null)) {
                 return null;
             }
             if (! $user->isActive()) {
@@ -94,6 +96,7 @@ final readonly class ProcessPersonalDataExports
 
             $export->update([
                 'status' => 'processing', 'attempts' => $export->attempts + 1,
+                'storage_path' => 'account-exports/'.$user->id.'/'.Str::uuid().'.json',
                 'processing_started_at' => now(), 'failure_reason' => null, 'failed_at' => null,
             ]);
 
@@ -258,19 +261,6 @@ final readonly class ProcessPersonalDataExports
             'download_token' => null, 'download_token_hash' => null,
             'processing_started_at' => null, 'expires_at' => null,
         ]);
-    }
-
-    private function deleteGeneratedFile(?string $path): void
-    {
-        if (! is_string($path) || ! preg_match('#\Aaccount-exports/\d+/[a-f0-9-]{36}\.json\z#', $path)) {
-            return;
-        }
-
-        try {
-            Storage::disk('local')->delete($path);
-        } catch (Throwable) {
-            // This path was never published; it has no retained record to clean.
-        }
     }
 
     private function ownerId(int $exportId): ?int

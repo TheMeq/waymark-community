@@ -3,6 +3,7 @@
 namespace Tests\Feature\Accounts;
 
 use App\Domain\Accounts\Actions\ApproveAccountDeletion;
+use App\Domain\Accounts\Actions\CleanUpPersonalDataExports;
 use App\Domain\Accounts\Actions\ProcessPersonalDataExports;
 use App\Domain\Accounts\Actions\RequestAccountDeletion;
 use App\Domain\Accounts\Actions\UpdateAccountProfile;
@@ -48,6 +49,7 @@ final class AccountLifecycleSecondCorrectionTest extends TestCase
         $path = 'account-exports/'.$account->id.'/'.Str::uuid().'.json';
         $export = $this->export($account, 'ready', now()->subMinute(), $path);
         $disk = Mockery::mock();
+        $disk->shouldReceive('exists')->with($path)->once()->andReturnTrue();
         $disk->shouldReceive('delete')->with($path)->once()->andReturnFalse();
         Storage::shouldReceive('disk')->with('local')->andReturn($disk);
 
@@ -80,6 +82,46 @@ final class AccountLifecycleSecondCorrectionTest extends TestCase
         $this->assertSame(1, PersonalDataExport::query()->where('status', 'processing')->count());
     }
 
+    public function test_a_reserved_path_from_a_crash_after_write_is_cleaned_before_the_export_can_retry(): void
+    {
+        Storage::fake('local');
+        $account = User::factory()->create();
+        $path = 'account-exports/'.$account->id.'/'.Str::uuid().'.json';
+        $export = $this->export($account, 'processing', null, $path);
+        $export->update(['processing_started_at' => now()->subMinutes(16)]);
+        Storage::disk('local')->put($path, '{"personal":"data"}');
+
+        app(ProcessPersonalDataExports::class)->handle(1);
+
+        $export->refresh();
+        $this->assertSame('failed', $export->status);
+        $this->assertNull($export->storage_path);
+        Storage::disk('local')->assertMissing($path);
+
+        app(ProcessPersonalDataExports::class)->handle(1);
+
+        $this->assertSame('ready', $export->fresh()->status);
+        $this->assertNotSame($path, $export->fresh()->storage_path);
+    }
+
+    public function test_missing_reserved_files_remain_pending_until_a_later_cleanup_can_confirm_deletion(): void
+    {
+        Storage::fake('local');
+        $account = User::factory()->create();
+        $path = 'account-exports/'.$account->id.'/'.Str::uuid().'.json';
+        $export = $this->export($account, 'revoked', null, $path);
+
+        app(CleanUpPersonalDataExports::class)->handle();
+
+        $this->assertSame($path, $export->fresh()->storage_path);
+
+        Storage::disk('local')->put($path, '{}');
+        app(CleanUpPersonalDataExports::class)->handle();
+
+        $this->assertNull($export->fresh()->storage_path);
+        Storage::disk('local')->assertMissing($path);
+    }
+
     public function test_export_lifecycle_actions_consistently_lock_the_account_before_its_exports(): void
     {
         $source = file_get_contents(app_path('Domain/Accounts/Actions/ProcessPersonalDataExports.php'));
@@ -89,10 +131,10 @@ final class AccountLifecycleSecondCorrectionTest extends TestCase
             $body = $matches[0] ?? '';
 
             $this->assertNotSame('', $body);
-            $this->assertLessThan(
-                strpos($body, 'PersonalDataExport::query()->lockForUpdate'),
-                strpos($body, 'User::query()->lockForUpdate'),
-            );
+            $userLock = strpos($body, 'User::query()->lockForUpdate');
+            $exportLock = strpos($body, 'PersonalDataExport::query()->lockForUpdate');
+
+            $this->assertGreaterThan($userLock, $exportLock, 'The user lock must precede the export lock.');
         }
     }
 
