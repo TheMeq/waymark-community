@@ -150,6 +150,34 @@ final class AccountLifecycleSecondCorrectionTest extends TestCase
         $this->assertTrue($export->fresh()->hasSafeStoragePath());
     }
 
+    public function test_a_false_storage_write_fails_without_publishing_a_download_and_retries_within_the_attempt_cap(): void
+    {
+        $account = User::factory()->create();
+        $export = app(RequestPersonalDataExport::class)->handle($account);
+        $disk = Mockery::mock();
+        $disk->shouldReceive('put')->once()->andReturnFalse();
+        $disk->shouldReceive('exists')->zeroOrMoreTimes()->andReturnFalse();
+        Storage::shouldReceive('disk')->with('local')->andReturn($disk);
+
+        app(ProcessPersonalDataExports::class)->handle(1);
+
+        $export->refresh();
+        $this->assertSame('failed', $export->status);
+        $this->assertSame(1, $export->attempts);
+        $this->assertNull($export->storage_path);
+        $this->assertNull($export->download_token);
+        $this->assertNull($export->download_token_hash);
+
+        $this->app->forgetInstance('filesystem');
+        Storage::clearResolvedInstance('filesystem');
+        Storage::fake('local');
+        app(ProcessPersonalDataExports::class)->handle(1);
+
+        $export->refresh();
+        $this->assertSame('ready', $export->status);
+        $this->assertSame(2, $export->attempts);
+    }
+
     public function test_export_lifecycle_actions_consistently_lock_the_account_before_its_exports(): void
     {
         $source = file_get_contents(app_path('Domain/Accounts/Actions/ProcessPersonalDataExports.php'));

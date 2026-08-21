@@ -112,7 +112,9 @@ final readonly class ProcessPersonalDataExports
                 return false;
             }
 
-            Storage::disk('local')->put($path, json_encode($this->payload($user), JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+            if (! Storage::disk('local')->put($path, json_encode($this->payload($user), JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR))) {
+                throw new \RuntimeException('Export generation failed.');
+            }
             $token = Str::random(64);
 
             $export->forceFill([
