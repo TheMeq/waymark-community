@@ -166,6 +166,7 @@ final class PublicAccountAccessTest extends TestCase
             ->assertSee('Profile settings')
             ->assertSee('Alex W.')
             ->assertSee('Profile photo')
+            ->assertSee(route('account.security.show'), false)
             ->assertDontSee('type="file"', false);
     }
 

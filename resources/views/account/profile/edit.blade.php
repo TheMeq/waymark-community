@@ -64,6 +64,7 @@
 
                 <div class="flex flex-wrap items-center gap-4">
                     <x-public.button type="submit">Save settings</x-public.button>
+                    <a class="text-sm font-semibold text-brand" href="{{ route('account.security.show') }}">Account security</a>
                     <a class="text-sm font-semibold text-brand" href="{{ route('new-here') }}">Back to New here?</a>
                 </div>
             </form>

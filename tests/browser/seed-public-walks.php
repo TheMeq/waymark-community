@@ -13,6 +13,7 @@ use App\Domain\Walks\Models\Grade;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Console\Kernel;
+use Laravel\Fortify\Fortify;
 
 require __DIR__.'/../../vendor/autoload.php';
 
@@ -35,6 +36,17 @@ $leader = User::factory()->create([
     'public_profile_introduction' => 'I enjoy sharing friendly, varied walks and helping people feel at home outdoors.',
     'profile_photo_reference' => '/images/demo/lakeside-friends.png',
 ]);
+
+$securityUser = User::factory()->create([
+    'name' => 'Security Walker',
+    'email' => 'security-browser@example.test',
+    'password' => 'password',
+]);
+$securityUser->forceFill([
+    'two_factor_secret' => Fortify::currentEncrypter()->encrypt('JBSWY3DPEHPK3PXP'),
+    'two_factor_recovery_codes' => Fortify::currentEncrypter()->encrypt(json_encode(['browser-recovery-code'])),
+    'two_factor_confirmed_at' => now(),
+])->save();
 
 foreach ([
     ['Ridge and reservoir', 'hero-walkers.png', 8.5, 250, '2026-08-22 09:30:00'],

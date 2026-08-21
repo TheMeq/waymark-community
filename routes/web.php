@@ -3,6 +3,7 @@
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Http\Controllers\AccountProfileController;
+use App\Http\Controllers\AccountSecurityController;
 use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\FavouriteController;
 use App\Http\Controllers\HomeController;
@@ -21,6 +22,7 @@ use App\Http\Controllers\PublicWalkAttachmentDownloadController;
 use App\Http\Controllers\PublicWalkGpxDownloadController;
 use App\Http\Controllers\PublicWalkIndexController;
 use App\Http\Controllers\PublicWalkShowController;
+use App\Http\Controllers\SensitiveTwoFactorConfirmationController;
 use App\Http\Controllers\WalkGradingGuideController;
 use App\Http\Controllers\WhatsOnCalendarController;
 use App\Http\Controllers\WhatsOnController;
@@ -32,6 +34,15 @@ Route::get('/leaders/{slug}', PublicLeaderProfileController::class)->name('leade
 Route::middleware('auth')->group(function (): void {
     Route::get('/account/profile', [AccountProfileController::class, 'edit'])->name('account.profile.edit');
     Route::patch('/account/profile', [AccountProfileController::class, 'update'])->name('account.profile.update');
+    Route::get('/account/security', [AccountSecurityController::class, 'show'])
+        ->middleware('password.confirm')
+        ->name('account.security.show');
+    Route::get('/account/sensitive-confirmation', [SensitiveTwoFactorConfirmationController::class, 'create'])
+        ->middleware('password.confirm')
+        ->name('account.sensitive-confirmation.create');
+    Route::post('/account/sensitive-confirmation', [SensitiveTwoFactorConfirmationController::class, 'store'])
+        ->middleware(['password.confirm', 'throttle:sensitive-two-factor'])
+        ->name('account.sensitive-confirmation.store');
     Route::get('/account/favourites', [FavouriteController::class, 'index'])->name('account.favourites.index');
     Route::post('/favourites/{event}', [FavouriteController::class, 'store'])->name('favourites.store');
     Route::delete('/favourites/{event}', [FavouriteController::class, 'destroy'])->name('favourites.destroy');
