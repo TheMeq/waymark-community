@@ -101,7 +101,7 @@ final class PublicGalleryController
     {
         return $event->is_public
             && $event->published_at?->lessThanOrEqualTo(now())
-            && in_array($event->status, [EventStatus::Published, EventStatus::Changed, EventStatus::Postponed, EventStatus::Cancelled], true);
+            && in_array($event->status, [EventStatus::Published, EventStatus::Changed, EventStatus::Postponed, EventStatus::Cancelled, EventStatus::Completed], true);
     }
 
     /** @param array{label:string,url:string}|null $context */

@@ -70,6 +70,17 @@ final class HolidayGalleryAndFeaturedMemoriesTest extends TestCase
         $this->assertNotContains($future->id, [...$first->items->pluck('id'), ...$second->items->pluck('id')]);
     }
 
+    public function test_completed_public_child_memories_remain_in_holiday_and_direct_event_galleries(): void
+    {
+        $holiday = $this->holiday();
+        $child = $this->child($holiday, EventType::Walk, ['status' => EventStatus::Completed, 'is_public' => true, 'published_at' => now()]);
+        app(AssignHolidayChild::class)->handle($holiday, $child);
+        $photo = $this->photo($child);
+
+        $this->assertSame([$photo->id], app(HolidayCommunityPhotos::class)->forHoliday($holiday)->items->pluck('id')->all());
+        $this->get(route('gallery.events.show', $child->slug))->assertOk()->assertSee($photo->caption);
+    }
+
     public function test_featured_memory_can_be_unfeatured_idempotently_with_audit_but_never_when_not_current_public(): void
     {
         $moderator = User::factory()->create(['role' => AccountRole::Moderator]);
@@ -117,6 +128,9 @@ final class HolidayGalleryAndFeaturedMemoriesTest extends TestCase
             'type' => $type,
             'starts_at' => $startsAt,
             'ends_at' => $startsAt->copy()->addHours(2),
+            'status' => EventStatus::Published,
+            'is_public' => true,
+            'published_at' => now(),
             ...$overrides,
         ]);
     }
