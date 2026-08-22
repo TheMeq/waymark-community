@@ -15,6 +15,35 @@ function uploadEmail(project: string): string {
     return `browser-upload-${project}@example.test`;
 }
 
+test('photo upload controls retain the approved visible accessible control surface', async ({ page }, testInfo) => {
+    await signIn(page, uploadEmail(testInfo.project.name));
+    await page.goto('/photos/upload?event=2');
+
+    for (const control of [
+        page.getByLabel('Add to'),
+        page.getByLabel(/Photographer credit/),
+        page.getByLabel(/Caption/),
+    ]) {
+        const presentation = await control.evaluate((element) => {
+            const style = getComputedStyle(element);
+
+            return {
+                backgroundColor: style.backgroundColor,
+                borderStyle: style.borderTopStyle,
+                borderWidth: Number.parseFloat(style.borderTopWidth),
+                height: element.getBoundingClientRect().height,
+                paddingInline: Number.parseFloat(style.paddingInlineStart) + Number.parseFloat(style.paddingInlineEnd),
+            };
+        });
+
+        expect(presentation.height).toBeGreaterThanOrEqual(44);
+        expect(presentation.borderStyle).toBe('solid');
+        expect(presentation.borderWidth).toBeGreaterThanOrEqual(1);
+        expect(presentation.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+        expect(presentation.paddingInline).toBeGreaterThanOrEqual(16);
+    }
+});
+
 test('photo upload keeps each failed file available for an accessible retry', async ({ page }, testInfo) => {
     await signIn(page, uploadEmail(testInfo.project.name));
     await page.goto('/photos/upload?event=2');

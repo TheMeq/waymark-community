@@ -17,7 +17,7 @@
                 @csrf
                 <div>
                     <label class="text-sm font-semibold text-ink" for="photo-context">Add to</label>
-                    <select class="mt-2 block w-full rounded-[var(--wm-radius-sm)] border-border bg-surface px-3 py-2 text-ink" id="photo-context" name="context" required>
+                    <select class="wm-form-control mt-2" id="photo-context" name="context" required>
                         <option value="">Choose an event or album</option>
                         @foreach ($events as $event)
                             <option value="event:{{ $event->id }}" @selected(old('context', $selectedContext) === 'event:'.$event->id)>{{ $event->title }}</option>
@@ -42,11 +42,11 @@
                 @endif
                 <div>
                     <label class="text-sm font-semibold text-ink" for="photographer-name">Photographer credit <span class="font-normal text-ink-muted">(optional)</span></label>
-                    <input class="mt-2 block w-full rounded-[var(--wm-radius-sm)] border-border bg-surface px-3 py-2 text-ink" id="photographer-name" name="photographer_name" type="text" maxlength="255">
+                    <input class="wm-form-control mt-2" id="photographer-name" name="photographer_name" type="text" maxlength="255">
                 </div>
                 <div>
                     <label class="text-sm font-semibold text-ink" for="photo-caption">Caption <span class="font-normal text-ink-muted">(optional)</span></label>
-                    <textarea class="mt-2 block w-full rounded-[var(--wm-radius-sm)] border-border bg-surface px-3 py-2 text-ink" id="photo-caption" name="caption" rows="3"></textarea>
+                    <textarea class="wm-form-control mt-2" id="photo-caption" name="caption" rows="3"></textarea>
                 </div>
                 <ul x-cloak x-show="files.length" class="grid gap-3" aria-live="polite">
                     <template x-for="(item, index) in files" :key="`${item.file.name}-${index}`">
