@@ -7,6 +7,7 @@ use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\SiteMedia\Actions\DeleteSiteMedia;
 use App\Domain\SiteMedia\Actions\MarkSiteMediaForRepair;
 use App\Domain\SiteMedia\Actions\PromoteCommunityPhotoToSiteMedia;
+use App\Domain\SiteMedia\Actions\RegenerateSiteMedia;
 use App\Domain\SiteMedia\Actions\UpdateSiteMediaMetadata;
 use App\Domain\SiteMedia\Actions\UploadSiteMedia;
 use App\Domain\SiteMedia\Data\SiteMediaMetadata;
@@ -125,6 +126,13 @@ final class SiteMediaLibrary extends Page
         $actor = auth()->user();
         $removed = app(DeleteSiteMedia::class)->retry($actor, SiteMedia::query()->findOrFail($mediaId));
         Notification::make()->{$removed ? 'success' : 'warning'}()->title($removed ? 'Media removed' : 'Media removal needs retry')->send();
+    }
+
+    public function regenerate(int $mediaId): void
+    {
+        /** @var User $actor */ $actor = auth()->user();
+        app(RegenerateSiteMedia::class)->handle($actor, SiteMedia::query()->findOrFail($mediaId));
+        Notification::make()->success()->title('Media regenerated')->send();
     }
 
     public function uploadMedia(): void
