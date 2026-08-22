@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['created_by_user_id', 'source_community_photo_id', 'storage_key', 'storage_disk', 'processed_variants', 'mime_type', 'width', 'height', 'file_size_bytes', 'alt_text', 'is_decorative', 'focal_point_x', 'focal_point_y', 'processing_status', 'health_status'])]
+#[Fillable(['created_by_user_id', 'source_community_photo_id', 'storage_key', 'storage_disk', 'processed_variants', 'mime_type', 'width', 'height', 'file_size_bytes', 'alt_text', 'is_decorative', 'focal_point_x', 'focal_point_y', 'processing_status', 'health_status', 'regeneration_cleanup_status', 'regeneration_cleanup_storage_disk', 'regeneration_cleanup_storage_key'])]
 final class SiteMedia extends Model
 {
     protected static function booted(): void

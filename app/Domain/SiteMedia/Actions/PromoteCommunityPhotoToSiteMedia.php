@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
-final class PromoteCommunityPhotoToSiteMedia
+class PromoteCommunityPhotoToSiteMedia
 {
     use ManagesSiteMedia;
 

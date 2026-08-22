@@ -6,6 +6,8 @@ use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\SiteMedia\Actions\MarkSiteMediaForRepair;
 use App\Domain\SiteMedia\Actions\PromoteCommunityPhotoToSiteMedia;
+use App\Domain\SiteMedia\Actions\RegenerateSiteMedia;
+use App\Domain\SiteMedia\Actions\SiteMediaNamespaceCleaner;
 use App\Domain\SiteMedia\Actions\UpdateSiteMediaMetadata;
 use App\Domain\SiteMedia\Actions\UploadSiteMedia;
 use App\Domain\SiteMedia\Data\SiteMediaMetadata;
@@ -16,6 +18,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Mockery;
 use Tests\TestCase;
 
 final class SiteMediaTest extends TestCase
@@ -126,6 +129,56 @@ final class SiteMediaTest extends TestCase
     {
         $this->expectException(AuthorizationException::class);
         app(UpdateSiteMediaMetadata::class)->handle(User::factory()->create(), SiteMedia::query()->create($this->attributes()), new SiteMediaMetadata('No access', false));
+    }
+
+    public function test_regeneration_retains_old_namespace_for_durable_retry_when_cleanup_fails(): void
+    {
+        $actor = User::factory()->create(['is_admin' => true]);
+        $photo = $this->approvedPhoto($actor);
+        $media = SiteMedia::query()->create($this->attributes(['source_community_photo_id' => $photo->id]));
+        $replacement = SiteMedia::query()->create($this->attributes([
+            'storage_key' => '3f2504e0-4f89-41d3-9a0c-0305e82c3311',
+            'processed_variants' => ['master' => 'site-media/3f2504e0-4f89-41d3-9a0c-0305e82c3311/master.jpg'],
+        ]));
+        $promotion = Mockery::mock(PromoteCommunityPhotoToSiteMedia::class);
+        $promotion->shouldReceive('handle')->once()->andReturn($replacement);
+        $cleaner = Mockery::mock(SiteMediaNamespaceCleaner::class);
+        $cleaner->shouldReceive('delete')->once()->with('local', $media->storage_key)->andReturnFalse();
+
+        app(RegenerateSiteMedia::class, ['promotion' => $promotion, 'cleaner' => $cleaner])->handle($actor, $media);
+
+        $media->refresh();
+        $this->assertSame($replacement->storage_key, $media->storage_key);
+        $this->assertSame('failed', $media->regeneration_cleanup_status);
+        $this->assertSame('3f2504e0-4f89-41d3-9a0c-0305e82c3300', $media->regeneration_cleanup_storage_key);
+        $this->assertFalse(SiteMedia::query()->whereKey($replacement->id)->exists());
+        $this->assertSame(['regenerated', 'regeneration_cleanup_failed'], $media->audits()->pluck('action')->all());
+    }
+
+    public function test_regeneration_cleanup_retry_only_removes_the_retained_old_namespace(): void
+    {
+        Storage::fake('local');
+        $actor = User::factory()->create(['is_admin' => true]);
+        $media = SiteMedia::query()->create($this->attributes([
+            'storage_key' => '3f2504e0-4f89-41d3-9a0c-0305e82c3311',
+            'processed_variants' => ['master' => 'site-media/3f2504e0-4f89-41d3-9a0c-0305e82c3311/master.jpg'],
+            'regeneration_cleanup_status' => 'failed',
+            'regeneration_cleanup_storage_disk' => 'local',
+            'regeneration_cleanup_storage_key' => '3f2504e0-4f89-41d3-9a0c-0305e82c3300',
+        ]));
+        $oldPath = 'site-media/3f2504e0-4f89-41d3-9a0c-0305e82c3300/master.jpg';
+        $newPath = $media->processed_variants['master'];
+        Storage::disk('local')->put($oldPath, 'old');
+        Storage::disk('local')->put($newPath, 'new');
+
+        $this->assertTrue(app(RegenerateSiteMedia::class)->retryCleanup($actor, $media));
+
+        $media->refresh();
+        $this->assertNull($media->regeneration_cleanup_status);
+        $this->assertNull($media->regeneration_cleanup_storage_key);
+        Storage::disk('local')->assertMissing($oldPath);
+        Storage::disk('local')->assertExists($newPath);
+        $this->assertSame('regeneration_cleanup_completed', $media->audits()->latest('id')->value('action'));
     }
 
     /** @return array<string, mixed> */

@@ -135,6 +135,14 @@ final class SiteMediaLibrary extends Page
         Notification::make()->success()->title('Media regenerated')->send();
     }
 
+    public function retryRegenerationCleanup(int $mediaId): void
+    {
+        /** @var User $actor */
+        $actor = auth()->user();
+        $cleaned = app(RegenerateSiteMedia::class)->retryCleanup($actor, SiteMedia::query()->findOrFail($mediaId));
+        Notification::make()->{$cleaned ? 'success' : 'warning'}()->title($cleaned ? 'Previous media files cleaned up' : 'Previous media cleanup needs retry')->send();
+    }
+
     public function uploadMedia(): void
     {
         $this->validate(['upload' => ['required', 'file']]);

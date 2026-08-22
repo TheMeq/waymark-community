@@ -42,6 +42,6 @@ trait ManagesSiteMedia
 
     private function snapshot(SiteMedia $media): array
     {
-        return $media->only(['alt_text', 'is_decorative', 'focal_point_x', 'focal_point_y', 'health_status', 'processed_variants']);
+        return $media->only(['alt_text', 'is_decorative', 'focal_point_x', 'focal_point_y', 'health_status', 'processed_variants', 'regeneration_cleanup_status', 'regeneration_cleanup_storage_disk', 'regeneration_cleanup_storage_key']);
     }
 }
