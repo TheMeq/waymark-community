@@ -99,7 +99,7 @@ Route::get('/whats-on/calendar', WhatsOnCalendarController::class)->name('events
 Route::get('/calendar.ics', CalendarFeedController::class)->defaults('calendarType', 'all')->name('calendar.all');
 Route::get('/calendar/{calendarType}.ics', CalendarFeedController::class)->whereIn('calendarType', ['walks', 'socials', 'holidays'])->name('calendar.type');
 
-if (app()->environment(['local', 'testing'])) {
+if (app()->environment(['local', 'testing', 'browser-testing'])) {
     Route::get('/_dev/components', function () {
         return view('dev.components', [
             'theme' => BrandTheme::fromSiteProfile(new SiteProfile),

@@ -50,8 +50,11 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(request.url);
 
     if (isImmutableStaticAsset(request, url)) {
-        event.respondWith(caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-            if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
+        event.respondWith(caches.match(request).then((cached) => cached || fetch(request).then(async (response) => {
+            if (response.ok) {
+                const cache = await caches.open(CACHE_NAME);
+                await cache.put(request, response.clone());
+            }
             return response;
         })));
         return;

@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { waitForPageImages } from './support/images';
 
 test('public gallery retains an accessible no-JS detail flow and enhanced lightbox', async ({ page }, testInfo) => {
     await page.goto('/photos');
@@ -19,6 +20,16 @@ test('public gallery retains an accessible no-JS detail flow and enhanced lightb
     await expect(page).toHaveScreenshot(`gallery-detail-${testInfo.project.name}.png`, { fullPage: true });
 
     await page.goto('/photos');
+    await waitForPageImages(page);
+    const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .analyze();
+    expect(results.violations).toEqual([]);
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
+    await expect(page).toHaveScreenshot(`gallery-index-${testInfo.project.name}.png`, { fullPage: true });
+
     await firstPhoto.click();
     const dialog = page.getByRole('dialog', { name: 'Photo viewer' });
     await expect(dialog).toBeVisible();
@@ -44,21 +55,13 @@ test('public gallery retains an accessible no-JS detail flow and enhanced lightb
     await expect(dialog).toBeHidden();
     await expect(activePhoto).toBeFocused();
 
-    const results = await new AxeBuilder({ page })
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
-        .analyze();
-    expect(results.violations).toEqual([]);
-
-    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-    await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
-    await expect(page).toHaveScreenshot(`gallery-index-${testInfo.project.name}.png`, { fullPage: true });
 });
 
 test('gallery context page is responsive and accessible', async ({ page }, testInfo) => {
     await page.goto('/photos');
-    const context = page.getByRole('region', { name: /explore albums/i }).getByRole('link').first();
+    const context = page.getByRole('region', { name: /explore albums/i }).getByRole('link', { name: /Coast and moor long weekend/i });
     await context.click();
+    await page.waitForLoadState('networkidle');
     await expect(page.getByRole('heading')).toBeVisible();
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
     expect(results.violations).toEqual([]);

@@ -26,7 +26,7 @@
         @if ($photos->isEmpty())
             <p class="mt-[var(--wm-space-7)] text-ink-muted">No photos yet.</p>
             @if ($photos->hasMorePages())
-                <a class="wm-button-secondary mt-[var(--wm-space-6)]" href="{{ $photos->nextPageUrl() }}" data-load-more>Load more</a>
+                <x-public.button class="mt-[var(--wm-space-6)]" :href="$photos->nextPageUrl()" variant="secondary" data-load-more>Load more</x-public.button>
             @endif
         @else
             <div class="wm-gallery-grid mt-[var(--wm-space-7)]" x-data="galleryLightbox()" x-init="initialise()">
@@ -45,12 +45,12 @@
                         <p id="gallery-lightbox-description" class="sr-only">Use previous and next controls, arrow keys, or swipe to browse photos. Press Escape to close.</p>
                         <button class="wm-gallery-dialog-close" type="button" @click="close()" aria-label="Close photo">×</button>
                         <div x-html="content"></div>
-                        <div class="mt-4 flex justify-between gap-3"><button type="button" class="wm-button-secondary" @click="previous()" :disabled="index === 0">Previous</button><button type="button" class="wm-button-secondary" @click="next()" :disabled="index === links.length - 1">Next</button></div>
+                        <div class="mt-4 flex justify-between gap-3"><x-public.button variant="secondary" @click="previous()" ::disabled="index === 0">Previous</x-public.button><x-public.button variant="secondary" @click="next()" ::disabled="index === links.length - 1">Next</x-public.button></div>
                     </div>
                 </dialog>
             </div>
             @if ($photos->hasMorePages())
-                <a class="wm-button-secondary mt-[var(--wm-space-6)]" href="{{ $photos->nextPageUrl() }}" data-load-more>Load more</a>
+                <x-public.button class="mt-[var(--wm-space-6)]" :href="$photos->nextPageUrl()" variant="secondary" data-load-more>Load more</x-public.button>
             @endif
         @endif
     </section>

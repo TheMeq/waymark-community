@@ -6,7 +6,7 @@ import vm from 'node:vm';
 const source = (await readFile(new URL('../../resources/views/pwa/service-worker.blade.php', import.meta.url), 'utf8'))
     .replace('{{ $cacheVersion }}', 'waymark-shell-test');
 
-function workerHarness({ cached = new Map(), keys = [], fetchImplementation = async () => ({ ok: true, clone() { return this; } }) } = {}) {
+function workerHarness({ cached = new Map(), keys = [], fetchImplementation = async () => ({ ok: true, clone() { return this; } }), putImplementation = async () => {} } = {}) {
     const listeners = new Map();
     const deleted = [];
     const put = [];
@@ -14,7 +14,7 @@ function workerHarness({ cached = new Map(), keys = [], fetchImplementation = as
     let fetches = 0;
     const cache = {
         addAll: async () => {},
-        put: async (request, response) => { put.push([request, response]); },
+        put: async (request, response) => { put.push([request, response]); await putImplementation(request, response); },
     };
     const caches = {
         keys: async () => keys,
@@ -34,6 +34,7 @@ function workerHarness({ cached = new Map(), keys = [], fetchImplementation = as
 
     return {
         deleted,
+        put,
         get claimed() { return claimed; },
         get fetches() { return fetches; },
         async activate() {
@@ -67,6 +68,28 @@ test('explicit compiled assets are cache first', async () => {
 
     assert.equal(await harness.fetch(request('/build/assets/app-hash.js', { mode: 'no-cors' })), cachedResponse);
     assert.equal(harness.fetches, 0);
+});
+
+test('new compiled assets finish their durable cache write before the response resolves', async () => {
+    let releaseWrite;
+    const writeFinished = new Promise((resolve) => { releaseWrite = resolve; });
+    const networkResponse = { ok: true, clone() { return { source: 'clone' }; } };
+    const harness = workerHarness({
+        fetchImplementation: async () => networkResponse,
+        putImplementation: async () => writeFinished,
+    });
+
+    let resolved = false;
+    const response = harness.fetch(request('/build/assets/app-new.css', { mode: 'no-cors' })).then((value) => {
+        resolved = true;
+        return value;
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(resolved, false);
+    releaseWrite();
+    assert.equal(await response, networkResponse);
+    assert.equal(harness.put.length, 1);
 });
 
 test('offline fallback is limited to known public read navigation paths', async () => {
