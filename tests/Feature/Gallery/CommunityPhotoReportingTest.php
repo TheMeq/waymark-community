@@ -11,6 +11,8 @@ use App\Domain\Gallery\Actions\RequestCommunityPhotoRemoval;
 use App\Domain\Gallery\Actions\ResolveCommunityPhotoRemovalRequest;
 use App\Domain\Gallery\Actions\ResolveCommunityPhotoReport;
 use App\Domain\Gallery\Actions\SubmitCommunityPhotoReport;
+use App\Domain\Gallery\Data\ProcessedCommunityPhoto;
+use App\Domain\Gallery\Data\ProcessedPhotoVariant;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\CommunityPhotoProcessingJob;
 use App\Domain\Gallery\Models\SpecialAlbum;
@@ -208,6 +210,39 @@ final class CommunityPhotoReportingTest extends TestCase
         $photo = $this->publishedPhoto(['uploader_id' => $uploader->id, 'moderation_status' => 'pending', 'published_at' => null, 'processing_status' => 'complete']);
         app(DeletePendingCommunityPhoto::class)->handle($uploader, $photo);
         $this->assertDatabaseMissing('community_photos', ['id' => $photo->id]);
+    }
+
+    public function test_worker_completion_wins_then_pending_delete_acquires_the_same_job_photo_order_and_removes_completed_media(): void
+    {
+        $uploader = User::factory()->create();
+        $photo = $this->publishedPhoto(['uploader_id' => $uploader->id, 'moderation_status' => 'pending', 'published_at' => null, 'processing_status' => 'processing']);
+        $directory = 'community-photos/3f2504e0-4f89-41d3-9a0c-'.str_pad((string) ($photo->id + 500), 12, '0', STR_PAD_LEFT);
+        $master = $directory.'/master.jpg';
+        $large = $directory.'/large.jpg';
+        Storage::disk('local')->put($master, 'master');
+        Storage::disk('local')->put($large, 'large');
+        $job = CommunityPhotoProcessingJob::query()->create([
+            'community_photo_id' => $photo->id, 'status' => 'processing', 'attempts' => 1,
+            'staged_source_path' => $photo->source_path, 'output_directory' => $directory,
+            'claim_token' => 'worker-claim', 'lease_expires_at' => now()->addMinutes(10),
+        ]);
+
+        $processed = new ProcessedCommunityPhoto(null, [
+            'master' => new ProcessedPhotoVariant($master, 'image/jpeg', 100, 100, 6),
+            'large' => new ProcessedPhotoVariant($large, 'image/jpeg', 80, 80, 5),
+        ], 100, 100, null);
+
+        $this->assertTrue(app(ProcessDeferredCommunityPhotos::class)->finalise($job->id, 'worker-claim', $processed));
+        $this->assertDatabaseHas('community_photo_processing_jobs', ['id' => $job->id, 'status' => 'completed']);
+        $this->assertDatabaseHas('community_photos', ['id' => $photo->id, 'processing_status' => 'complete']);
+
+        app(DeletePendingCommunityPhoto::class)->handle($uploader, $photo);
+
+        $this->assertDatabaseMissing('community_photos', ['id' => $photo->id]);
+        $this->assertDatabaseMissing('community_photo_processing_jobs', ['id' => $job->id]);
+        Storage::disk('local')->assertMissing($master);
+        Storage::disk('local')->assertMissing($large);
+        Storage::disk('local')->assertMissing($photo->source_path);
     }
 
     public function test_report_limiter_is_bounded_per_anonymous_identity_and_decays(): void
