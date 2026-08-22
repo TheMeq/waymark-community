@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Events\Models\Event;
+use App\Domain\Gallery\Data\PublicCommunityPhotoPage;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Gallery\PublicCommunityPhotoPresenter;
@@ -10,7 +11,6 @@ use App\Domain\Gallery\Queries\PublicCommunityPhotos;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
@@ -22,17 +22,17 @@ final class PublicGalleryController
 
     public function index(Request $request, PublicCommunityPhotos $photos): View
     {
-        return $this->view('Gallery', $photos->recent((int) $request->integer('page', 1)), null, $photos->contexts());
+        return $this->view('Gallery', $photos->recent($request->string('cursor')->toString()), null, $photos->contexts());
     }
 
     public function event(Request $request, Event $event, PublicCommunityPhotos $photos): View
     {
-        return $this->view($event->title, $photos->forEvent($event->id, (int) $request->integer('page', 1)), ['label' => $event->title, 'url' => route('gallery.events.show', $event)]);
+        return $this->view($event->title, $photos->forEvent($event->id, $request->string('cursor')->toString()), ['label' => $event->title, 'url' => route('gallery.events.show', $event)]);
     }
 
     public function album(Request $request, SpecialAlbum $album, PublicCommunityPhotos $photos): View
     {
-        return $this->view($album->title, $photos->forAlbum($album->id, (int) $request->integer('page', 1)), ['label' => $album->title, 'url' => route('gallery.albums.show', $album)]);
+        return $this->view($album->title, $photos->forAlbum($album->id, $request->string('cursor')->toString()), ['label' => $album->title, 'url' => route('gallery.albums.show', $album)]);
     }
 
     public function show(CommunityPhoto $photo): View
@@ -85,10 +85,9 @@ final class PublicGalleryController
         };
     }
 
-    /** @param Paginator<int, CommunityPhoto> $photos @param array{label:string,url:string}|null $context */
-    private function view(string $title, Paginator $photos, ?array $context, ?Collection $contexts = null): View
+    /** @param array{label:string,url:string}|null $context */
+    private function view(string $title, PublicCommunityPhotoPage $photos, ?array $context, ?Collection $contexts = null): View
     {
-        $photos->setCollection($photos->getCollection()->map(fn (CommunityPhoto $photo) => $this->presenter->present($photo))->filter()->values());
         $contexts = ($contexts ?? collect())->map(fn (array $item): array => [...$item, 'cover' => $this->presenter->present($item['cover'])])->filter(fn (array $item): bool => $item['cover'] !== null)->values();
 
         return view('gallery.index', ['title' => $title, 'photos' => $photos, 'context' => $context, 'contexts' => $contexts, 'theme' => $this->theme(), 'site' => $this->site()]);

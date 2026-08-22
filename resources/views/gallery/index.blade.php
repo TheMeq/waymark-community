@@ -17,7 +17,7 @@
                 <h2 id="gallery-contexts" class="text-2xl">Explore albums</h2>
                 <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     @foreach ($contexts as $item)
-                        <a class="wm-gallery-card block no-underline" href="{{ $item['url'] }}"><img src="{{ $item['cover']->imageUrl }}" alt="" loading="lazy" width="{{ $item['cover']->width }}" height="{{ $item['cover']->height }}" class="aspect-[16/9] w-full object-cover"><span class="block p-4 font-semibold">{{ $item['label'] }} <span class="font-normal text-ink-muted">{{ $item['count'] }} {{ \Illuminate\Support\Str::plural('photo', $item['count']) }}</span></span></a>
+                        <a class="wm-gallery-card block no-underline" href="{{ $item['url'] }}"><img src="{{ $item['cover']->imageUrl }}" alt="" loading="lazy" width="{{ $item['cover']->width }}" height="{{ $item['cover']->height }}" class="aspect-[16/9] w-full object-cover"><span class="block p-4 font-semibold">{{ $item['label'] }} <span class="font-normal text-ink-muted">{{ $item['count'] }} approved {{ \Illuminate\Support\Str::plural('photo', $item['count']) }}</span></span></a>
                     @endforeach
                 </div>
             </section>

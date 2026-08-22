@@ -11,6 +11,11 @@ test('public gallery retains an accessible no-JS detail flow and enhanced lightb
     expect(noScriptHref).toBeTruthy();
     await page.goto(noScriptHref!);
     await expect(page.getByRole('link', { name: 'Report photo' })).toBeVisible();
+    const detailResults = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
+    expect(detailResults.violations).toEqual([]);
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
     await expect(page).toHaveScreenshot(`gallery-detail-${testInfo.project.name}.png`, { fullPage: true });
 
     await page.goto('/photos');
@@ -19,7 +24,7 @@ test('public gallery retains an accessible no-JS detail flow and enhanced lightb
     await expect(dialog).toBeVisible();
     await expect(dialog).toHaveScreenshot(`gallery-lightbox-${testInfo.project.name}.png`);
     const firstDialogImage = await dialog.locator('img').getAttribute('src');
-    await dialog.getByRole('button', { name: 'Previous' }).click();
+    await expect(dialog.getByRole('button', { name: 'Previous' })).toBeDisabled();
     await expect(dialog.locator('img')).toHaveAttribute('src', firstDialogImage!);
     const closeButton = dialog.getByRole('button', { name: 'Close photo' });
     await closeButton.focus();
@@ -30,6 +35,11 @@ test('public gallery retains an accessible no-JS detail flow and enhanced lightb
     await dialog.dispatchEvent('touchstart', { changedTouches: [{ identifier: 1, screenX: 220 }] });
     await dialog.dispatchEvent('touchend', { changedTouches: [{ identifier: 1, screenX: 120 }] });
     await expect(dialog).toBeVisible();
+    const dialogResults = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
+    expect(dialogResults.violations).toEqual([]);
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
     await expect(activePhoto).toBeFocused();

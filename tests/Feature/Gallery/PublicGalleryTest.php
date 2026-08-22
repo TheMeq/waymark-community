@@ -8,6 +8,7 @@ use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Gallery\Queries\PublicCommunityPhotos;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -55,8 +56,30 @@ final class PublicGalleryTest extends TestCase
         $oldPinned = $this->photo(['manual_sort_order' => 1, 'captured_at' => now()->subDays(5)]);
         $newerElsewhere = $this->photo(['captured_at' => now()->subDay()]);
 
-        $this->assertSame([$newerElsewhere->id, $oldPinned->id], app(PublicCommunityPhotos::class)->recent()->pluck('id')->all());
-        $this->assertSame([$oldPinned->id], app(PublicCommunityPhotos::class)->forEvent($oldPinned->event_id)->pluck('id')->all());
+        $this->assertSame([$newerElsewhere->id, $oldPinned->id], app(PublicCommunityPhotos::class)->recent()->items->pluck('id')->all());
+        $this->assertSame([$oldPinned->id], app(PublicCommunityPhotos::class)->forEvent($oldPinned->event_id)->items->pluck('id')->all());
+    }
+
+    public function test_pagination_is_bounded_and_skips_missing_files_without_duplicate_continuation(): void
+    {
+        config()->set('gallery.public.per_page', 2);
+        $first = $this->photo(['captured_at' => now()->subMinutes(1)]);
+        $missing = $this->photo(['captured_at' => now()->subMinutes(2)]);
+        $third = $this->photo(['captured_at' => now()->subMinutes(3)]);
+        $fourth = $this->photo(['captured_at' => now()->subMinutes(4)]);
+        Storage::disk('local')->delete(array_values($missing->processed_variants));
+        $queries = [];
+        DB::listen(function ($query) use (&$queries): void {
+            $queries[] = $query->sql;
+        });
+
+        $pageOne = app(PublicCommunityPhotos::class)->recent(1);
+        $pageTwo = app(PublicCommunityPhotos::class)->recent($pageOne->nextCursor);
+
+        $this->assertSame([$first->id, $third->id], $pageOne->items->pluck('id')->all());
+        $this->assertSame([$fourth->id], $pageTwo->items->pluck('id')->all());
+        $this->assertSame([], array_values(array_intersect($pageOne->items->pluck('id')->all(), $pageTwo->items->pluck('id')->all())));
+        $this->assertTrue(collect($queries)->contains(fn (string $sql): bool => str_contains(strtolower($sql), 'limit')));
     }
 
     public function test_a_stable_public_image_url_is_revoked_immediately_after_removal(): void
@@ -76,7 +99,7 @@ final class PublicGalleryTest extends TestCase
         $override = $this->photo(['manual_sort_order' => 1, 'captured_at' => now()->subDays(10)]);
         $undated = $this->photo(['captured_at' => null, 'created_at' => now(), 'updated_at' => now()]);
 
-        $ids = app(PublicCommunityPhotos::class)->recent()->pluck('id')->all();
+        $ids = app(PublicCommunityPhotos::class)->recent()->items->pluck('id')->all();
 
         $this->assertSame([$undated->id, $new->id, $old->id, $override->id], $ids);
         $this->assertCount(4, array_unique($ids));
@@ -102,7 +125,7 @@ final class PublicGalleryTest extends TestCase
         $this->photo(['event_id' => $event->id]);
         $this->photo(['event_id' => null, 'special_album_id' => $album->id]);
 
-        $this->get('/photos')->assertOk()->assertSeeText('Moorland morning')->assertSeeText('2 photos')->assertSeeText('Spring gathering')->assertSeeText('1 photo');
+        $this->get('/photos')->assertOk()->assertSeeText('Moorland morning')->assertSeeText('2 approved photos')->assertSeeText('Spring gathering')->assertSeeText('1 approved photo');
         $this->get(route('gallery.events.show', $event))->assertOk()->assertSeeText('Moorland morning');
         $this->get(route('gallery.albums.show', $album))->assertOk()->assertSeeText('Spring gathering');
     }
