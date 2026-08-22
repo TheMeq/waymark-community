@@ -9,6 +9,7 @@ use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Holidays\Actions\AssignHolidayChild;
 use App\Domain\Holidays\Actions\SaveHolidayDetails;
 use App\Domain\Socials\Actions\SaveSocialDetails;
+use App\Domain\Walks\Models\Walk;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -183,6 +184,10 @@ final class PublicHolidayPagesTest extends TestCase
             'status' => EventStatus::Published,
             'is_public' => true,
             'published_at' => now(),
+        ]);
+        Walk::query()->create([
+            'event_id' => $child->id,
+            'primary_leader_id' => $child->organiser_id,
         ]);
         app(AssignHolidayChild::class)->handle($holiday, $child);
         $photo = $this->galleryPhoto($child, 'Gallery memory');

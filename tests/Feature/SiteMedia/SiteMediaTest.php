@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\SiteMedia;
 
-use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Contracts\DecodedRasterImage;
 use App\Domain\Gallery\Contracts\ImageMetadataReader;
 use App\Domain\Gallery\Contracts\RasterImageTransformer;
@@ -10,6 +9,7 @@ use App\Domain\Gallery\Data\ImageMetadata;
 use App\Domain\Gallery\Data\ImageVariantDefinition;
 use App\Domain\Gallery\Data\TransformedRasterImage;
 use App\Domain\Gallery\Models\CommunityPhoto;
+use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\SiteMedia\Actions\DeleteSiteMedia;
 use App\Domain\SiteMedia\Actions\MarkSiteMediaForRepair;
 use App\Domain\SiteMedia\Actions\PromoteCommunityPhotoToSiteMedia;
@@ -528,10 +528,13 @@ final class SiteMediaTest extends TestCase
 
     private function approvedPhoto(User $actor): CommunityPhoto
     {
-        $event = Event::factory()->create();
+        $album = SpecialAlbum::query()->create([
+            'title' => 'Site media sources '.(CommunityPhoto::query()->count() + 1),
+            'slug' => 'site-media-sources-'.(CommunityPhoto::query()->count() + 1),
+        ]);
 
         return CommunityPhoto::query()->create([
-            'event_id' => $event->id, 'uploader_id' => $actor->id, 'media_type' => 'image', 'processing_status' => 'complete',
+            'special_album_id' => $album->id, 'uploader_id' => $actor->id, 'media_type' => 'image', 'processing_status' => 'complete',
             'storage_disk' => 'local', 'source_path' => 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3300/master.jpg',
             'processed_variants' => ['master' => 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3300/master.jpg'],
             'moderation_status' => 'approved', 'published_at' => now()->subMinute(),

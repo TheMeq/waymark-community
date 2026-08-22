@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Public;
 
-use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Models\CommunityPhoto;
+use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Models\User;
 use App\ViewModels\HomepageViewModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -117,7 +117,10 @@ final class HomepageTest extends TestCase
         }
 
         return CommunityPhoto::query()->create(array_replace([
-            'event_id' => Event::factory()->create()->id,
+            'special_album_id' => SpecialAlbum::query()->create([
+                'title' => 'Homepage memories '.$id,
+                'slug' => 'homepage-memories-'.$id,
+            ])->id,
             'uploader_id' => User::factory()->create()->id,
             'media_type' => 'image', 'processing_status' => 'complete', 'storage_disk' => 'local',
             'source_path' => $variants['master'], 'processed_variants' => $variants,
