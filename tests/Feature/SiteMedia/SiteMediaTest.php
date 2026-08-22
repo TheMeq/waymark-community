@@ -11,6 +11,7 @@ use App\Domain\SiteMedia\Actions\UploadSiteMedia;
 use App\Domain\SiteMedia\Data\SiteMediaMetadata;
 use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Models\User;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -119,6 +120,12 @@ final class SiteMediaTest extends TestCase
 
         $this->assertSame('repair_required', $media->fresh()->health_status);
         $this->assertSame(['repair_required'], $media->audits()->pluck('action')->all());
+    }
+
+    public function test_unprivileged_user_cannot_promote_or_edit_site_media(): void
+    {
+        $this->expectException(AuthorizationException::class);
+        app(UpdateSiteMediaMetadata::class)->handle(User::factory()->create(), SiteMedia::query()->create($this->attributes()), new SiteMediaMetadata('No access', false));
     }
 
     /** @return array<string, mixed> */

@@ -33,13 +33,23 @@ final class PromoteCommunityPhotoToSiteMedia
             }
             $key = Str::uuid()->toString();
             $disk = Storage::disk($locked->storage_disk);
-            $sourcePath = $disk->path($path);
-            $image = @getimagesize($sourcePath);
-            if (! is_array($image) || ! isset($image['mime'])) {
+            $temporaryPath = tempnam(sys_get_temp_dir(), 'waymark-site-media-');
+            $stream = $disk->readStream($path);
+            if (! is_string($temporaryPath) || ! is_resource($stream)) {
                 throw ValidationException::withMessages(['photo' => 'The approved derivative could not be copied safely.']);
             }
             try {
-                $processed = $this->ingest->handle(new UploadedFile($sourcePath, basename($path), (string) $image['mime'], null, true), 'site-media/'.$key);
+                $temporary = fopen($temporaryPath, 'wb');
+                if (! is_resource($temporary)) {
+                    throw ValidationException::withMessages(['photo' => 'The approved derivative could not be copied safely.']);
+                }
+                stream_copy_to_stream($stream, $temporary);
+                fclose($temporary);
+                $image = @getimagesize($temporaryPath);
+                if (! is_array($image) || ! isset($image['mime'])) {
+                    throw ValidationException::withMessages(['photo' => 'The approved derivative could not be copied safely.']);
+                }
+                $processed = $this->ingest->handle(new UploadedFile($temporaryPath, basename($path), (string) $image['mime'], null, true), 'site-media/'.$key);
                 $variants = [];
                 foreach ($processed->variants as $name => $variant) {
                     $variants[$name] = $variant->path;
@@ -49,6 +59,9 @@ final class PromoteCommunityPhotoToSiteMedia
             } catch (\Throwable $exception) {
                 $disk->deleteDirectory('site-media/'.$key);
                 throw $exception;
+            } finally {
+                fclose($stream);
+                @unlink($temporaryPath);
             }
             $this->audit($actor, $media, 'promoted', [], $this->snapshot($media), ['source_community_photo_id' => $locked->id]);
 
