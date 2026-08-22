@@ -24,7 +24,7 @@ final class UpdateSiteMediaMetadata
                 $this->audit($actor, $locked, 'metadata_updated', $before, $this->snapshot($locked));
             }
 
-return $locked;
+            return $locked;
         });
     }
 }

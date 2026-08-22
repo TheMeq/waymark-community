@@ -41,6 +41,12 @@ $leader = User::factory()->create([
     'profile_photo_reference' => '/images/demo/lakeside-friends.png',
 ]);
 app(AcceptCurrentPhotoUploadPolicy::class)->handle($leader);
+$mediaAdmin = User::factory()->create([
+    'name' => 'Media Administrator',
+    'email' => 'media.admin@example.test',
+    'password' => 'password',
+    'is_admin' => true,
+]);
 
 $moderationEvent = Event::query()->create([
     'type' => EventType::Walk,
