@@ -44,6 +44,23 @@
                     @endif
                 </section>
             @endif
+            @if (! $gallery->isEmpty())
+                <section class="mt-8" aria-labelledby="holiday-gallery-heading">
+                    <div class="flex items-end justify-between gap-4">
+                        <h2 id="holiday-gallery-heading" class="text-2xl text-ink">Holiday memories</h2>
+                        <a class="text-sm font-semibold text-brand underline" href="{{ route('gallery.holidays.show', $event) }}">View all photos</a>
+                    </div>
+                    <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        @foreach ($gallery as $photo)
+                            <article class="overflow-hidden rounded-[var(--wm-radius-md)] border border-border bg-surface shadow-[var(--wm-shadow-card)]">
+                                <a href="{{ $photo->detailUrl }}"><img class="aspect-[4/3] w-full object-cover" src="{{ $photo->imageUrl }}" alt="{{ $photo->caption ?? 'Community photo' }}" loading="lazy" width="{{ $photo->width }}" height="{{ $photo->height }}" style="{{ $photo->rotationStyle }}"></a>
+                                @if ($photo->caption)<p class="px-4 pt-3 text-sm font-medium text-ink">{{ $photo->caption }}</p>@endif
+                                @if ($photo->contextLabel && $photo->contextUrl)<p class="px-4 pb-3 text-sm text-ink-muted"><a class="underline" href="{{ $photo->contextUrl }}">{{ $photo->contextLabel }}</a></p>@endif
+                            </article>
+                        @endforeach
+                    </div>
+                </section>
+            @endif
             @if ($holiday['attachments'] !== [])<section class="mt-8"><h2 class="text-2xl text-ink">Downloads</h2><ul class="mt-3 grid gap-2">@foreach ($holiday['attachments'] as $attachment)<li><a class="font-semibold text-brand underline" href="{{ route('holidays.attachment', [$event->slug, $attachment['index']]) }}">{{ $attachment['name'] }}</a></li>@endforeach</ul></section>@endif
         </div>
     </article>

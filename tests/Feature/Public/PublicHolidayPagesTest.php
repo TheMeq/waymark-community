@@ -5,6 +5,7 @@ namespace Tests\Feature\Public;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
+use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Holidays\Actions\AssignHolidayChild;
 use App\Domain\Holidays\Actions\SaveHolidayDetails;
 use App\Domain\Socials\Actions\SaveSocialDetails;
@@ -169,6 +170,38 @@ final class PublicHolidayPagesTest extends TestCase
         $this->get('/weekends/'.$event->slug.'/attachments/1')->assertNotFound();
     }
 
+    public function test_holiday_detail_and_canonical_gallery_show_approved_parent_and_child_memories_with_their_child_context(): void
+    {
+        Storage::fake('local');
+        $holiday = $this->publishedHoliday('Gallery weekend', '+2 weeks');
+        $child = Event::factory()->create([
+            'type' => EventType::Walk,
+            'title' => 'Clifftop walk',
+            'slug' => 'clifftop-walk',
+            'starts_at' => $holiday->starts_at->copy()->addDay(),
+            'ends_at' => $holiday->starts_at->copy()->addDay()->addHours(4),
+            'status' => EventStatus::Published,
+            'is_public' => true,
+            'published_at' => now(),
+        ]);
+        app(AssignHolidayChild::class)->handle($holiday, $child);
+        $photo = $this->galleryPhoto($child, 'Gallery memory');
+
+        $this->get('/weekends/'.$holiday->slug)
+            ->assertOk()
+            ->assertSee('Gallery memory')
+            ->assertSee(route('gallery.events.show', $child), false)
+            ->assertSee(route('gallery.holidays.show', $holiday), false);
+        $this->get(route('gallery.holidays.show', $holiday))
+            ->assertOk()
+            ->assertSee('Gallery memory')
+            ->assertSee(route('gallery.photos.image', [$photo, 'thumbnail']), false);
+        $this->get(route('gallery.photos.show', $photo))
+            ->assertOk()
+            ->assertSee('Clifftop walk')
+            ->assertSee(route('gallery.events.show', $child), false);
+    }
+
     public function test_holiday_detail_itinerary_links_published_child_walks_and_socials_by_their_own_identity(): void
     {
         $holiday = $this->publishedHoliday('Itinerary weekend', '+2 weeks');
@@ -232,5 +265,25 @@ final class PublicHolidayPagesTest extends TestCase
         app(SaveHolidayDetails::class)->handle($event, $holidayAttributes);
 
         return $event->refresh();
+    }
+
+    private function galleryPhoto(Event $event, string $caption): CommunityPhoto
+    {
+        $id = CommunityPhoto::query()->count() + 1;
+        $directory = 'community-photos/3f2504e0-4f89-41d3-9a0c-'.str_pad((string) $id, 12, '0', STR_PAD_LEFT);
+        $variants = [];
+        foreach (['thumbnail', 'medium', 'large', 'master'] as $variant) {
+            $path = $directory.'/'.$variant.'.jpg';
+            Storage::disk('local')->put($path, $variant);
+            $variants[$variant] = $path;
+        }
+
+        return CommunityPhoto::query()->create([
+            'event_id' => $event->id,
+            'uploader_id' => User::factory()->create()->id,
+            'media_type' => 'image', 'processing_status' => 'complete', 'storage_disk' => 'local',
+            'source_path' => $variants['master'], 'processed_variants' => $variants,
+            'moderation_status' => 'approved', 'published_at' => now(), 'caption' => $caption,
+        ]);
     }
 }

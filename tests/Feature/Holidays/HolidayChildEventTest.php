@@ -81,7 +81,7 @@ final class HolidayChildEventTest extends TestCase
         $this->assertCount(2, $parent->children);
     }
 
-    public function test_gallery_aggregation_seam_names_parent_and_child_event_sources_without_implementing_media(): void
+    public function test_gallery_aggregation_seam_names_parent_and_child_event_sources_for_public_media(): void
     {
         $parent = $this->holiday();
         $child = $this->child(EventType::Social, '2026-10-03 19:00:00', '2026-10-03 22:00:00');
@@ -90,7 +90,7 @@ final class HolidayChildEventTest extends TestCase
         $source = HolidayGallerySource::for($parent->fresh());
 
         $this->assertSame([$parent->id, $child->id], $source->eventIds);
-        $this->assertFalse($source->mediaImplemented);
+        $this->assertTrue($source->mediaImplemented);
     }
 
     public function test_administrator_can_attach_a_child_from_the_holiday_admin_workflow(): void

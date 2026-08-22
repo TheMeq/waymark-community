@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Events\Enums\EventStatus;
+use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Data\PublicCommunityPhotoPage;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Gallery\PublicCommunityPhotoPresenter;
+use App\Domain\Gallery\Queries\HolidayCommunityPhotos;
 use App\Domain\Gallery\Queries\PublicCommunityPhotos;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
@@ -28,6 +31,17 @@ final class PublicGalleryController
     public function event(Request $request, Event $event, PublicCommunityPhotos $photos): View
     {
         return $this->view($event->title, $photos->forEvent($event->id, $request->string('cursor')->toString()), ['label' => $event->title, 'url' => route('gallery.events.show', $event)]);
+    }
+
+    public function holiday(Request $request, Event $event, HolidayCommunityPhotos $photos): View
+    {
+        abort_unless($event->type === EventType::Holiday
+            && $event->holiday !== null
+            && $event->is_public
+            && $event->published_at?->lessThanOrEqualTo(now())
+            && in_array($event->status, [EventStatus::Published, EventStatus::Changed, EventStatus::Postponed, EventStatus::Cancelled], true), 404);
+
+        return $this->view($event->title, $photos->forHoliday($event, $request->string('cursor')->toString()), ['label' => $event->title, 'url' => route('holidays.show', $event->slug)]);
     }
 
     public function album(Request $request, SpecialAlbum $album, PublicCommunityPhotos $photos): View

@@ -25,7 +25,7 @@ final readonly class HomepageViewModel
     ) {}
 
     /** @param array<int, array<string, string>>|null $weekendWalks */
-    public static function demo(?array $weekendWalks = null, ?array $holiday = null): self
+    public static function demo(?array $weekendWalks = null, ?array $holiday = null, ?array $gallery = null): self
     {
         return new self(
             site: [
@@ -108,7 +108,7 @@ final readonly class HomepageViewModel
                 'date' => '12–15 September',
                 'summary' => 'Big skies, coastal paths and an easygoing base for the weekend.',
             ],
-            gallery: [
+            gallery: $gallery ?? [
                 ['image_url' => '/images/demo/lakeside-friends.png', 'image_alt' => 'Friends sharing a warm drink beside an upland lake'],
                 ['image_url' => '/images/demo/woodland-walk.png', 'image_alt' => 'A footbridge winding through lush woodland'],
                 ['image_url' => '/images/demo/coastal-weekend.png', 'image_alt' => 'A walking weekend on a broad coastal headland'],

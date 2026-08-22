@@ -37,6 +37,7 @@ Route::get('/', HomeController::class)->name('home');
 Route::get('/new-here', NewHereController::class)->name('new-here');
 Route::get('/photos', [PublicGalleryController::class, 'index'])->name('gallery.index');
 Route::get('/photos/events/{event:slug}', [PublicGalleryController::class, 'event'])->name('gallery.events.show');
+Route::get('/photos/holidays/{event:slug}', [PublicGalleryController::class, 'holiday'])->name('gallery.holidays.show');
 Route::get('/photos/albums/{album:slug}', [PublicGalleryController::class, 'album'])->name('gallery.albums.show');
 Route::get('/photos/{photo}/image/{variant}', [PublicGalleryController::class, 'image'])->whereNumber('photo')->name('gallery.photos.image');
 Route::get('/photos/{photo}/download', [PublicGalleryController::class, 'download'])->whereNumber('photo')->name('gallery.photos.download');

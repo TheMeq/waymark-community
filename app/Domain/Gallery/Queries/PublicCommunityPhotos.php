@@ -3,6 +3,7 @@
 namespace App\Domain\Gallery\Queries;
 
 use App\Domain\Gallery\Data\PublicCommunityPhotoPage;
+use App\Domain\Gallery\Data\PublicCommunityPhotoPresentation;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\PublicCommunityPhotoPresenter;
 use Illuminate\Database\Eloquent\Builder;
@@ -22,9 +23,30 @@ final class PublicCommunityPhotos
         return $this->page($this->base()->where('event_id', $eventId), $cursor, $perPage, true);
     }
 
+    /** @param array<int, int> $eventIds */
+    public function forEvents(array $eventIds, ?string $cursor = null, ?int $perPage = null): PublicCommunityPhotoPage
+    {
+        return $eventIds === []
+            ? new PublicCommunityPhotoPage(collect(), null)
+            : $this->page($this->base()->whereIn('event_id', $eventIds), $cursor, $perPage);
+    }
+
     public function forAlbum(int $albumId, ?string $cursor = null, ?int $perPage = null): PublicCommunityPhotoPage
     {
         return $this->page($this->base()->where('special_album_id', $albumId), $cursor, $perPage, true);
+    }
+
+    /** @return Collection<int, PublicCommunityPhotoPresentation> */
+    public function featured(int $limit): Collection
+    {
+        return $this->selection($this->base()->where('is_featured', true), $limit);
+    }
+
+    /** @param array<int, int> $excludedIds
+     *  @return Collection<int, PublicCommunityPhotoPresentation> */
+    public function recentExcluding(array $excludedIds, int $limit): Collection
+    {
+        return $this->selection($this->base()->when($excludedIds !== [], fn (Builder $query) => $query->whereNotIn('id', $excludedIds)), $limit);
     }
 
     /** @return Collection<int, array{label:string,url:string,count:int,cover:CommunityPhoto}> */
@@ -83,6 +105,37 @@ final class PublicCommunityPhotos
         $next = $hasMore ? $this->encode($lastAccepted ?? $lastInspected) : null;
 
         return new PublicCommunityPhotoPage($items, $next);
+    }
+
+    /** @return Collection<int, PublicCommunityPhotoPresentation> */
+    private function selection(Builder $query, int $limit): Collection
+    {
+        $limit = max(0, $limit);
+        $items = collect();
+        $boundary = null;
+        $chunk = max($limit * 3, 12);
+        $maximumChunks = max(1, (int) config('gallery.public.maximum_scan_chunks', 8));
+        for ($iteration = 0; $iteration < $maximumChunks && $items->count() < $limit; $iteration++) {
+            $candidates = $this->candidates(clone $query, false, $boundary)->limit($chunk)->get();
+            if ($candidates->isEmpty()) {
+                break;
+            }
+            foreach ($candidates as $photo) {
+                $boundary = $this->cursorFor($photo, false);
+                $presentation = $this->presenter->present($photo);
+                if ($presentation !== null) {
+                    $items->push($presentation);
+                    if ($items->count() === $limit) {
+                        break 2;
+                    }
+                }
+            }
+            if ($candidates->count() < $chunk) {
+                break;
+            }
+        }
+
+        return $items;
     }
 
     /** @return Builder<CommunityPhoto> */

@@ -8,7 +8,7 @@ use InvalidArgumentException;
 final readonly class HolidayGallerySource
 {
     /** @param array<int, int> $eventIds */
-    private function __construct(public array $eventIds, public bool $mediaImplemented = false) {}
+    private function __construct(public array $eventIds, public bool $mediaImplemented = true) {}
 
     public static function for(Event $holidayEvent): self
     {

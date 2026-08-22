@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Gallery\Queries\HomepageCommunityPhotos;
 use App\Domain\Holidays\Queries\PublicHolidaysQuery;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
@@ -13,7 +14,7 @@ use Illuminate\Contracts\View\View;
 
 final class HomeController
 {
-    public function __invoke(PublicWalksQuery $walks, PublicHolidaysQuery $holidays): View
+    public function __invoke(PublicWalksQuery $walks, PublicHolidaysQuery $holidays, HomepageCommunityPhotos $photos): View
     {
         $siteProfile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
         $weekendWalks = $walks->weekend()
@@ -23,9 +24,19 @@ final class HomeController
             ->all();
 
         $holiday = $holidays->upcoming()->first();
+        $gallery = $photos->take()
+            ->map(fn ($photo): array => [
+                'image_url' => $photo->imageUrl,
+                'image_alt' => $photo->caption ?? $photo->contextLabel ?? 'Community photo',
+                'detail_url' => $photo->detailUrl,
+                'width' => (string) $photo->width,
+                'height' => (string) $photo->height,
+                'rotation_style' => $photo->rotationStyle,
+            ])
+            ->all();
 
         return view('home', [
-            'homepage' => HomepageViewModel::demo($weekendWalks, $holiday === null ? null : PublicHolidayCardViewModel::spotlight($holiday)),
+            'homepage' => HomepageViewModel::demo($weekendWalks, $holiday === null ? null : PublicHolidayCardViewModel::spotlight($holiday), $gallery),
             'theme' => BrandTheme::fromSiteProfile($siteProfile),
         ]);
     }

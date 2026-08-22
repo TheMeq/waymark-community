@@ -2,15 +2,19 @@
 
 namespace Tests\Feature\Public;
 
+use App\Domain\Events\Models\Event;
+use App\Domain\Gallery\Models\CommunityPhoto;
+use App\Models\User;
 use App\ViewModels\HomepageViewModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 final class HomepageTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_homepage_preserves_the_phase_two_view_model_outside_the_real_walk_card_source(): void
+    public function test_homepage_keeps_phase_two_content_but_uses_an_empty_real_media_source_until_photos_exist(): void
     {
         $homepage = HomepageViewModel::demo();
 
@@ -21,7 +25,7 @@ final class HomepageTest extends TestCase
         $this->get('/')
             ->assertOk()
             ->assertViewIs('home')
-            ->assertViewHas('homepage', fn (HomepageViewModel $rendered): bool => $rendered->weekendWalks === [] && $rendered->gallery === $homepage->gallery);
+            ->assertViewHas('homepage', fn (HomepageViewModel $rendered): bool => $rendered->weekendWalks === [] && $rendered->gallery === []);
     }
 
     public function test_homepage_preserves_the_approved_section_hierarchy(): void
@@ -48,15 +52,45 @@ final class HomepageTest extends TestCase
             ->assertSee('href="/photos/upload"', false);
     }
 
-    public function test_homepage_uses_representative_local_images_with_meaningful_alternatives(): void
+    public function test_homepage_uses_featured_memories_then_recent_eligible_photos_without_demo_duplicates_and_caps_at_six(): void
+    {
+        Storage::fake('local');
+        $featured = $this->galleryPhoto('Featured memory', ['is_featured' => true, 'captured_at' => now()->subMinutes(3), 'presentation_rotation' => 90, 'width' => 640, 'height' => 960]);
+        $recent = $this->galleryPhoto('Recent memory', ['captured_at' => now()->subMinute()]);
+        $duplicateFeatured = $this->galleryPhoto('Another featured memory', ['is_featured' => true, 'captured_at' => now()->subMinutes(2)]);
+        $future = $this->galleryPhoto('Future memory', ['published_at' => now()->addMinute()]);
+        foreach (range(1, 5) as $number) {
+            $this->galleryPhoto('Older memory '.$number, ['captured_at' => now()->subMinutes(10 + $number)]);
+        }
+
+        $content = $this->get('/')->assertOk()->getContent();
+
+        $this->assertIsString($content);
+        $this->assertStringContainsString(route('gallery.photos.image', [$featured, 'thumbnail']), $content);
+        $this->assertStringContainsString(route('gallery.photos.image', [$duplicateFeatured, 'thumbnail']), $content);
+        $this->assertStringContainsString(route('gallery.photos.image', [$recent, 'thumbnail']), $content);
+        $this->assertStringNotContainsString(route('gallery.photos.image', [$future, 'thumbnail']), $content);
+        $this->assertSame(6, substr_count($content, 'data-homepage-memory'));
+        $this->assertLessThan(strpos($content, route('gallery.photos.image', [$recent, 'thumbnail'])), strpos($content, route('gallery.photos.image', [$featured, 'thumbnail'])));
+        $this->assertStringContainsString('width="960" height="640" style="transform: rotate(90deg)"', $content);
+    }
+
+    public function test_homepage_gallery_has_a_compact_empty_state_instead_of_demo_media(): void
+    {
+        $this->get('/')
+            ->assertOk()
+            ->assertSeeText('No recent photos yet.')
+            ->assertDontSee('/images/demo/lakeside-friends.png', false);
+    }
+
+    public function test_homepage_keeps_the_phase_two_hero_image_but_does_not_render_demo_gallery_media(): void
     {
         $response = $this->get('/');
 
         $response->assertSee('src="/images/demo/hero-walkers.png"', false)
             ->assertSee('alt="Friends walking together across open moorland"', false)
-            ->assertSee('src="/images/demo/woodland-walk.png"', false)
-            ->assertSee('alt="A footbridge winding through lush woodland"', false)
-            ->assertSee('src="/images/demo/coastal-weekend.png"', false);
+            ->assertDontSee('src="/images/demo/woodland-walk.png"', false)
+            ->assertDontSee('src="/images/demo/lakeside-friends.png"', false);
     }
 
     public function test_demo_copy_does_not_hard_code_the_reference_installation(): void
@@ -68,5 +102,26 @@ final class HomepageTest extends TestCase
         $this->assertStringNotContainsString('Nottingham', $content);
         $this->assertStringNotContainsString('Derby', $content);
         $this->assertStringNotContainsString('20–50', $content);
+    }
+
+    /** @param array<string, mixed> $overrides */
+    private function galleryPhoto(string $caption, array $overrides = []): CommunityPhoto
+    {
+        $id = CommunityPhoto::query()->count() + 1;
+        $directory = 'community-photos/3f2504e0-4f89-41d3-9a0c-'.str_pad((string) $id, 12, '0', STR_PAD_LEFT);
+        $variants = [];
+        foreach (['thumbnail', 'medium', 'large', 'master'] as $variant) {
+            $path = $directory.'/'.$variant.'.jpg';
+            Storage::disk('local')->put($path, $variant);
+            $variants[$variant] = $path;
+        }
+
+        return CommunityPhoto::query()->create(array_replace([
+            'event_id' => Event::factory()->create()->id,
+            'uploader_id' => User::factory()->create()->id,
+            'media_type' => 'image', 'processing_status' => 'complete', 'storage_disk' => 'local',
+            'source_path' => $variants['master'], 'processed_variants' => $variants,
+            'moderation_status' => 'approved', 'published_at' => now(), 'caption' => $caption,
+        ], $overrides));
     }
 }

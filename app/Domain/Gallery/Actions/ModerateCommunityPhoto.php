@@ -154,6 +154,7 @@ final class ModerateCommunityPhoto
             if ($locked->is_featured) {
                 return $locked;
             }
+            $this->assertCurrentPublic($locked);
             $this->assertReady($actor, $locked);
             $before = $this->snapshot($locked);
             $displaced = $contextPhotos->filter(fn (CommunityPhoto $item): bool => $item->id !== $locked->id && $item->is_featured);
@@ -166,6 +167,18 @@ final class ModerateCommunityPhoto
             $this->audit($actor, $locked, 'featured', $before, $this->snapshot($locked));
 
             return $locked;
+        });
+    }
+
+    public function unfeature(User $actor, CommunityPhoto $photo): CommunityPhoto
+    {
+        return $this->mutate($actor, $photo, 'unfeatured', function (CommunityPhoto $locked): bool {
+            if (! $locked->is_featured) {
+                return false;
+            }
+            $locked->forceFill(['is_featured' => false])->save();
+
+            return true;
         });
     }
 
@@ -282,6 +295,13 @@ final class ModerateCommunityPhoto
     {
         if (! $this->readiness->isReady($actor, $photo)) {
             throw ValidationException::withMessages(['photo' => 'Only photos with a safe processed preview can be moderated.']);
+        }
+    }
+
+    private function assertCurrentPublic(CommunityPhoto $photo): void
+    {
+        if ($photo->published_at === null || $photo->published_at->isFuture()) {
+            throw ValidationException::withMessages(['photo' => 'Only currently public photos can be featured.']);
         }
     }
 

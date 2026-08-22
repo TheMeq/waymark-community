@@ -6,6 +6,7 @@ use App\Domain\Accounts\Queries\FavouriteablePublicEventsQuery;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
+use App\Domain\Gallery\Queries\HolidayCommunityPhotos;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\ViewModels\FavouriteControlViewModel;
@@ -15,7 +16,7 @@ use Illuminate\Http\Request;
 
 final class PublicHolidayShowController
 {
-    public function __invoke(string $slug, FavouriteablePublicEventsQuery $favourites, Request $request): View
+    public function __invoke(string $slug, FavouriteablePublicEventsQuery $favourites, HolidayCommunityPhotos $photos, Request $request): View
     {
         $event = Event::query()->with(['holiday', 'organiser', 'children'])
             ->where('slug', $slug)->where('type', EventType::Holiday)
@@ -27,6 +28,7 @@ final class PublicHolidayShowController
         return view('holidays.show', [
             'event' => $event,
             'holiday' => PublicHolidayDetailViewModel::fromEvent($event),
+            'gallery' => $photos->forHoliday($event, perPage: 6),
             'favourite' => FavouriteControlViewModel::for($event, $request->user(), $favourites),
             'site' => ['name' => $siteProfile->group_name ?? 'Waymark Community', 'strapline' => 'A local walking community'],
             'theme' => BrandTheme::fromSiteProfile($siteProfile),

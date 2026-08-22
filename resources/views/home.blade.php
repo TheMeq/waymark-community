@@ -102,11 +102,13 @@
                 <a class="mt-3 text-sm font-semibold text-brand lg:mt-2 lg:text-xs" href="/photos">View gallery <span aria-hidden="true">&rarr;</span></a>
             </div>
 
-            @foreach ($homepage->gallery as $index => $photo)
-                <figure class="{{ $index === 0 ? 'wm-photo-feature' : '' }} h-36 self-center overflow-hidden rounded-[var(--wm-radius-md)] bg-surface-soft lg:h-28">
-                    <img class="size-full object-cover transition-transform duration-300 hover:scale-[1.025]" src="{{ $photo['image_url'] }}" alt="{{ $photo['image_alt'] }}" loading="lazy">
+            @forelse ($homepage->gallery as $index => $photo)
+                <figure data-homepage-memory class="{{ $index === 0 ? 'wm-photo-feature' : '' }} h-36 self-center overflow-hidden rounded-[var(--wm-radius-md)] bg-surface-soft lg:h-28">
+                    <a class="block size-full" href="{{ $photo['detail_url'] ?? route('gallery.index') }}"><img class="size-full object-cover transition-transform duration-300 hover:scale-[1.025]" src="{{ $photo['image_url'] }}" alt="{{ $photo['image_alt'] }}" loading="lazy" width="{{ $photo['width'] ?? '' }}" height="{{ $photo['height'] ?? '' }}" style="{{ $photo['rotation_style'] ?? '' }}"></a>
                 </figure>
-            @endforeach
+            @empty
+                <p class="self-center text-sm text-ink-muted">No recent photos yet.</p>
+            @endforelse
 
             <div class="wm-photo-upload flex flex-col gap-2 text-xs text-ink-muted sm:flex-row sm:items-center sm:justify-between">
                 <p>Members can upload photos linked to specific walks and holidays.</p>

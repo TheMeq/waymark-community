@@ -164,6 +164,25 @@ final class PhotoModerationPageTest extends TestCase
         $this->assertDatabaseCount('community_photo_moderation_audits', 0);
     }
 
+    public function test_moderation_page_makes_featured_memories_explicit_and_rejects_forged_unfeature_ids(): void
+    {
+        $leader = User::factory()->create(['role' => AccountRole::WalkLeader]);
+        $own = $this->photoFor(Event::factory()->for($leader, 'organiser')->create());
+        $own->update(['moderation_status' => 'approved', 'published_at' => now(), 'is_featured' => true]);
+        $other = $this->photoFor(Event::factory()->create());
+        $other->update(['moderation_status' => 'approved', 'published_at' => now(), 'is_featured' => true]);
+
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+        $this->actingAs($leader)->get('/admin/photo-moderation')
+            ->assertOk()
+            ->assertSeeText('Featured memory')
+            ->assertSeeText('Remove featured memory');
+        Livewire::actingAs($leader)->test(PhotoModeration::class)->call('unfeature', $other->id);
+
+        $this->assertTrue($other->fresh()->is_featured);
+        $this->assertDatabaseCount('community_photo_moderation_audits', 0);
+    }
+
     private function photoFor(Event $event): CommunityPhoto
     {
         $path = 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c'.str_pad((string) (CommunityPhoto::query()->count() + 1), 4, '0', STR_PAD_LEFT).'/master.jpg';

@@ -215,6 +215,14 @@ final class PhotoModeration extends Page
         app(ModerateCommunityPhoto::class)->feature($actor, CommunityPhoto::query()->findOrFail($photoId));
     }
 
+    public function unfeature(int $photoId): void
+    {
+        /** @var User $actor */
+        $actor = auth()->user();
+        app(ModerateCommunityPhoto::class)->unfeature($actor, CommunityPhoto::query()->findOrFail($photoId));
+        Notification::make()->success()->title('Featured memory removed')->send();
+    }
+
     public function setManualSortOrder(int $photoId, ?int $sortOrder): void
     {
         /** @var User $actor */
