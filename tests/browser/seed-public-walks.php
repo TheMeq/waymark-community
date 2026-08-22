@@ -129,7 +129,7 @@ foreach (['desktop', 'tablet', 'mobile'] as $viewport) {
     ]);
     CommunityPhoto::query()->create([
         'event_id' => $moderationEvent->id, 'uploader_id' => $uploader->id, 'media_type' => 'image', 'processing_status' => 'complete', 'storage_disk' => 'local',
-        'source_path' => $publishedPath, 'processed_variants' => ['master' => $publishedPath], 'moderation_status' => 'approved', 'published_at' => CarbonImmutable::parse('2026-08-20 10:00:00'), 'caption' => 'Browser isolated published '.$viewport,
+        'source_path' => $publishedPath, 'processed_variants' => ['master' => $publishedPath], 'moderation_status' => 'approved', 'published_at' => CarbonImmutable::parse('2026-08-20 10:00:00'), 'captured_at' => CarbonImmutable::parse('2026-08-19 10:00:00'), 'caption' => 'Browser isolated published '.$viewport,
     ]);
 }
 
