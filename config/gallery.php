@@ -17,7 +17,9 @@ return [
     'public' => [
         'downloads_enabled' => (bool) env('GALLERY_PUBLIC_DOWNLOADS_ENABLED', false),
         'per_page' => (int) env('GALLERY_PUBLIC_PER_PAGE', 18),
-        'context_scan_limit' => (int) env('GALLERY_PUBLIC_CONTEXT_SCAN_LIMIT', 72),
+        'context_limit' => (int) env('GALLERY_PUBLIC_CONTEXT_LIMIT', 12),
+        'context_cover_scan_limit' => (int) env('GALLERY_PUBLIC_CONTEXT_COVER_SCAN_LIMIT', 24),
+        'maximum_scan_chunks' => (int) env('GALLERY_PUBLIC_MAXIMUM_SCAN_CHUNKS', 8),
     ],
 
     'deferred' => [
