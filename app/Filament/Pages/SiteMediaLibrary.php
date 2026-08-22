@@ -107,8 +107,8 @@ final class SiteMediaLibrary extends Page
     public function remove(int $mediaId): void
     {
         $actor = auth()->user();
-        app(DeleteSiteMedia::class)->handle($actor, SiteMedia::query()->findOrFail($mediaId));
-        Notification::make()->success()->title('Media removed')->send();
+        $removed = app(DeleteSiteMedia::class)->handle($actor, SiteMedia::query()->findOrFail($mediaId));
+        Notification::make()->{$removed ? 'success' : 'warning'}()->title($removed ? 'Media removed' : 'Media removal needs retry')->send();
     }
 
     public function repair(int $mediaId): void
@@ -123,8 +123,8 @@ final class SiteMediaLibrary extends Page
     {
         /** @var User $actor */
         $actor = auth()->user();
-        app(DeleteSiteMedia::class)->retry($actor, SiteMedia::query()->findOrFail($mediaId));
-        Notification::make()->success()->title('Media removal retried')->send();
+        $removed = app(DeleteSiteMedia::class)->retry($actor, SiteMedia::query()->findOrFail($mediaId));
+        Notification::make()->{$removed ? 'success' : 'warning'}()->title($removed ? 'Media removed' : 'Media removal needs retry')->send();
     }
 
     public function uploadMedia(): void

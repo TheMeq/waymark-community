@@ -11,7 +11,7 @@ final class DeleteSiteMedia
 {
     use ManagesSiteMedia;
 
-    public function handle(User $actor, SiteMedia $media): void
+    public function handle(User $actor, SiteMedia $media): bool
     {
         $this->authorizeSiteMedia($actor);
         $directory = DB::transaction(function () use ($actor, $media): string {
@@ -22,20 +22,22 @@ final class DeleteSiteMedia
 
             return 'site-media/'.$locked->storage_key;
         });
-        $this->cleanup($actor, SiteMedia::query()->findOrFail($media->id), $directory);
+
+        return $this->cleanup($actor, SiteMedia::query()->findOrFail($media->id), $directory);
     }
 
-    public function retry(User $actor, SiteMedia $media): void
+    public function retry(User $actor, SiteMedia $media): bool
     {
         $this->authorizeSiteMedia($actor);
         $locked = SiteMedia::query()->findOrFail($media->id);
         if (! in_array($locked->health_status, ['deletion_pending', 'deletion_failed'], true)) {
-            return;
+            return $locked->health_status === 'removed';
         }
-        $this->cleanup($actor, $locked, 'site-media/'.$locked->storage_key);
+
+        return $this->cleanup($actor, $locked, 'site-media/'.$locked->storage_key);
     }
 
-    private function cleanup(User $actor, SiteMedia $media, string $directory): void
+    private function cleanup(User $actor, SiteMedia $media, string $directory): bool
     {
         try {
             if (! Storage::disk($media->storage_disk)->deleteDirectory($directory)) {
@@ -51,7 +53,7 @@ final class DeleteSiteMedia
                 }
             });
 
-            return;
+            return false;
         }
         DB::transaction(function () use ($actor, $media): void {
             $locked = SiteMedia::query()->lockForUpdate()->findOrFail($media->id);
@@ -59,5 +61,7 @@ final class DeleteSiteMedia
             $locked->forceFill(['health_status' => 'removed'])->save();
             $this->audit($actor, $locked, 'removed', $before, $this->snapshot($locked));
         });
+
+        return true;
     }
 }
