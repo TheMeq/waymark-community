@@ -61,6 +61,13 @@ $moderationEvent = Event::query()->create([
     'published_at' => CarbonImmutable::parse('2026-08-19 12:00:00'),
     'organiser_id' => $leader->id,
 ]);
+app(SaveWalkDetails::class)->handle($moderationEvent, [
+    'primary_leader_id' => $leader->id,
+    'grade_id' => $grade->id,
+    'distance' => 7.5,
+    'ascent' => 220,
+    'meeting_location_name' => 'Browser moderation meeting point',
+]);
 $preview = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADElEQVQImWNgYGAAAAAEAAGjChXjAAAAAElFTkSuQmCC', true);
 $reportingUploader = User::factory()->create();
 
