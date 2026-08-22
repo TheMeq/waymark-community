@@ -25,9 +25,11 @@ final class SiteMedia extends Model
             if ((float) $media->focal_point_x < 0 || (float) $media->focal_point_x > 1 || (float) $media->focal_point_y < 0 || (float) $media->focal_point_y > 1) {
                 throw new \LogicException('Site media focal points must be within the image.');
             }
-            foreach ((array) $media->processed_variants as $path) {
-                if (! is_string($path) || ! SiteMediaStorageReference::isSafe((string) $media->storage_disk, $path)) {
-                    throw new \InvalidArgumentException('Site media must use generated site-media paths on the configured private disk.');
+            if ($media->processing_status === 'complete' && $media->health_status === 'healthy') {
+                foreach ((array) $media->processed_variants as $path) {
+                    if (! is_string($path) || ! SiteMediaStorageReference::isSafe((string) $media->storage_disk, $path)) {
+                        throw new \InvalidArgumentException('Healthy site media must use generated site-media paths on the configured private disk.');
+                    }
                 }
             }
         });

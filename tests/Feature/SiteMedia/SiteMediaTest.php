@@ -256,7 +256,7 @@ final class SiteMediaTest extends TestCase
 
     public function test_site_media_schema_has_the_expected_foreign_keys_and_additive_repair_columns(): void
     {
-        $foreignKeys = collect(DB::select("PRAGMA foreign_key_list('site_media')"))->map(fn (object $key): array => [(string) $key->from, (string) $key->table, (string) $key->on_delete])->all();
+        $foreignKeys = collect(Schema::getForeignKeys('site_media'))->map(fn (array $key): array => [(string) $key['columns'][0], (string) $key['foreign_table'], strtoupper((string) $key['on_delete'])])->all();
 
         $this->assertContains(['created_by_user_id', 'users', 'RESTRICT'], $foreignKeys);
         $this->assertContains(['source_community_photo_id', 'community_photos', 'SET NULL'], $foreignKeys);
@@ -427,7 +427,7 @@ final class SiteMediaTest extends TestCase
     {
         $actor = User::factory()->create(['is_admin' => true]);
         $media = SiteMedia::query()->create($this->attributes());
-        DB::table('site_media')->whereKey($media->id)->update(['processed_variants' => json_encode(['master' => '../.env'], JSON_THROW_ON_ERROR)]);
+        DB::table('site_media')->where('id', $media->id)->update(['processed_variants' => json_encode(['master' => '../.env'], JSON_THROW_ON_ERROR)]);
 
         app(MarkSiteMediaForRepair::class)->handle($actor, $media->fresh());
 

@@ -44,7 +44,7 @@ return new class extends Migration
             DB::unprepared("CREATE TRIGGER site_media_alt_insert BEFORE INSERT ON site_media FOR EACH ROW WHEN NEW.is_decorative = 0 AND (NEW.alt_text IS NULL OR trim(NEW.alt_text) = '') BEGIN SELECT RAISE(ABORT, 'site media requires alt text unless decorative'); END;");
             DB::unprepared("CREATE TRIGGER site_media_alt_update BEFORE UPDATE OF alt_text, is_decorative ON site_media FOR EACH ROW WHEN NEW.is_decorative = 0 AND (NEW.alt_text IS NULL OR trim(NEW.alt_text) = '') BEGIN SELECT RAISE(ABORT, 'site media requires alt text unless decorative'); END;");
         } else {
-            DB::statement('ALTER TABLE site_media ADD CONSTRAINT site_media_alt_or_decorative_check CHECK (is_decorative = 1 OR char_length(trim(alt_text)) > 0)');
+            DB::statement('ALTER TABLE site_media ADD CONSTRAINT site_media_alt_or_decorative_check CHECK (is_decorative = 1 OR (alt_text IS NOT NULL AND char_length(trim(alt_text)) > 0))');
         }
     }
 
