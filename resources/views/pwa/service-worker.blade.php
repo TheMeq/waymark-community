@@ -5,20 +5,29 @@ const STATIC_ASSETS = [
     '/offline',
 ];
 
+const PUBLIC_NAVIGATION_PATHS = [
+    /^\/$/,
+    /^\/new-here\/?$/,
+    /^\/walks\/?$/,
+    /^\/walks\/grading-guide\/?$/,
+    /^\/walks\/[^/]+\/?$/,
+    /^\/photos\/?$/,
+    /^\/photos\/\d+\/?$/,
+    /^\/photos\/(events|holidays|albums)\/[^/]+\/?$/,
+    /^\/leaders\/[^/]+\/?$/,
+    /^\/socials\/?$/,
+    /^\/socials\/[^/]+\/?$/,
+    /^\/weekends\/?$/,
+    /^\/weekends\/[^/]+\/?$/,
+    /^\/whats-on\/?$/,
+    /^\/whats-on\/calendar\/?$/,
+];
+
 const isPublicNavigation = (request, url) => request.mode === 'navigate'
     && request.method === 'GET'
     && url.origin === self.location.origin
-    && !url.pathname.startsWith('/admin')
-    && !url.pathname.startsWith('/account')
-    && !url.pathname.startsWith('/leader-hub')
-    && !url.pathname.startsWith('/login')
-    && !url.pathname.startsWith('/register')
-    && !url.pathname.startsWith('/password')
-    && !url.pathname.startsWith('/photos/upload')
-    && !url.pathname.startsWith('/media/')
-    && !url.pathname.includes('/image/')
-    && !url.pathname.includes('/download')
-    && !url.pathname.startsWith('/api/');
+    && !url.searchParams.has('signature')
+    && PUBLIC_NAVIGATION_PATHS.some((pattern) => pattern.test(url.pathname));
 
 const isImmutableStaticAsset = (request, url) => request.method === 'GET'
     && url.origin === self.location.origin

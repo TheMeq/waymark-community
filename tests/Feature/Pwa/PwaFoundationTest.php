@@ -96,24 +96,9 @@ final class PwaFoundationTest extends TestCase
     {
         $serviceWorker = $this->get('/service-worker.js')->getContent();
 
-        foreach ([
-            "request.method === 'GET'",
-            "url.pathname.startsWith('/admin')",
-            "url.pathname.startsWith('/account')",
-            "url.pathname.startsWith('/leader-hub')",
-            "url.pathname.startsWith('/login')",
-            "url.pathname.startsWith('/register')",
-            "url.pathname.startsWith('/password')",
-            "url.pathname.startsWith('/photos/upload')",
-            "url.pathname.startsWith('/media/')",
-            "url.pathname.includes('/image/')",
-            "url.pathname.includes('/download')",
-            "url.pathname.startsWith('/api/')",
-            "key.startsWith('waymark-')",
-        ] as $rule) {
-            $this->assertStringContainsString($rule, $serviceWorker);
-        }
-
+        $this->assertStringContainsString('PUBLIC_NAVIGATION_PATHS', $serviceWorker);
+        $this->assertStringContainsString("request.method === 'GET'", $serviceWorker);
+        $this->assertStringContainsString("key.startsWith('waymark-')", $serviceWorker);
         $this->assertStringNotContainsString('push', strtolower($serviceWorker));
         $this->assertStringNotContainsString('background sync', strtolower($serviceWorker));
     }

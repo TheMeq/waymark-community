@@ -49,3 +49,44 @@ test('ordinary navigation remains available when service worker APIs are unsuppo
 
     await context.close();
 });
+
+test('rejected service worker registration leaves navigation and photo selection functional', async ({ browser }) => {
+    const context = await browser.newContext();
+    await context.addInitScript(() => {
+        Object.defineProperty(navigator, 'serviceWorker', {
+            configurable: true,
+            value: {
+                register: () => Promise.reject(new Error('Expected registration rejection')),
+            },
+        });
+        window.__pwaUnhandledRejections = [];
+        window.addEventListener('unhandledrejection', (event) => {
+            window.__pwaUnhandledRejections.push(String(event.reason));
+        });
+    });
+    const page = await context.newPage();
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+
+    await page.goto('/login');
+    await page.getByLabel('Email address').fill('morgan.leader@example.test');
+    await page.getByLabel('Password').fill('password');
+    await Promise.all([
+        page.waitForURL('**/new-here'),
+        page.getByRole('button', { name: 'Sign in' }).click(),
+    ]);
+    await page.goto('/photos/upload?event=2');
+    const fileInput = page.getByLabel('Photos', { exact: true });
+    await expect(fileInput).toBeVisible();
+    await fileInput.setInputFiles({
+        name: 'registration-fallback.png',
+        mimeType: 'image/png',
+        buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVQImWNgYGAAAAAEAAGjChXjAAAAAElFTkSuQmCC', 'base64'),
+    });
+    await expect(page.getByText('registration-fallback.png')).toBeVisible();
+    await expect(page.getByText('Ready')).toBeVisible();
+    expect(await page.evaluate(() => window.__pwaUnhandledRejections)).toEqual([]);
+    expect(pageErrors).toEqual([]);
+
+    await context.close();
+});

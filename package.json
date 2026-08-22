@@ -5,6 +5,7 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
+        "test:pwa": "node --test tests/js/service-worker.test.mjs",
         "test:e2e": "playwright test --pass-with-no-tests"
     },
     "devDependencies": {
