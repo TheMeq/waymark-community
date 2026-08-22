@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 final class CommunityPhotoSchemaTest extends TestCase
@@ -123,6 +124,16 @@ final class CommunityPhotoSchemaTest extends TestCase
                 $this->assertDatabaseCount('community_photos', 0);
             }
         }
+    }
+
+    public function test_moderation_audit_composite_index_has_a_portable_name(): void
+    {
+        $indexes = collect(Schema::getIndexes('community_photo_moderation_audits'));
+        $index = $indexes->first(fn (array $index): bool => $index['columns'] === ['community_photo_id', 'created_at']);
+
+        $this->assertNotNull($index);
+        $this->assertSame('photo_moderation_photo_created_idx', $index['name']);
+        $this->assertLessThanOrEqual(64, strlen($index['name']));
     }
 
     /** @param array<string, int|null> $association

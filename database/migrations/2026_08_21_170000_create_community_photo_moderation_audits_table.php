@@ -21,7 +21,7 @@ return new class extends Migration
             $table->json('after')->nullable();
             $table->json('context')->nullable();
             $table->timestamps();
-            $table->index(['community_photo_id', 'created_at']);
+            $table->index(['community_photo_id', 'created_at'], 'photo_moderation_photo_created_idx');
         });
     }
 
