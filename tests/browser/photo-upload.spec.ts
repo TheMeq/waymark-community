@@ -11,8 +11,12 @@ async function signIn(page: Page, email = 'morgan.leader@example.test') {
     ]);
 }
 
+function uploadEmail(project: string): string {
+    return `browser-upload-${project}@example.test`;
+}
+
 test('photo upload keeps each failed file available for an accessible retry', async ({ page }, testInfo) => {
-    await signIn(page);
+    await signIn(page, uploadEmail(testInfo.project.name));
     await page.goto('/photos/upload?event=2');
 
     await expect(page.getByRole('heading', { name: 'Share photos' })).toBeVisible();
@@ -64,10 +68,10 @@ test('photo upload keeps each failed file available for an accessible retry', as
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 
-test('no-JavaScript upload fallback returns focus to its error summary', async ({ browser }: { browser: Browser }) => {
+test('no-JavaScript upload fallback returns focus to its error summary', async ({ browser }, testInfo) => {
     const context = await browser.newContext({ javaScriptEnabled: false });
     const page = await context.newPage();
-    await signIn(page);
+    await signIn(page, uploadEmail(testInfo.project.name));
     await page.goto('/photos/upload?event=2');
     await page.getByLabel('Photos', { exact: true }).setInputFiles({ name: 'broken.png', mimeType: 'image/png', buffer: Buffer.from('broken') });
     await Promise.all([
@@ -80,8 +84,8 @@ test('no-JavaScript upload fallback returns focus to its error summary', async (
     await context.close();
 });
 
-test('three-file threshold defers real uploads without retries or duplicate requests', async ({ page }) => {
-    await signIn(page);
+test('three-file threshold defers real uploads without retries or duplicate requests', async ({ page }, testInfo) => {
+    await signIn(page, uploadEmail(testInfo.project.name));
     await page.goto('/photos/upload?event=2');
     const requestBodies: string[] = [];
     await page.route('**/photos/upload', async (route) => {

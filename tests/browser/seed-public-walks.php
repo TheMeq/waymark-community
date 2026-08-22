@@ -114,6 +114,8 @@ foreach (range(1, 3) as $number) {
 }
 
 foreach (['desktop', 'tablet', 'mobile'] as $viewport) {
+    $uploadUser = User::factory()->create(['email' => 'browser-upload-'.$viewport.'@example.test', 'password' => 'password']);
+    app(AcceptCurrentPhotoUploadPolicy::class)->handle($uploadUser);
     $uploader = User::factory()->create(['email' => 'browser-uploader-'.$viewport.'@example.test', 'password' => 'password']);
     app(AcceptCurrentPhotoUploadPolicy::class)->handle($uploader);
     $pendingPath = 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/browser-isolated-pending-'.$viewport.'.jpg';
