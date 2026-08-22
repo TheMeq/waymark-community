@@ -29,8 +29,8 @@ test('socials and holidays expose browseable public list and detail pages', asyn
     await page.getByRole('link', { name: 'Coast and moor long weekend' }).click();
     await expect(page.getByRole('heading', { name: 'Coast and moor long weekend' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Itinerary' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Clifftop circuit' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Saturday lodge supper' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Clifftop circuit' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Saturday lodge supper' }).first()).toBeVisible();
 });
 
 test('combined list and month calendar expose the same event identities', async ({ page }) => {

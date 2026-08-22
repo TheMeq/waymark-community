@@ -30,16 +30,14 @@ final class PublicGalleryController
 
     public function event(Request $request, Event $event, PublicCommunityPhotos $photos): View
     {
-        return $this->view($event->title, $photos->forEvent($event->id, $request->string('cursor')->toString()), ['label' => $event->title, 'url' => route('gallery.events.show', $event)]);
+        abort_unless($this->isCurrentPublicEvent($event), 404);
+
+        return $this->view($event->title, $photos->forEvent($event->id, $request->string('cursor')->toString()), ['label' => $event->title, 'url' => route('gallery.events.show', $event->slug)]);
     }
 
     public function holiday(Request $request, Event $event, HolidayCommunityPhotos $photos): View
     {
-        abort_unless($event->type === EventType::Holiday
-            && $event->holiday !== null
-            && $event->is_public
-            && $event->published_at?->lessThanOrEqualTo(now())
-            && in_array($event->status, [EventStatus::Published, EventStatus::Changed, EventStatus::Postponed, EventStatus::Cancelled], true), 404);
+        abort_unless($event->type === EventType::Holiday && $event->holiday !== null && $this->isCurrentPublicEvent($event), 404);
 
         return $this->view($event->title, $photos->forHoliday($event, $request->string('cursor')->toString()), ['label' => $event->title, 'url' => route('holidays.show', $event->slug)]);
     }
@@ -97,6 +95,13 @@ final class PublicGalleryController
             'image/avif' => 'avif',
             default => 'jpg',
         };
+    }
+
+    private function isCurrentPublicEvent(Event $event): bool
+    {
+        return $event->is_public
+            && $event->published_at?->lessThanOrEqualTo(now())
+            && in_array($event->status, [EventStatus::Published, EventStatus::Changed, EventStatus::Postponed, EventStatus::Cancelled], true);
     }
 
     /** @param array{label:string,url:string}|null $context */

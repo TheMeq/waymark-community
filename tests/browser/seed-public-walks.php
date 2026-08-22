@@ -270,3 +270,25 @@ $childSocial = $createEvent(
 );
 app(SaveSocialDetails::class)->handle($childSocial, ['venue_name' => 'Seaview Lodge']);
 app(AssignHolidayChild::class)->handle($holiday, $childSocial);
+
+$galleryImage = file_get_contents(public_path('images/demo/lakeside-friends.png'));
+foreach (range(1, 7) as $number) {
+    $path = 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3302/holiday-memory-'.$number.'.png';
+    Storage::disk('local')->put($path, $galleryImage);
+    CommunityPhoto::query()->create([
+        'event_id' => $number === 1 || $number % 2 === 0 ? $childWalk->id : $holiday->id,
+        'uploader_id' => $leader->id,
+        'media_type' => 'image',
+        'processing_status' => 'complete',
+        'storage_disk' => 'local',
+        'source_path' => $path,
+        'processed_variants' => ['thumbnail' => $path, 'medium' => $path, 'large' => $path, 'master' => $path],
+        'moderation_status' => 'approved',
+        'published_at' => CarbonImmutable::parse('2026-08-20 10:00:00'),
+        'captured_at' => CarbonImmutable::parse('2026-08-20 11:0'.$number.':00'),
+        'caption' => $number === 1 ? 'Clifftop featured memory' : 'Holiday memory '.$number,
+        'is_featured' => $number === 1,
+        'width' => 1200,
+        'height' => 800,
+    ]);
+}
