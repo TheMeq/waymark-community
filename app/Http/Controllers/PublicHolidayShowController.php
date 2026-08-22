@@ -3,10 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Accounts\Queries\FavouriteablePublicEventsQuery;
-use App\Domain\Events\Enums\EventStatus;
-use App\Domain\Events\Enums\EventType;
-use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Queries\HolidayCommunityPhotos;
+use App\Domain\Holidays\Queries\PublicHolidaysQuery;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\ViewModels\FavouriteControlViewModel;
@@ -16,12 +14,9 @@ use Illuminate\Http\Request;
 
 final class PublicHolidayShowController
 {
-    public function __invoke(string $slug, FavouriteablePublicEventsQuery $favourites, HolidayCommunityPhotos $photos, Request $request): View
+    public function __invoke(string $slug, FavouriteablePublicEventsQuery $favourites, HolidayCommunityPhotos $photos, PublicHolidaysQuery $holidays, Request $request): View
     {
-        $event = Event::query()->with(['holiday', 'organiser', 'children'])
-            ->where('slug', $slug)->where('type', EventType::Holiday)
-            ->whereIn('status', [EventStatus::Published, EventStatus::Changed, EventStatus::Postponed, EventStatus::Cancelled])
-            ->where('is_public', true)->whereNotNull('published_at')->where('published_at', '<=', now())->firstOrFail();
+        $event = $holidays->published()->with('children')->where('slug', $slug)->firstOrFail();
 
         $siteProfile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
 

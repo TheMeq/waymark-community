@@ -47,5 +47,6 @@ test('homepage uses the featured holiday memory before a six-photo real-media ba
     await expect(memories).toHaveCount(6);
     await expect(memories.first().locator('img')).toHaveAttribute('alt', 'Clifftop featured memory');
     expect(await memories.locator('img').evaluateAll((images) => images.every((image) => image.getAttribute('loading') === 'lazy'))).toBe(true);
+    expect(await memories.locator('img').evaluateAll((images) => images.every((image) => !image.alt.startsWith('Browser ')))).toBe(true);
     await expectAccessibleAtTwoHundredPercent(page);
 });
