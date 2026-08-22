@@ -184,6 +184,32 @@ final class CommunityPhotoReportingTest extends TestCase
         }
     }
 
+    public function test_pending_delete_handles_each_deferred_lifecycle_state_and_a_synchronous_photo(): void
+    {
+        foreach (['staging', 'queued', 'processing', 'retry', 'terminal_failed'] as $status) {
+            $uploader = User::factory()->create();
+            $photo = $this->publishedPhoto(['uploader_id' => $uploader->id, 'moderation_status' => 'pending', 'published_at' => null, 'processing_status' => $status]);
+            $directory = 'community-photos/3f2504e0-4f89-41d3-9a0c-'.str_pad((string) ($photo->id + 100), 12, '0', STR_PAD_LEFT);
+            Storage::disk('local')->put($directory.'/master.jpg', 'processed');
+            CommunityPhotoProcessingJob::query()->create([
+                'community_photo_id' => $photo->id, 'status' => $status, 'attempts' => 1,
+                'staged_source_path' => $photo->source_path, 'output_directory' => $directory,
+                'lease_expires_at' => $status === 'processing' ? now()->addMinutes(10) : null,
+                'staging_lease_expires_at' => $status === 'staging' ? now()->addMinutes(10) : null,
+            ]);
+
+            app(DeletePendingCommunityPhoto::class)->handle($uploader, $photo);
+            $this->assertDatabaseMissing('community_photos', ['id' => $photo->id]);
+            $this->assertDatabaseMissing('community_photo_processing_jobs', ['community_photo_id' => $photo->id]);
+            Storage::disk('local')->assertMissing($directory.'/master.jpg');
+        }
+
+        $uploader = User::factory()->create();
+        $photo = $this->publishedPhoto(['uploader_id' => $uploader->id, 'moderation_status' => 'pending', 'published_at' => null, 'processing_status' => 'complete']);
+        app(DeletePendingCommunityPhoto::class)->handle($uploader, $photo);
+        $this->assertDatabaseMissing('community_photos', ['id' => $photo->id]);
+    }
+
     public function test_report_limiter_is_bounded_per_anonymous_identity_and_decays(): void
     {
         $photo = $this->publishedPhoto();
