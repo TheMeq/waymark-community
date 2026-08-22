@@ -14,7 +14,7 @@ trait ManagesSiteMedia
 {
     private function authorizeSiteMedia(User $actor): void
     {
-        if (! $actor->hasCapability(ModuleCapability::ModerateAllCommunityPhotos)) {
+        if (! $actor->hasCapability(ModuleCapability::ManageSiteMedia)) {
             throw new AuthorizationException;
         }
     }

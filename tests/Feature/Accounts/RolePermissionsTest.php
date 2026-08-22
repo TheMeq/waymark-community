@@ -67,6 +67,7 @@ final class RolePermissionsTest extends TestCase
             'gallery.moderate_own_event_photos',
             'gallery.moderate_all_community_photos',
             'gallery.manage_albums',
+            'site_media.manage',
         ], array_map(static fn (ModuleCapability $capability): string => $capability->value, ModuleCapability::cases()));
     }
 
@@ -101,6 +102,7 @@ final class RolePermissionsTest extends TestCase
                 'gallery.moderate_all_community_photos',
                 'gallery.moderate_own_event_photos',
                 'holidays.manage',
+                'site_media.manage',
                 'socials.manage',
                 'walks.create',
                 'walks.manage_all',

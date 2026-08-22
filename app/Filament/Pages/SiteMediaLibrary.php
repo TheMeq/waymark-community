@@ -57,7 +57,7 @@ final class SiteMediaLibrary extends Page
     {
         $user = auth()->user();
 
-        return $user instanceof User && $user->hasCapability(ModuleCapability::ModerateAllCommunityPhotos);
+        return $user instanceof User && $user->hasCapability(ModuleCapability::ManageSiteMedia);
     }
 
     /** @return LengthAwarePaginator<int, SiteMedia> */

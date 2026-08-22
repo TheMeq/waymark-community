@@ -9,20 +9,16 @@ return new class extends Migration
 {
     public function up(): void
     {
-        $before = $this->administratorDefaultsWithoutAlbumManagement();
+        $before = $this->administratorDefaultsWithoutSiteMediaManagement();
         $existing = $this->administratorCapabilities();
 
-        $beforeWithSiteMedia = [...$before, ModuleCapability::ManageSiteMedia->value];
-        sort($beforeWithSiteMedia);
-
-        if (in_array(ModuleCapability::ManageSpecialAlbums->value, $existing, true)
-            || ($existing !== $before && $existing !== $beforeWithSiteMedia)) {
+        if (in_array(ModuleCapability::ManageSiteMedia->value, $existing, true) || $existing !== $before) {
             return;
         }
 
         DB::table('role_capabilities')->insert([
             'role' => AccountRole::Administrator->value,
-            'capability' => ModuleCapability::ManageSpecialAlbums->value,
+            'capability' => ModuleCapability::ManageSiteMedia->value,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -30,24 +26,21 @@ return new class extends Migration
 
     public function down(): void
     {
-        $expectedWithoutSiteMedia = [...$this->administratorDefaultsWithoutAlbumManagement(), ModuleCapability::ManageSpecialAlbums->value];
-        sort($expectedWithoutSiteMedia);
-        $expectedWithSiteMedia = [...$expectedWithoutSiteMedia, ModuleCapability::ManageSiteMedia->value];
-        sort($expectedWithSiteMedia);
+        $expected = [...$this->administratorDefaultsWithoutSiteMediaManagement(), ModuleCapability::ManageSiteMedia->value];
+        sort($expected);
 
-        $existing = $this->administratorCapabilities();
-        if ($existing !== $expectedWithoutSiteMedia && $existing !== $expectedWithSiteMedia) {
+        if ($this->administratorCapabilities() !== $expected) {
             return;
         }
 
         DB::table('role_capabilities')
             ->where('role', AccountRole::Administrator->value)
-            ->where('capability', ModuleCapability::ManageSpecialAlbums->value)
+            ->where('capability', ModuleCapability::ManageSiteMedia->value)
             ->delete();
     }
 
     /** @return array<int, string> */
-    private function administratorDefaultsWithoutAlbumManagement(): array
+    private function administratorDefaultsWithoutSiteMediaManagement(): array
     {
         $defaults = [
             'accounts.manage',
@@ -57,6 +50,7 @@ return new class extends Migration
             'event_configuration.manage',
             'event_updates.manage_all',
             'event_updates.manage_own',
+            'gallery.manage_albums',
             'gallery.moderate_all_community_photos',
             'gallery.moderate_own_event_photos',
             'holidays.manage',
