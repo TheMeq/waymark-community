@@ -3,6 +3,12 @@
 namespace Tests\Feature\SiteMedia;
 
 use App\Domain\Events\Models\Event;
+use App\Domain\Gallery\Contracts\DecodedRasterImage;
+use App\Domain\Gallery\Contracts\ImageMetadataReader;
+use App\Domain\Gallery\Contracts\RasterImageTransformer;
+use App\Domain\Gallery\Data\ImageMetadata;
+use App\Domain\Gallery\Data\ImageVariantDefinition;
+use App\Domain\Gallery\Data\TransformedRasterImage;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\SiteMedia\Actions\DeleteSiteMedia;
 use App\Domain\SiteMedia\Actions\MarkSiteMediaForRepair;
@@ -13,12 +19,18 @@ use App\Domain\SiteMedia\Actions\UpdateSiteMediaMetadata;
 use App\Domain\SiteMedia\Actions\UploadSiteMedia;
 use App\Domain\SiteMedia\Data\SiteMediaMetadata;
 use App\Domain\SiteMedia\Models\SiteMedia;
+use App\Filament\Pages\SiteMediaLibrary;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
 use Mockery;
 use Tests\TestCase;
 
@@ -107,10 +119,269 @@ final class SiteMediaTest extends TestCase
         $this->assertSame('uploaded', $media->audits()->sole()->action);
     }
 
+    public function test_upload_cleans_processed_derivatives_and_records_no_state_when_persistence_fails(): void
+    {
+        Storage::fake('local');
+        $actor = User::factory()->create(['is_admin' => true]);
+        SiteMedia::creating(static function (): void {
+            throw new \RuntimeException('Database persistence failed.');
+        });
+
+        try {
+            app(UploadSiteMedia::class)->handle($actor, UploadedFile::fake()->image('ridge.jpg', 1200, 800), new SiteMediaMetadata('Walkers on a ridge', false));
+            $this->fail('The upload persisted despite the simulated database failure.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('Database persistence failed.', $exception->getMessage());
+        } finally {
+            SiteMedia::flushEventListeners();
+            SiteMedia::clearBootedModels();
+        }
+
+        $this->assertSame([], Storage::disk('local')->allFiles('site-media'));
+        $this->assertDatabaseCount('site_media', 0);
+        $this->assertDatabaseCount('site_media_audits', 0);
+        $this->assertDatabaseCount('community_photos', 0);
+        $this->assertDatabaseCount('community_photo_moderation_audits', 0);
+        $this->assertDatabaseCount('jobs', 0);
+    }
+
+    public function test_upload_cleans_partial_processing_output_when_a_later_derivative_fails(): void
+    {
+        Storage::fake('local');
+        $this->app->bind(RasterImageTransformer::class, fn (): RasterImageTransformer => new class implements RasterImageTransformer
+        {
+            public function supportsInput(string $mimeType): bool
+            {
+                return $mimeType === 'image/png';
+            }
+
+            public function supportsOutput(string $mimeType): bool
+            {
+                return $mimeType === 'image/jpeg';
+            }
+
+            public function decode(string $sourcePath, string $mimeType, int $orientation): DecodedRasterImage
+            {
+                return new class implements DecodedRasterImage
+                {
+                    public function width(): int
+                    {
+                        return 1200;
+                    }
+
+                    public function height(): int
+                    {
+                        return 800;
+                    }
+
+                    public function release(): void {}
+                };
+            }
+
+            public function transform(DecodedRasterImage $source, ImageVariantDefinition $variant, string $mimeType): TransformedRasterImage
+            {
+                if ($variant->name !== 'master') {
+                    throw new \RuntimeException('A later derivative failed.');
+                }
+
+                return new TransformedRasterImage('master-only', 1200, 800, 'image/jpeg');
+            }
+        });
+        $this->app->bind(ImageMetadataReader::class, fn (): ImageMetadataReader => new class implements ImageMetadataReader
+        {
+            public function read(string $path, string $mimeType): ImageMetadata
+            {
+                return new ImageMetadata(1, null);
+            }
+        });
+        $actor = User::factory()->create(['is_admin' => true]);
+
+        try {
+            app(UploadSiteMedia::class)->handle($actor, UploadedFile::fake()->image('ridge.png', 1200, 800), new SiteMediaMetadata('Walkers on a ridge', false));
+            $this->fail('The partially processed upload unexpectedly completed.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('A later derivative failed.', $exception->getMessage());
+        }
+
+        $this->assertSame([], Storage::disk('local')->allFiles('site-media'));
+        $this->assertDatabaseCount('site_media', 0);
+        $this->assertDatabaseCount('site_media_audits', 0);
+        $this->assertDatabaseCount('community_photos', 0);
+        $this->assertDatabaseCount('community_photo_moderation_audits', 0);
+        $this->assertDatabaseCount('jobs', 0);
+    }
+
     public function test_direct_model_save_rejects_out_of_bounds_focal_point(): void
     {
         $this->expectException(\LogicException::class);
         SiteMedia::query()->create($this->attributes(['focal_point_x' => 1.01]));
+    }
+
+    public function test_database_enforces_alt_or_decorative_and_focal_point_invariants_when_eloquent_is_bypassed(): void
+    {
+        $attributes = $this->attributes();
+        unset($attributes['processed_variants']);
+        $attributes['processed_variants'] = json_encode(['master' => 'site-media/3f2504e0-4f89-41d3-9a0c-0305e82c3300/master.jpg'], JSON_THROW_ON_ERROR);
+        $attributes['created_at'] = now();
+        $attributes['updated_at'] = now();
+
+        $this->expectException(QueryException::class);
+        DB::table('site_media')->insert(array_replace($attributes, ['alt_text' => null, 'is_decorative' => false]));
+    }
+
+    public function test_database_enforces_focal_bounds_when_eloquent_is_bypassed(): void
+    {
+        $attributes = $this->attributes();
+        unset($attributes['processed_variants']);
+        $attributes['processed_variants'] = json_encode(['master' => 'site-media/3f2504e0-4f89-41d3-9a0c-0305e82c3300/master.jpg'], JSON_THROW_ON_ERROR);
+        $attributes['created_at'] = now();
+        $attributes['updated_at'] = now();
+
+        $this->expectException(QueryException::class);
+        DB::table('site_media')->insert(array_replace($attributes, ['focal_point_y' => -0.0001]));
+    }
+
+    public function test_database_allows_decorative_media_and_boundary_focal_points_when_eloquent_is_bypassed(): void
+    {
+        $attributes = $this->attributes();
+        unset($attributes['processed_variants']);
+        $attributes['processed_variants'] = json_encode(['master' => 'site-media/3f2504e0-4f89-41d3-9a0c-0305e82c3300/master.jpg'], JSON_THROW_ON_ERROR);
+        $attributes['created_at'] = now();
+        $attributes['updated_at'] = now();
+
+        DB::table('site_media')->insert(array_replace($attributes, ['alt_text' => null, 'is_decorative' => true, 'focal_point_x' => 0, 'focal_point_y' => 1]));
+
+        $this->assertDatabaseHas('site_media', ['alt_text' => null, 'is_decorative' => true, 'focal_point_x' => 0, 'focal_point_y' => 1]);
+    }
+
+    public function test_site_media_schema_has_the_expected_foreign_keys_and_additive_repair_columns(): void
+    {
+        $foreignKeys = collect(DB::select("PRAGMA foreign_key_list('site_media')"))->map(fn (object $key): array => [(string) $key->from, (string) $key->table, (string) $key->on_delete])->all();
+
+        $this->assertContains(['created_by_user_id', 'users', 'RESTRICT'], $foreignKeys);
+        $this->assertContains(['source_community_photo_id', 'community_photos', 'SET NULL'], $foreignKeys);
+        $this->assertTrue(Schema::hasColumns('site_media', ['regeneration_cleanup_status', 'regeneration_cleanup_storage_disk', 'regeneration_cleanup_storage_key']));
+        $this->assertTrue(Schema::hasTable('site_media_audits'));
+    }
+
+    public function test_site_media_migrations_apply_and_reverse_cleanly_on_an_isolated_sqlite_database(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'waymark-site-media-schema-');
+        $connections = config('database.connections');
+        $default = config('database.default');
+        $connection = 'site_media_schema_test';
+        config()->set('database.default', $connection);
+        config()->set("database.connections.{$connection}", ['driver' => 'sqlite', 'database' => $path, 'prefix' => '', 'foreign_key_constraints' => true]);
+
+        try {
+            DB::purge($connection);
+            $create = require base_path('database/migrations/2026_08_22_100000_create_site_media_tables.php');
+            $focal = require base_path('database/migrations/2026_08_22_101000_harden_site_media_focal_points.php');
+            $cleanup = require base_path('database/migrations/2026_08_22_102000_add_regeneration_cleanup_to_site_media.php');
+            $create->up();
+            $focal->up();
+            $cleanup->up();
+
+            $schema = Schema::connection($connection);
+            $this->assertTrue($schema->hasColumns('site_media', ['regeneration_cleanup_status', 'regeneration_cleanup_storage_disk', 'regeneration_cleanup_storage_key']));
+            $this->assertTrue($schema->hasTable('site_media_audits'));
+
+            $cleanup->down();
+            $focal->down();
+            $create->down();
+            $this->assertFalse($schema->hasTable('site_media'));
+            $this->assertFalse($schema->hasTable('site_media_audits'));
+        } finally {
+            DB::purge($connection);
+            config()->set('database.connections', $connections);
+            config()->set('database.default', $default);
+            if (is_string($path) && is_file($path)) {
+                unlink($path);
+            }
+        }
+    }
+
+    public function test_metadata_focal_edits_are_audited_but_normalised_noops_are_not(): void
+    {
+        $actor = User::factory()->create(['is_admin' => true]);
+        $media = SiteMedia::query()->create($this->attributes());
+
+        app(UpdateSiteMediaMetadata::class)->handle($actor, $media, new SiteMediaMetadata('Walkers on a ridge', false, 0.625, 0.375));
+        app(UpdateSiteMediaMetadata::class)->handle($actor, $media->fresh(), new SiteMediaMetadata('Walkers on a ridge', false, 0.62504, 0.37496));
+
+        $this->assertSame('0.6250', $media->fresh()->focal_point_x);
+        $this->assertSame('0.3750', $media->fresh()->focal_point_y);
+        $this->assertSame(['metadata_updated'], $media->audits()->pluck('action')->all());
+    }
+
+    public function test_promotion_rejects_every_ineligible_source_without_changing_source_or_creating_site_side_effects(): void
+    {
+        Storage::fake('local');
+        $actor = User::factory()->create(['is_admin' => true]);
+
+        foreach ([
+            ['moderation_status' => 'pending'],
+            ['moderation_status' => 'rejected'],
+            ['published_at' => now()->addMinute()],
+            ['published_at' => null],
+            ['processing_status' => 'processing'],
+            ['processed_variants' => ['master' => '../.env']],
+        ] as $overrides) {
+            $photo = $this->approvedPhoto($actor);
+            $photo->forceFill($overrides)->saveQuietly();
+            if (($overrides['processed_variants']['master'] ?? null) !== '../.env') {
+                Storage::disk('local')->put($photo->processed_variants['master'], $this->safeRaster());
+            }
+            $before = $photo->fresh()->getAttributes();
+
+            try {
+                app(PromoteCommunityPhotoToSiteMedia::class)->handle($actor, $photo, new SiteMediaMetadata('Hill walkers', false));
+                $this->fail('An ineligible community photo was promoted.');
+            } catch (ValidationException) {
+                // Expected: no source or site-media state may change.
+            }
+
+            $this->assertSame($before, $photo->fresh()->getAttributes());
+        }
+
+        $this->assertDatabaseCount('site_media', 0);
+        $this->assertDatabaseCount('site_media_audits', 0);
+        $this->assertDatabaseCount('community_photo_moderation_audits', 0);
+    }
+
+    public function test_unauthorised_promotion_leaves_the_source_and_all_side_effect_tables_unchanged(): void
+    {
+        Storage::fake('local');
+        $owner = User::factory()->create(['is_admin' => true]);
+        $photo = $this->approvedPhoto($owner);
+        Storage::disk('local')->put($photo->processed_variants['master'], $this->safeRaster());
+        $before = $photo->fresh()->getAttributes();
+
+        $this->expectException(AuthorizationException::class);
+        try {
+            app(PromoteCommunityPhotoToSiteMedia::class)->handle(User::factory()->create(), $photo, new SiteMediaMetadata('Hill walkers', false));
+        } finally {
+            $this->assertSame($before, $photo->fresh()->getAttributes());
+            $this->assertDatabaseCount('site_media', 0);
+            $this->assertDatabaseCount('site_media_audits', 0);
+            $this->assertDatabaseCount('community_photo_moderation_audits', 0);
+        }
+    }
+
+    public function test_livewire_promotion_rejects_a_forged_photo_id_without_creating_media_or_audits(): void
+    {
+        $actor = User::factory()->create(['is_admin' => true]);
+
+        try {
+            Livewire::actingAs($actor)->test(SiteMediaLibrary::class)->call('promote', 999999);
+            $this->fail('A forged community photo identifier was accepted.');
+        } catch (ModelNotFoundException) {
+            // The page resolves the id server-side; no client-supplied source is trusted.
+        }
+
+        $this->assertDatabaseCount('site_media', 0);
+        $this->assertDatabaseCount('site_media_audits', 0);
+        $this->assertDatabaseCount('community_photo_moderation_audits', 0);
     }
 
     public function test_repair_action_marks_missing_derivatives_and_is_idempotently_audited(): void
@@ -121,6 +392,18 @@ final class SiteMediaTest extends TestCase
 
         app(MarkSiteMediaForRepair::class)->handle($actor, $media);
         app(MarkSiteMediaForRepair::class)->handle($actor, $media);
+
+        $this->assertSame('repair_required', $media->fresh()->health_status);
+        $this->assertSame(['repair_required'], $media->audits()->pluck('action')->all());
+    }
+
+    public function test_repair_action_marks_unsafe_derivatives_without_attempting_to_expose_or_replace_them(): void
+    {
+        $actor = User::factory()->create(['is_admin' => true]);
+        $media = SiteMedia::query()->create($this->attributes());
+        DB::table('site_media')->whereKey($media->id)->update(['processed_variants' => json_encode(['master' => '../.env'], JSON_THROW_ON_ERROR)]);
+
+        app(MarkSiteMediaForRepair::class)->handle($actor, $media->fresh());
 
         $this->assertSame('repair_required', $media->fresh()->health_status);
         $this->assertSame(['repair_required'], $media->audits()->pluck('action')->all());
