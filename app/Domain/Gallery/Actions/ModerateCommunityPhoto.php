@@ -169,6 +169,22 @@ final class ModerateCommunityPhoto
         });
     }
 
+    public function setManualSortOrder(User $actor, CommunityPhoto $photo, ?int $sortOrder): CommunityPhoto
+    {
+        return $this->mutate($actor, $photo, 'manual_sort_ordered', function (CommunityPhoto $locked) use ($sortOrder): bool {
+            $this->assertEditable($locked);
+            if ($sortOrder !== null && ($sortOrder < 0 || $sortOrder > 1000000)) {
+                throw ValidationException::withMessages(['sort_order' => 'Choose a valid gallery position.']);
+            }
+            if ($locked->manual_sort_order === $sortOrder) {
+                return false;
+            }
+            $locked->forceFill(['manual_sort_order' => $sortOrder])->save();
+
+            return true;
+        }, ['manual_sort_order' => $sortOrder ?? 'automatic']);
+    }
+
     /** @param array<int, int> $photoIds */
     public function bulkApprove(User $actor, array $photoIds): int
     {
@@ -301,7 +317,7 @@ final class ModerateCommunityPhoto
     /** @return array<string, mixed> */
     private function snapshot(CommunityPhoto $photo): array
     {
-        return $photo->only(['event_id', 'special_album_id', 'caption', 'photographer_name', 'moderation_status', 'published_at', 'is_featured', 'presentation_rotation']);
+        return $photo->only(['event_id', 'special_album_id', 'caption', 'photographer_name', 'moderation_status', 'published_at', 'manual_sort_order', 'is_featured', 'presentation_rotation']);
     }
 
     /** @param array<string, mixed> $before @param array<string, mixed> $after */

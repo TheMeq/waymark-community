@@ -14,6 +14,11 @@ return [
         'max_files' => (int) env('GALLERY_PHOTO_MAX_FILES', 10),
     ],
 
+    'public' => [
+        'downloads_enabled' => (bool) env('GALLERY_PUBLIC_DOWNLOADS_ENABLED', false),
+        'per_page' => (int) env('GALLERY_PUBLIC_PER_PAGE', 18),
+    ],
+
     'deferred' => [
         'enabled' => (bool) env('GALLERY_DEFERRED_PROCESSING_ENABLED', true),
         'size_threshold_bytes' => (int) env('GALLERY_DEFERRED_PROCESSING_SIZE_THRESHOLD', 5 * 1024 * 1024),

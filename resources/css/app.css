@@ -196,6 +196,37 @@
     .wm-photo-upload {
         grid-column: 1 / -1;
     }
+
+    .wm-gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--wm-space-4);
+    }
+
+    .wm-gallery-card {
+        overflow: clip;
+        border: 1px solid var(--wm-border);
+        border-radius: var(--wm-radius-md);
+        background: var(--wm-surface-raised);
+        box-shadow: var(--wm-shadow-card);
+    }
+
+    .wm-gallery-card img { transition: transform var(--wm-transition-base); }
+    .wm-gallery-card a:hover img { transform: scale(1.025); }
+
+    .wm-gallery-dialog {
+        width: min(94vw, 68rem);
+        max-height: 94vh;
+        border: 0;
+        border-radius: var(--wm-radius-lg);
+        background: var(--wm-surface-raised);
+        color: var(--wm-text);
+        box-shadow: var(--wm-shadow-float);
+    }
+
+    .wm-gallery-dialog::backdrop { background: rgb(16 25 15 / 0.72); }
+    .wm-gallery-dialog-content { position: relative; padding: var(--wm-space-6); }
+    .wm-gallery-dialog-close { position: absolute; top: var(--wm-space-3); right: var(--wm-space-3); min-height: 44px; min-width: 44px; border-radius: var(--wm-radius-pill); background: var(--wm-surface-raised); font-size: 1.75rem; line-height: 1; }
 }
 
 @media (min-width: 48rem) {
@@ -210,6 +241,8 @@
     .wm-photo-band {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
+
+    .wm-gallery-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
     .wm-photo-band > :first-child {
         grid-column: 1 / -1;
@@ -233,6 +266,8 @@
         grid-template-columns: 11.5rem repeat(6, minmax(0, 1fr));
         align-items: stretch;
     }
+
+    .wm-gallery-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
     .wm-photo-band > :first-child {
         grid-column: auto;

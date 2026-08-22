@@ -96,6 +96,7 @@
                         <x-filament::button size="md" color="gray" wire:click="beginEditing({{ $photo->id }})">Edit</x-filament::button>
                         <x-filament::button size="md" color="gray" wire:click="rotate({{ $photo->id }}, 90)">Rotate</x-filament::button>
                         <x-filament::button size="md" style="min-width: 24px; min-height: 24px;" color="gray" wire:click="feature({{ $photo->id }})">Feature</x-filament::button>
+                        <x-filament::button size="md" color="gray" wire:click="setManualSortOrder({{ $photo->id }}, {{ $photo->manual_sort_order === null ? 1 : 'null' }})">{{ $photo->manual_sort_order === null ? 'Pin first' : 'Automatic order' }}</x-filament::button>
                         <x-filament::button size="md" style="min-width: 24px; min-height: 24px;" color="danger" wire:click="remove({{ $photo->id }})">Remove</x-filament::button>
                     </span>@else<span class="text-sm font-semibold">Preview unavailable</span>@endif
                 </article>

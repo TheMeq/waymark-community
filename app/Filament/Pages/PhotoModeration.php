@@ -215,6 +215,14 @@ final class PhotoModeration extends Page
         app(ModerateCommunityPhoto::class)->feature($actor, CommunityPhoto::query()->findOrFail($photoId));
     }
 
+    public function setManualSortOrder(int $photoId, ?int $sortOrder): void
+    {
+        /** @var User $actor */
+        $actor = auth()->user();
+        app(ModerateCommunityPhoto::class)->setManualSortOrder($actor, CommunityPhoto::query()->findOrFail($photoId), $sortOrder);
+        Notification::make()->success()->title('Gallery order saved')->send();
+    }
+
     public function beginEditing(int $photoId): void
     {
         /** @var User $actor */
