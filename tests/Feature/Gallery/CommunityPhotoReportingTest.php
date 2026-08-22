@@ -18,6 +18,7 @@ use App\Domain\Gallery\Queries\ModeratableCommunityPhotoReports;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -164,6 +165,25 @@ final class CommunityPhotoReportingTest extends TestCase
         }
     }
 
+    public function test_unsafe_persisted_pending_delete_references_are_never_filtered_or_deleted(): void
+    {
+        $uploader = User::factory()->create();
+        $photo = $this->publishedPhoto(['uploader_id' => $uploader->id, 'moderation_status' => 'pending', 'published_at' => null]);
+        $unrelated = 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/unrelated.jpg';
+        Storage::disk('local')->put($unrelated, 'do not delete');
+        DB::table('community_photos')->where('id', $photo->id)->update(['source_path' => '../unsafe.jpg', 'processed_variants' => json_encode(['master' => $unrelated])]);
+        $job = CommunityPhotoProcessingJob::query()->create(['community_photo_id' => $photo->id, 'status' => 'queued', 'attempts' => 0, 'staged_source_path' => '../staged.jpg', 'output_directory' => '../output']);
+
+        try {
+            app(DeletePendingCommunityPhoto::class)->handle($uploader, $photo);
+            $this->fail('Expected unsafe persisted references to require repair.');
+        } catch (\RuntimeException) {
+            Storage::disk('local')->assertExists($unrelated);
+            $this->assertDatabaseHas('community_photos', ['id' => $photo->id, 'source_path' => '../unsafe.jpg', 'processing_status' => 'deleting']);
+            $this->assertDatabaseHas('community_photo_processing_jobs', ['id' => $job->id, 'status' => 'cancelled', 'staged_source_path' => '../staged.jpg', 'output_directory' => '../output']);
+        }
+    }
+
     public function test_report_limiter_is_bounded_per_anonymous_identity_and_decays(): void
     {
         $photo = $this->publishedPhoto();
@@ -295,7 +315,7 @@ final class CommunityPhotoReportingTest extends TestCase
 
     private function publishedPhoto(array $overrides = []): CommunityPhoto
     {
-        $path = 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c'.str_pad((string) (CommunityPhoto::query()->count() + 1), 4, '0', STR_PAD_LEFT).'/master.jpg';
+        $path = 'community-photos/3f2504e0-4f89-41d3-9a0c-'.str_pad((string) (CommunityPhoto::query()->count() + 1), 12, '0', STR_PAD_LEFT).'/master.jpg';
         Storage::disk('local')->put($path, 'safe preview');
 
         return CommunityPhoto::query()->create(array_replace([
