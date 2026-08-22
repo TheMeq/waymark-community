@@ -112,7 +112,7 @@ foreach (range(1, 3) as $number) {
     Storage::disk('local')->put($reportPath, $preview);
     $reportPhoto = CommunityPhoto::query()->create([
         'event_id' => $moderationEvent->id, 'uploader_id' => $reportingUploader->id, 'media_type' => 'image', 'processing_status' => 'complete', 'storage_disk' => 'local',
-        'source_path' => $reportPath, 'processed_variants' => ['master' => $reportPath], 'moderation_status' => 'approved', 'published_at' => CarbonImmutable::parse('2026-08-20 10:00:00'), 'captured_at' => CarbonImmutable::parse('2026-08-19 10:00:00'), 'caption' => 'Browser report photo '.$number,
+        'source_path' => $reportPath, 'processed_variants' => ['master' => $reportPath], 'moderation_status' => 'approved', 'caption' => 'Browser report photo '.$number,
     ]);
     CommunityPhotoReport::query()->create([
         'community_photo_id' => $reportPhoto->id, 'reason' => 'privacy', 'status' => 'open', 'detail' => 'Browser moderation report '.$number,

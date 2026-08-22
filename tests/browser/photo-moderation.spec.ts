@@ -48,7 +48,9 @@ test('authorised moderation workflow is operable and accessible at every review 
     const reportRow = page.locator('article').filter({ hasText: `Browser moderation report ${reportNumber}` });
     await expect(reportRow).toBeVisible();
     await reportRow.getByRole('button', { name: 'Remove photo' }).click();
-    await expect(page.getByText('Reported photo removed')).toBeVisible();
+    const removedNotification = page.getByText('Reported photo removed');
+    await expect(removedNotification).toBeVisible();
+    await expect(removedNotification).toBeHidden({ timeout: 10_000 });
 
     const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
