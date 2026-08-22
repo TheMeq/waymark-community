@@ -1,0 +1,19 @@
+<x-filament-panels::page>
+    <div class="space-y-6">
+        <section class="rounded-xl border p-4" aria-labelledby="upload-site-media"><h2 id="upload-site-media" class="text-lg font-semibold">Upload site media</h2><p class="mt-1 text-sm text-gray-600">Upload a web-safe image for a future site placement.</p><input class="mt-3" wire:model="upload" type="file" accept="image/jpeg,image/png,image/webp,image/avif" aria-label="Site media image" /><x-filament::input.wrapper class="mt-3"><x-filament::input wire:model="altText" aria-label="Alt text" placeholder="Describe this image" /></x-filament::input.wrapper><label class="mt-3 flex gap-2"><input wire:model="isDecorative" type="checkbox" /> Decorative image</label><x-filament::button class="mt-3" wire:click="uploadMedia">Upload media</x-filament::button></section>
+        <section aria-labelledby="site-media-library"><h2 id="site-media-library" class="text-lg font-semibold">Site media</h2>
+            @php($media = $this->media())
+            @forelse ($media as $item)
+                @php($preview = $this->preview($item))
+                <article class="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                    <div class="flex items-center gap-3">@if($preview)<img src="{{ $preview->url }}" alt="{{ $preview->alt }}" class="h-20 w-28 rounded-lg object-cover" style="object-position: {{ $preview->focalPointX * 100 }}% {{ $preview->focalPointY * 100 }}%" />@endif<div><p class="font-semibold">{{ $item->is_decorative ? 'Decorative media' : $item->alt_text }}</p><p class="text-sm text-gray-600">{{ $item->health_status === 'healthy' ? 'Ready' : 'Repair needed' }}</p></div></div>
+                    <span class="flex gap-2"><x-filament::button wire:click="beginEditing({{ $item->id }})">Edit</x-filament::button><x-filament::button color="danger" wire:click="remove({{ $item->id }})" wire:confirm="Remove this unused media item?">Remove</x-filament::button></span>
+                </article>
+            @empty <p class="rounded-xl border border-dashed p-6 text-sm text-gray-600">No site media yet.</p> @endforelse
+        </section>
+        <section aria-labelledby="promote-gallery-photo"><h2 id="promote-gallery-photo" class="text-lg font-semibold">Promote an approved gallery photo</h2><p class="text-sm text-gray-600">Promotion creates a separate safe site-media copy.</p>
+            @foreach ($this->promotablePhotos() as $photo)<div class="mt-2 flex items-center justify-between rounded-lg border p-3"><span>{{ $photo->caption ?: 'Community photo' }}</span><x-filament::button wire:click="promote({{ $photo->id }})">Promote</x-filament::button></div>@endforeach
+        </section>
+        @if($editingMediaId)<section class="rounded-xl border p-4" aria-label="Edit media metadata"><x-filament::input.wrapper><x-filament::input wire:model="altText" aria-label="Alt text" /></x-filament::input.wrapper><label class="mt-3 flex gap-2"><input wire:model="isDecorative" type="checkbox" /> Decorative image</label><div class="mt-3 grid grid-cols-2 gap-3"><x-filament::input.wrapper><x-filament::input wire:model="focalPointX" type="number" min="0" max="1" step="0.01" aria-label="Horizontal focal point" /></x-filament::input.wrapper><x-filament::input.wrapper><x-filament::input wire:model="focalPointY" type="number" min="0" max="1" step="0.01" aria-label="Vertical focal point" /></x-filament::input.wrapper></div><x-filament::button class="mt-3" wire:click="saveMetadata">Save details</x-filament::button></section>@endif
+    </div>
+</x-filament-panels::page>

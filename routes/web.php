@@ -28,12 +28,14 @@ use App\Http\Controllers\PublicWalkGpxDownloadController;
 use App\Http\Controllers\PublicWalkIndexController;
 use App\Http\Controllers\PublicWalkShowController;
 use App\Http\Controllers\SensitiveTwoFactorConfirmationController;
+use App\Http\Controllers\SiteMediaStreamController;
 use App\Http\Controllers\WalkGradingGuideController;
 use App\Http\Controllers\WhatsOnCalendarController;
 use App\Http\Controllers\WhatsOnController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
+Route::get('/media/{media}/image/{variant}', SiteMediaStreamController::class)->whereNumber('media')->name('site-media.stream');
 Route::get('/new-here', NewHereController::class)->name('new-here');
 Route::get('/photos', [PublicGalleryController::class, 'index'])->name('gallery.index');
 Route::get('/photos/events/{event:slug}', [PublicGalleryController::class, 'event'])->name('gallery.events.show');
