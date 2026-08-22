@@ -91,6 +91,7 @@ final class HolidayChildEventTest extends TestCase
 
         $this->assertSame([$parent->id, $child->id], $source->eventIds);
         $this->assertTrue($source->mediaImplemented);
+        $this->assertSame([$parent->id], HolidayGallerySource::forPublic($parent->fresh())->eventIds);
     }
 
     public function test_administrator_can_attach_a_child_from_the_holiday_admin_workflow(): void

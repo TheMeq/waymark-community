@@ -12,6 +12,6 @@ final readonly class HolidayCommunityPhotos
 
     public function forHoliday(Event $holiday, ?string $cursor = null, ?int $perPage = null): PublicCommunityPhotoPage
     {
-        return $this->photos->forEvents(HolidayGallerySource::for($holiday)->eventIds, $cursor, $perPage);
+        return $this->photos->forEvents(HolidayGallerySource::forPublic($holiday)->eventIds, $cursor, $perPage);
     }
 }

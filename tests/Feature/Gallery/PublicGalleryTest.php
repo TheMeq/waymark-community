@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Gallery;
 
+use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\SpecialAlbum;
@@ -148,7 +149,7 @@ final class PublicGalleryTest extends TestCase
 
     public function test_gallery_is_context_first_with_eligible_event_and_album_counts(): void
     {
-        $event = Event::factory()->create(['title' => 'Moorland morning', 'slug' => 'moorland-morning']);
+        $event = Event::factory()->create(['title' => 'Moorland morning', 'slug' => 'moorland-morning', 'is_public' => true, 'status' => EventStatus::Published, 'published_at' => now()]);
         $album = SpecialAlbum::query()->create(['title' => 'Spring gathering', 'slug' => 'spring-gathering']);
         $this->photo(['event_id' => $event->id]);
         $this->photo(['event_id' => $event->id]);

@@ -20,6 +20,18 @@ final readonly class HolidayGallerySource
 
         return new self([
             $holidayEvent->id,
+            ...$holidayEvent->children()->orderBy('starts_at')->orderBy('id')->pluck('id')->all(),
+        ]);
+    }
+
+    public static function forPublic(Event $holidayEvent): self
+    {
+        if ($holidayEvent->holiday === null) {
+            throw new InvalidArgumentException('Gallery aggregation requires a holiday event.');
+        }
+
+        return new self([
+            $holidayEvent->id,
             ...$holidayEvent->children()
                 ->whereIn('type', [EventType::Walk, EventType::Social])
                 ->where('is_public', true)
