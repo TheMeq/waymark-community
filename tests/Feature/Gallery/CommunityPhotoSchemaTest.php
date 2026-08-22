@@ -126,7 +126,7 @@ final class CommunityPhotoSchemaTest extends TestCase
     }
 
     /** @param array<string, int|null> $association
-     *  @return array<string, mixed>
+     * @return array<string, mixed>
      */
     private function photoAttributes(User $uploader, array $association): array
     {
