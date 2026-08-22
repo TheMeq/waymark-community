@@ -73,7 +73,7 @@ final class PublicGalleryTest extends TestCase
             $queries[] = $query->sql;
         });
 
-        $pageOne = app(PublicCommunityPhotos::class)->recent(1);
+        $pageOne = app(PublicCommunityPhotos::class)->recent();
         $pageTwo = app(PublicCommunityPhotos::class)->recent($pageOne->nextCursor);
 
         $this->assertSame([$first->id, $third->id], $pageOne->items->pluck('id')->all());
