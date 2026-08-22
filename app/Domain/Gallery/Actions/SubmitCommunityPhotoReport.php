@@ -51,7 +51,7 @@ final class SubmitCommunityPhotoReport
     private function assertReportable(CommunityPhoto $photo): void
     {
         $path = $photo->processed_variants['master'] ?? null;
-        if ($photo->moderation_status !== 'approved' || $photo->published_at === null || $photo->processing_status !== 'complete'
+        if ($photo->moderation_status !== 'approved' || $photo->published_at === null || $photo->published_at->isFuture() || $photo->processing_status !== 'complete'
             || ! is_string($path) || ! PhotoStorageReference::isSafe($photo->storage_disk, $path) || ! Storage::disk($photo->storage_disk)->exists($path)) {
             throw ValidationException::withMessages(['photo' => 'This photo is not available for reporting.']);
         }

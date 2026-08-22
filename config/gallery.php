@@ -17,6 +17,7 @@ return [
     'public' => [
         'downloads_enabled' => (bool) env('GALLERY_PUBLIC_DOWNLOADS_ENABLED', false),
         'per_page' => (int) env('GALLERY_PUBLIC_PER_PAGE', 18),
+        'context_scan_limit' => (int) env('GALLERY_PUBLIC_CONTEXT_SCAN_LIMIT', 72),
     ],
 
     'deferred' => [

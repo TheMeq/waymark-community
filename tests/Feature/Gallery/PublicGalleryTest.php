@@ -35,6 +35,40 @@ final class PublicGalleryTest extends TestCase
         $this->get(route('gallery.photos.image', [$hidden, 'thumbnail']))->assertNotFound();
     }
 
+    public function test_future_scheduled_photo_is_not_public_until_its_publication_time(): void
+    {
+        $photo = $this->photo(['caption' => 'Future summit', 'published_at' => now()->addMinute()]);
+
+        $this->get('/photos')->assertDontSeeText('Future summit');
+        $this->get(route('gallery.photos.image', [$photo, 'thumbnail']))->assertNotFound();
+        $this->get(route('community-photos.reports.create', $photo))->assertNotFound();
+        $this->post(route('community-photos.reports.store', $photo), ['reason' => 'privacy', 'website' => ''])->assertRedirect()->assertSessionHas('status', 'Thank you. Your report has been received.');
+        $this->assertDatabaseMissing('community_photo_reports', ['community_photo_id' => $photo->id]);
+
+        $this->travel(61)->seconds();
+        $this->get('/photos')->assertSeeText('Future summit');
+        $this->get(route('gallery.photos.image', [$photo, 'thumbnail']))->assertOk();
+    }
+
+    public function test_manual_order_is_scoped_to_its_context_and_does_not_distort_recent_stream(): void
+    {
+        $oldPinned = $this->photo(['manual_sort_order' => 1, 'captured_at' => now()->subDays(5)]);
+        $newerElsewhere = $this->photo(['captured_at' => now()->subDay()]);
+
+        $this->assertSame([$newerElsewhere->id, $oldPinned->id], app(PublicCommunityPhotos::class)->recent()->pluck('id')->all());
+        $this->assertSame([$oldPinned->id], app(PublicCommunityPhotos::class)->forEvent($oldPinned->event_id)->pluck('id')->all());
+    }
+
+    public function test_a_stable_public_image_url_is_revoked_immediately_after_removal(): void
+    {
+        $photo = $this->photo();
+        $url = route('gallery.photos.image', [$photo, 'thumbnail']);
+
+        $this->get($url)->assertOk()->assertHeader('Cache-Control', 'no-store, private');
+        $photo->update(['moderation_status' => 'removed', 'published_at' => null]);
+        $this->get($url)->assertNotFound();
+    }
+
     public function test_gallery_uses_manual_order_then_capture_date_then_upload_order_without_duplicates(): void
     {
         $old = $this->photo(['captured_at' => now()->subDays(2), 'created_at' => now()->subDays(2), 'updated_at' => now()->subDays(2)]);
@@ -44,7 +78,7 @@ final class PublicGalleryTest extends TestCase
 
         $ids = app(PublicCommunityPhotos::class)->recent()->pluck('id')->all();
 
-        $this->assertSame([$override->id, $new->id, $old->id, $undated->id], $ids);
+        $this->assertSame([$undated->id, $new->id, $old->id, $override->id], $ids);
         $this->assertCount(4, array_unique($ids));
     }
 
@@ -53,7 +87,7 @@ final class PublicGalleryTest extends TestCase
         $photo = $this->photo();
         config()->set('gallery.public.downloads_enabled', true);
 
-        $this->get(route('gallery.photos.image', [$photo, 'large']))->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff')->assertHeader('Cache-Control', 'immutable, max-age=86400, public');
+        $this->get(route('gallery.photos.image', [$photo, 'large']))->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff')->assertHeader('Cache-Control', 'no-store, private');
         $this->get(route('gallery.photos.download', $photo))->assertOk()->assertHeader('Content-Disposition', 'attachment; filename="waymark-photo-'.$photo->id.'.jpg"');
         $this->get(route('gallery.photos.image', [$photo, '../source']))->assertNotFound();
         config()->set('gallery.public.downloads_enabled', false);

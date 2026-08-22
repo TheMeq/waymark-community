@@ -16,6 +16,7 @@ final class PublicCommunityPhotoPresenter
     {
         return $photo->moderation_status === 'approved'
             && $photo->published_at !== null
+            && $photo->published_at->lessThanOrEqualTo(now())
             && $photo->processing_status === 'complete'
             && $this->safeExistingPath($photo, $variant) !== null;
     }
@@ -39,6 +40,13 @@ final class PublicCommunityPhotoPresenter
             ? [$photo->event->title, route('gallery.events.show', $photo->event->slug)]
             : ($photo->specialAlbum !== null ? [$photo->specialAlbum->title, route('gallery.albums.show', $photo->specialAlbum->slug)] : [null, null]);
 
+        $rotation = ((int) $photo->presentation_rotation % 360 + 360) % 360;
+        $width = max(1, (int) ($photo->width ?? 960));
+        $height = max(1, (int) ($photo->height ?? 640));
+        if (in_array($rotation, [90, 270], true)) {
+            [$width, $height] = [$height, $width];
+        }
+
         return new PublicCommunityPhotoPresentation(
             id: $photo->id,
             imageUrl: route('gallery.photos.image', ['photo' => $photo->id, 'variant' => $variant]),
@@ -48,8 +56,9 @@ final class PublicCommunityPhotoPresenter
             photographerName: $photo->photographer_name,
             contextLabel: $context[0],
             contextUrl: $context[1],
-            width: max(1, (int) ($photo->width ?? 960)),
-            height: max(1, (int) ($photo->height ?? 640)),
+            width: $width,
+            height: $height,
+            rotationStyle: $rotation === 0 ? '' : 'transform: rotate('.$rotation.'deg)',
         );
     }
 

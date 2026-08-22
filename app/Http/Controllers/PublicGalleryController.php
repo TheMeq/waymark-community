@@ -10,14 +10,16 @@ use App\Domain\Gallery\Queries\PublicCommunityPhotos;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
-use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class PublicGalleryController
 {
+    public function __construct(private readonly PublicCommunityPhotoPresenter $presenter) {}
+
     public function index(Request $request, PublicCommunityPhotos $photos): View
     {
         return $this->view('Gallery', $photos->recent((int) $request->integer('page', 1)), null, $photos->contexts());
@@ -33,46 +35,63 @@ final class PublicGalleryController
         return $this->view($album->title, $photos->forAlbum($album->id, (int) $request->integer('page', 1)), ['label' => $album->title, 'url' => route('gallery.albums.show', $album)]);
     }
 
-    public function show(CommunityPhoto $photo, PublicCommunityPhotoPresenter $presenter): View
+    public function show(CommunityPhoto $photo): View
     {
         $photo->loadMissing(['event:id,title,slug', 'specialAlbum:id,title,slug']);
-        $presentation = $presenter->present($photo, 'large');
+        $presentation = $this->presenter->present($photo, 'large');
         abort_unless($presentation !== null, 404);
 
         return view('gallery.show', ['photo' => $presentation, 'downloadsEnabled' => (bool) config('gallery.public.downloads_enabled'), 'theme' => $this->theme(), 'site' => $this->site()]);
     }
 
-    public function image(CommunityPhoto $photo, string $variant, PublicCommunityPhotoPresenter $presenter): Response
+    public function image(CommunityPhoto $photo, string $variant): StreamedResponse
     {
-        return $this->stream($photo, $variant, false, $presenter);
+        return $this->stream($photo, $variant, false);
     }
 
-    public function download(CommunityPhoto $photo, PublicCommunityPhotoPresenter $presenter): Response
+    public function download(CommunityPhoto $photo): StreamedResponse
     {
         abort_unless((bool) config('gallery.public.downloads_enabled'), 404);
 
-        return $this->stream($photo, 'large', true, $presenter);
+        return $this->stream($photo, 'large', true);
     }
 
-    private function stream(CommunityPhoto $photo, string $variant, bool $attachment, PublicCommunityPhotoPresenter $presenter): Response
+    private function stream(CommunityPhoto $photo, string $variant, bool $attachment): StreamedResponse
     {
-        $path = $presenter->pathFor($photo, $variant);
+        $path = $this->presenter->pathFor($photo, $variant);
         abort_unless($path !== null, 404);
         $disk = Storage::disk($photo->storage_disk);
         $mime = $disk->mimeType($path) ?: 'image/jpeg';
-        $contents = $disk->get($path);
-        $headers = ['Content-Type' => $mime, 'Cache-Control' => 'public, max-age=86400, immutable', 'X-Content-Type-Options' => 'nosniff'];
+        $headers = ['Content-Type' => $mime, 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff'];
         if ($attachment) {
-            $headers['Content-Disposition'] = 'attachment; filename="waymark-photo-'.$photo->id.'.'.($mime === 'image/png' ? 'png' : 'jpg').'"';
+            $headers['Content-Disposition'] = 'attachment; filename="waymark-photo-'.$photo->id.'.'.$this->extensionFor($mime).'"';
         }
 
-        return response($contents, 200, $headers);
+        return response()->stream(function () use ($disk, $path): void {
+            $stream = $disk->readStream($path);
+            abort_unless(is_resource($stream), 404);
+            fpassthru($stream);
+            fclose($stream);
+        }, 200, $headers);
     }
 
-    /** @param LengthAwarePaginator<int, CommunityPhoto> $photos @param array{label:string,url:string}|null $context */
-    private function view(string $title, LengthAwarePaginator $photos, ?array $context, ?Collection $contexts = null): View
+    private function extensionFor(string $mime): string
     {
-        return view('gallery.index', ['title' => $title, 'photos' => $photos, 'context' => $context, 'contexts' => $contexts ?? collect(), 'presenter' => app(PublicCommunityPhotoPresenter::class), 'theme' => $this->theme(), 'site' => $this->site()]);
+        return match ($mime) {
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'image/avif' => 'avif',
+            default => 'jpg',
+        };
+    }
+
+    /** @param Paginator<int, CommunityPhoto> $photos @param array{label:string,url:string}|null $context */
+    private function view(string $title, Paginator $photos, ?array $context, ?Collection $contexts = null): View
+    {
+        $photos->setCollection($photos->getCollection()->map(fn (CommunityPhoto $photo) => $this->presenter->present($photo))->filter()->values());
+        $contexts = ($contexts ?? collect())->map(fn (array $item): array => [...$item, 'cover' => $this->presenter->present($item['cover'])])->filter(fn (array $item): bool => $item['cover'] !== null)->values();
+
+        return view('gallery.index', ['title' => $title, 'photos' => $photos, 'context' => $context, 'contexts' => $contexts, 'theme' => $this->theme(), 'site' => $this->site()]);
     }
 
     private function theme(): BrandTheme

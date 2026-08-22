@@ -17,10 +17,7 @@
                 <h2 id="gallery-contexts" class="text-2xl">Explore albums</h2>
                 <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     @foreach ($contexts as $item)
-                        @php($cover = $presenter->present($item['cover']))
-                        @if ($cover)
-                            <a class="wm-gallery-card block no-underline" href="{{ $item['url'] }}"><img src="{{ $cover->imageUrl }}" alt="" loading="lazy" width="{{ $cover->width }}" height="{{ $cover->height }}" class="aspect-[16/9] w-full object-cover"><span class="block p-4 font-semibold">{{ $item['label'] }} <span class="font-normal text-ink-muted">{{ $item['count'] }} {{ \Illuminate\Support\Str::plural('photo', $item['count']) }}</span></span></a>
-                        @endif
+                        <a class="wm-gallery-card block no-underline" href="{{ $item['url'] }}"><img src="{{ $item['cover']->imageUrl }}" alt="" loading="lazy" width="{{ $item['cover']->width }}" height="{{ $item['cover']->height }}" class="aspect-[16/9] w-full object-cover"><span class="block p-4 font-semibold">{{ $item['label'] }} <span class="font-normal text-ink-muted">{{ $item['count'] }} {{ \Illuminate\Support\Str::plural('photo', $item['count']) }}</span></span></a>
                     @endforeach
                 </div>
             </section>
@@ -31,22 +28,21 @@
         @else
             <div class="wm-gallery-grid mt-[var(--wm-space-7)]" x-data="galleryLightbox()" x-init="initialise()">
                 @foreach ($photos as $item)
-                    @php($photo = $presenter->present($item))
-                    @if ($photo)
-                        <article class="wm-gallery-card">
+                    @php($photo = $item)
+                    <article class="wm-gallery-card">
                             <a href="{{ $photo->detailUrl }}" data-gallery-photo data-detail-url="{{ $photo->detailUrl }}" @click.prevent="open($el)" class="block">
-                                <img src="{{ $photo->imageUrl }}" alt="{{ $photo->caption ?? 'Community photo' }}" loading="lazy" width="{{ $photo->width }}" height="{{ $photo->height }}" class="aspect-[4/3] w-full object-cover">
+                                <img src="{{ $photo->imageUrl }}" alt="{{ $photo->caption ?? 'Community photo' }}" loading="lazy" width="{{ $photo->width }}" height="{{ $photo->height }}" style="{{ $photo->rotationStyle }}" class="aspect-[4/3] w-full object-cover">
                             </a>
                             @if ($photo->caption)<p class="px-4 pt-3 text-sm font-medium">{{ $photo->caption }}</p>@endif
                             @if ($photo->photographerName)<p class="px-4 pb-4 text-sm text-ink-muted">Photo: {{ $photo->photographerName }}</p>@endif
                         </article>
-                    @endif
                 @endforeach
-                <dialog x-ref="dialog" class="wm-gallery-dialog" aria-label="Photo viewer" @close="returnFocus()" @keydown.escape.prevent="close()" @keydown.left.prevent="previous()" @keydown.right.prevent="next()" @keydown.tab.prevent="trap($event)">
+                <dialog x-ref="dialog" class="wm-gallery-dialog" aria-label="Photo viewer" aria-describedby="gallery-lightbox-description" @close="returnFocus()" @keydown.escape.prevent="close()" @keydown.left.prevent="previous()" @keydown.right.prevent="next()" @keydown.tab.prevent="trap($event)">
                     <div class="wm-gallery-dialog-content" @touchstart="touchStart($event)" @touchend="touchEnd($event)">
+                        <p id="gallery-lightbox-description" class="sr-only">Use previous and next controls, arrow keys, or swipe to browse photos. Press Escape to close.</p>
                         <button class="wm-gallery-dialog-close" type="button" @click="close()" aria-label="Close photo">×</button>
                         <div x-html="content"></div>
-                        <div class="mt-4 flex justify-between gap-3"><button type="button" class="wm-button-secondary" @click="previous()">Previous</button><button type="button" class="wm-button-secondary" @click="next()">Next</button></div>
+                        <div class="mt-4 flex justify-between gap-3"><button type="button" class="wm-button-secondary" @click="previous()" :disabled="index === 0">Previous</button><button type="button" class="wm-button-secondary" @click="next()" :disabled="index === links.length - 1">Next</button></div>
                     </div>
                 </dialog>
             </div>

@@ -15,5 +15,6 @@ final readonly class PublicCommunityPhotoPresentation
         public ?string $contextUrl,
         public int $width,
         public int $height,
+        public string $rotationStyle,
     ) {}
 }
