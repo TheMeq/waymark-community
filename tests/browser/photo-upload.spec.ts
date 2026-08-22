@@ -1,9 +1,9 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
-async function signIn(page: Page) {
+async function signIn(page: Page, email = 'morgan.leader@example.test') {
     await page.goto('/login');
-    await page.getByLabel('Email address').fill('morgan.leader@example.test');
+    await page.getByLabel('Email address').fill(email);
     await page.getByLabel('Password').fill('password');
     await Promise.all([
         page.waitForURL('**/new-here'),
@@ -108,12 +108,12 @@ test('three-file threshold defers real uploads without retries or duplicate requ
     }
 });
 
-test('uploader can delete a pending photo and request removal of a published photo', async ({ page }) => {
-    await signIn(page);
+test('uploader can delete a pending photo and request removal of a published photo', async ({ page }, testInfo) => {
+    await signIn(page, `browser-uploader-${testInfo.project.name}@example.test`);
     await page.goto('/photos/upload?event=2');
     const ownPhotos = page.getByRole('region', { name: 'Your photos' });
-    const pending = ownPhotos.locator('article').filter({ has: page.getByText('Pending', { exact: true }) }).first();
-    const published = ownPhotos.locator('article').filter({ has: page.getByText('Approved', { exact: true }) }).first();
+    const pending = ownPhotos.locator('article').filter({ hasText: `Browser isolated pending ${testInfo.project.name}` });
+    const published = ownPhotos.locator('article').filter({ hasText: `Browser isolated published ${testInfo.project.name}` });
 
     await expect(pending.getByRole('button', { name: 'Delete pending photo' })).toBeVisible();
     await pending.getByRole('button', { name: 'Delete pending photo' }).click();

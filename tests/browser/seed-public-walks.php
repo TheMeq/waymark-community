@@ -113,6 +113,23 @@ foreach (range(1, 3) as $number) {
     ]);
 }
 
+foreach (['desktop', 'tablet', 'mobile'] as $viewport) {
+    $uploader = User::factory()->create(['email' => 'browser-uploader-'.$viewport.'@example.test', 'password' => 'password']);
+    app(AcceptCurrentPhotoUploadPolicy::class)->handle($uploader);
+    $pendingPath = 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/browser-isolated-pending-'.$viewport.'.jpg';
+    $publishedPath = 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/browser-isolated-published-'.$viewport.'.jpg';
+    Storage::disk('local')->put($pendingPath, $preview);
+    Storage::disk('local')->put($publishedPath, $preview);
+    CommunityPhoto::query()->create([
+        'event_id' => $moderationEvent->id, 'uploader_id' => $uploader->id, 'media_type' => 'image', 'processing_status' => 'complete', 'storage_disk' => 'local',
+        'source_path' => $pendingPath, 'processed_variants' => ['master' => $pendingPath], 'moderation_status' => 'pending', 'caption' => 'Browser isolated pending '.$viewport,
+    ]);
+    CommunityPhoto::query()->create([
+        'event_id' => $moderationEvent->id, 'uploader_id' => $uploader->id, 'media_type' => 'image', 'processing_status' => 'complete', 'storage_disk' => 'local',
+        'source_path' => $publishedPath, 'processed_variants' => ['master' => $publishedPath], 'moderation_status' => 'approved', 'published_at' => CarbonImmutable::parse('2026-08-20 10:00:00'), 'caption' => 'Browser isolated published '.$viewport,
+    ]);
+}
+
 $securityUser = User::factory()->create([
     'name' => 'Security Walker',
     'email' => 'security-browser@example.test',
