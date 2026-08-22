@@ -6,10 +6,12 @@ use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\SiteMedia\Actions\PromoteCommunityPhotoToSiteMedia;
 use App\Domain\SiteMedia\Actions\UpdateSiteMediaMetadata;
+use App\Domain\SiteMedia\Actions\UploadSiteMedia;
 use App\Domain\SiteMedia\Data\SiteMediaMetadata;
 use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -84,6 +86,19 @@ final class SiteMediaTest extends TestCase
         $media = SiteMedia::query()->create($this->attributes(['processed_variants' => ['master' => 'site-media/3f2504e0-4f89-41d3-9a0c-0305e82c3300/master.jpg']]));
 
         $this->get(route('site-media.stream', [$media, 'master']))->assertNotFound();
+    }
+
+    public function test_safe_upload_creates_only_site_media_derivatives(): void
+    {
+        Storage::fake('local');
+        $actor = User::factory()->create(['is_admin' => true]);
+
+        $media = app(UploadSiteMedia::class)->handle($actor, UploadedFile::fake()->image('ridge.jpg', 1200, 800), new SiteMediaMetadata('Walkers on a ridge', false));
+
+        $this->assertStringStartsWith('site-media/', $media->processed_variants['master']);
+        $this->assertTrue(Storage::disk('local')->exists($media->processed_variants['master']));
+        $this->assertSame(0, CommunityPhoto::query()->count());
+        $this->assertSame('uploaded', $media->audits()->sole()->action);
     }
 
     /** @return array<string, mixed> */
