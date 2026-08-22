@@ -2,11 +2,13 @@
 
 namespace App\Domain\SiteMedia\Actions;
 
+use App\Domain\Gallery\Actions\IngestCommunityPhoto;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\PublicCommunityPhotoPresenter;
 use App\Domain\SiteMedia\Data\SiteMediaMetadata;
 use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -16,7 +18,7 @@ final class PromoteCommunityPhotoToSiteMedia
 {
     use ManagesSiteMedia;
 
-    public function __construct(private readonly PublicCommunityPhotoPresenter $presenter) {}
+    public function __construct(private readonly PublicCommunityPhotoPresenter $presenter, private readonly IngestCommunityPhoto $ingest) {}
 
     public function handle(User $actor, CommunityPhoto $photo, SiteMediaMetadata $metadata): SiteMedia
     {
@@ -31,22 +33,19 @@ final class PromoteCommunityPhotoToSiteMedia
             }
             $key = Str::uuid()->toString();
             $disk = Storage::disk($locked->storage_disk);
-            $contents = $disk->get($path);
-            $image = @getimagesizefromstring($contents);
-            if ($contents === false || ! is_array($image) || ! isset($image['mime'], $image[0], $image[1])) {
+            $sourcePath = $disk->path($path);
+            $image = @getimagesize($sourcePath);
+            if (! is_array($image) || ! isset($image['mime'])) {
                 throw ValidationException::withMessages(['photo' => 'The approved derivative could not be copied safely.']);
             }
-            $extension = match (strtolower((string) $image['mime'])) {
-                'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/avif' => 'avif', default => throw ValidationException::withMessages(['photo' => 'The approved derivative is not a supported raster image.'])
-            };
-            $destination = 'site-media/'.$key.'/master.'.$extension;
-            if (! $disk->put($destination, $contents)) {
-                $disk->deleteDirectory('site-media/'.$key);
-                throw ValidationException::withMessages(['photo' => 'The approved derivative could not be copied safely.']);
-            }
-            $variants = ['master' => $destination];
             try {
-                $media = SiteMedia::query()->create(array_merge($values, ['created_by_user_id' => $actor->id, 'source_community_photo_id' => $locked->id, 'storage_key' => $key, 'storage_disk' => $locked->storage_disk, 'processed_variants' => $variants, 'mime_type' => strtolower((string) $image['mime']), 'width' => (int) $image[0], 'height' => (int) $image[1], 'file_size_bytes' => strlen($contents), 'processing_status' => 'complete', 'health_status' => 'healthy']));
+                $processed = $this->ingest->handle(new UploadedFile($sourcePath, basename($path), (string) $image['mime'], null, true), 'site-media/'.$key);
+                $variants = [];
+                foreach ($processed->variants as $name => $variant) {
+                    $variants[$name] = $variant->path;
+                }
+                $source = $processed->retainedSource ?? $processed->variants['master'];
+                $media = SiteMedia::query()->create(array_merge($values, ['created_by_user_id' => $actor->id, 'source_community_photo_id' => $locked->id, 'storage_key' => $key, 'storage_disk' => $locked->storage_disk, 'processed_variants' => $variants, 'mime_type' => $source->mimeType, 'width' => $source->width, 'height' => $source->height, 'file_size_bytes' => $source->fileSizeBytes, 'processing_status' => 'complete', 'health_status' => 'healthy']));
             } catch (\Throwable $exception) {
                 $disk->deleteDirectory('site-media/'.$key);
                 throw $exception;
