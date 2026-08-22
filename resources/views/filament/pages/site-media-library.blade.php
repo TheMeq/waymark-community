@@ -1,7 +1,7 @@
 <x-filament-panels::page>
     <div class="space-y-6">
         <section class="rounded-xl border p-4" aria-labelledby="upload-site-media"><h2 id="upload-site-media" class="text-lg font-semibold">Upload site media</h2><p class="mt-1 text-sm text-gray-600">Upload a web-safe image for a future site placement.</p><input class="mt-3" wire:model="upload" type="file" accept="image/jpeg,image/png,image/webp,image/avif" aria-label="Site media image" /><x-filament::input.wrapper class="mt-3"><x-filament::input wire:model="altText" aria-label="Alt text" placeholder="Describe this image" /></x-filament::input.wrapper><label class="mt-3 flex gap-2"><input wire:model="isDecorative" type="checkbox" /> Decorative image</label><x-filament::button class="mt-3" wire:click="uploadMedia">Upload media</x-filament::button></section>
-        <section aria-labelledby="site-media-library"><h2 id="site-media-library" class="text-lg font-semibold">Site media</h2>
+        <section aria-labelledby="site-media-library"><h2 id="site-media-library" class="text-lg font-semibold">Site media</h2><x-filament::input.wrapper class="mt-3"><x-filament::input wire:model.live="search" aria-label="Search site media" placeholder="Search media" /></x-filament::input.wrapper>
             @php($media = $this->media())
             @forelse ($media as $item)
                 @php($preview = $this->preview($item))

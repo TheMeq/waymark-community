@@ -45,6 +45,8 @@ final class SiteMediaLibrary extends Page
 
     public ?TemporaryUploadedFile $upload = null;
 
+    public string $search = '';
+
     public static function getSlug(?Panel $panel = null): string
     {
         return 'media-library';
@@ -60,7 +62,7 @@ final class SiteMediaLibrary extends Page
     /** @return LengthAwarePaginator<int, SiteMedia> */
     public function media(): LengthAwarePaginator
     {
-        return SiteMedia::query()->latest()->paginate(20);
+        return SiteMedia::query()->whereNotIn('health_status', ['removed'])->when(trim($this->search) !== '', fn ($query) => $query->where('alt_text', 'like', '%'.trim($this->search).'%'))->latest()->paginate(20);
     }
 
     /** @return LengthAwarePaginator<int, CommunityPhoto> */
