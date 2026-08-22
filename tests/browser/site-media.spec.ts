@@ -27,7 +27,7 @@ test('site media library is accessible and promotes deliberate approved-photo co
     await page.getByRole('button', { name: 'Upload media' }).click();
     await uploadAttempt;
     await expect(page.getByText('Media uploaded')).toBeVisible();
-    await expect(page.getByText('A directly uploaded ridge')).toBeVisible();
+    await expect(page.getByText('A directly uploaded ridge').first()).toBeVisible();
     await page.getByRole('button', { name: 'Promote' }).first().click();
     await expect(page.getByText('Photo promoted to the media library')).toBeVisible();
     await page.getByRole('button', { name: 'Edit' }).first().click();
