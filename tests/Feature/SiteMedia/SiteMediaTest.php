@@ -4,6 +4,7 @@ namespace Tests\Feature\SiteMedia;
 
 use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Models\CommunityPhoto;
+use App\Domain\SiteMedia\Actions\DeleteSiteMedia;
 use App\Domain\SiteMedia\Actions\MarkSiteMediaForRepair;
 use App\Domain\SiteMedia\Actions\PromoteCommunityPhotoToSiteMedia;
 use App\Domain\SiteMedia\Actions\RegenerateSiteMedia;
@@ -179,6 +180,27 @@ final class SiteMediaTest extends TestCase
         Storage::disk('local')->assertMissing($oldPath);
         Storage::disk('local')->assertExists($newPath);
         $this->assertSame('regeneration_cleanup_completed', $media->audits()->latest('id')->value('action'));
+    }
+
+    public function test_failed_removal_retains_the_record_for_a_later_safe_retry(): void
+    {
+        $actor = User::factory()->create(['is_admin' => true]);
+        $media = SiteMedia::query()->create($this->attributes());
+        $disk = Mockery::mock();
+        $disk->shouldReceive('deleteDirectory')->once()->with('site-media/'.$media->storage_key)->andReturnFalse();
+        Storage::shouldReceive('disk')->with('local')->andReturn($disk);
+
+        $this->assertFalse(app(DeleteSiteMedia::class)->handle($actor, $media));
+        $this->assertSame('deletion_failed', $media->fresh()->health_status);
+
+        $this->app->forgetInstance('filesystem');
+        Storage::clearResolvedInstance('filesystem');
+        Storage::fake('local');
+        Storage::disk('local')->put('site-media/'.$media->storage_key.'/master.jpg', 'safe image');
+
+        $this->assertTrue(app(DeleteSiteMedia::class)->retry($actor, $media->fresh()));
+        $this->assertSame('removed', $media->fresh()->health_status);
+        $this->assertSame(['removal_requested', 'deletion_failed', 'removed'], $media->audits()->pluck('action')->all());
     }
 
     /** @return array<string, mixed> */
