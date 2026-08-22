@@ -73,9 +73,9 @@ test('gallery pagination has a normal load-more link without duplicate photos', 
     const firstPageIds = await page.locator('[data-gallery-photo]').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
     const loadMore = page.getByRole('link', { name: 'Load more' });
     const href = await loadMore.getAttribute('href');
-    expect(href).toContain('page=2');
+    expect(href).toContain('cursor=');
     await loadMore.click();
-    await expect(page).toHaveURL(/page=2/);
+    await expect(page).toHaveURL(/cursor=/);
     const nextPageIds = await page.locator('[data-gallery-photo]').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
     expect(nextPageIds.some((id) => firstPageIds.includes(id))).toBe(false);
 });

@@ -35,7 +35,7 @@ final class PublicCommunityPhotos
             ->limit(max(1, (int) config('gallery.public.context_limit', 12)))->get()
             ->map(function (CommunityPhoto $row): ?array {
                 $query = $this->base()->when($row->event_id !== null, fn (Builder $q) => $q->where('event_id', $row->event_id), fn (Builder $q) => $q->where('special_album_id', $row->special_album_id));
-                $cover = $this->candidates($query, false)->limit(max(1, (int) config('gallery.public.context_cover_scan_limit', 24)))->get()
+                $cover = $this->candidates($query, true)->limit(max(1, (int) config('gallery.public.context_cover_scan_limit', 24)))->get()
                     ->first(fn (CommunityPhoto $photo): bool => $this->presenter->isEligible($photo));
                 if (! $cover instanceof CommunityPhoto) {
                     return null;
@@ -62,7 +62,7 @@ final class PublicCommunityPhotos
                 break;
             }
             foreach ($candidates as $photo) {
-                $lastInspected = $this->cursorFor($photo);
+                $lastInspected = $this->cursorFor($photo, $contextOrder);
                 $presentation = $this->presenter->present($photo);
                 if ($presentation === null) {
                     continue;
@@ -95,7 +95,26 @@ final class PublicCommunityPhotos
     private function candidates(Builder $query, bool $contextOrder, ?array $cursor = null): Builder
     {
         $query->with(['event:id,title,slug', 'specialAlbum:id,title,slug']);
-        if ($cursor !== null) {
+        if ($cursor !== null && $contextOrder) {
+            $query->where(function (Builder $q) use ($cursor): void {
+                $q->whereRaw('CASE WHEN manual_sort_order IS NULL THEN 1 ELSE 0 END > ?', [$cursor['rank'] ?? 0])
+                    ->orWhere(function (Builder $q) use ($cursor): void {
+                        $q->whereRaw('CASE WHEN manual_sort_order IS NULL THEN 1 ELSE 0 END = ?', [$cursor['rank'] ?? 0])
+                            ->whereRaw('COALESCE(manual_sort_order, 0) >= ?', [$cursor['manual'] ?? 0])
+                            ->where(function (Builder $q) use ($cursor): void {
+                                $q->whereRaw('COALESCE(manual_sort_order, 0) > ?', [$cursor['manual'] ?? 0])
+                                    ->orWhere(function (Builder $q) use ($cursor): void {
+                                        $q->whereRaw('COALESCE(manual_sort_order, 0) = ?', [$cursor['manual'] ?? 0])
+                                            ->where(function (Builder $q) use ($cursor): void {
+                                                $q->whereRaw('COALESCE(captured_at, created_at) < ?', [$cursor['at']])->orWhere(function (Builder $q) use ($cursor): void {
+                                                    $q->whereRaw('COALESCE(captured_at, created_at) = ?', [$cursor['at']])->where('id', '<', $cursor['id']);
+                                                });
+                                            });
+                                    });
+                            });
+                    });
+            });
+        } elseif ($cursor !== null) {
             $query->where(function (Builder $q) use ($cursor): void {
                 $q->whereRaw('COALESCE(captured_at, created_at) < ?', [$cursor['at']])->orWhere(function (Builder $q) use ($cursor): void {
                     $q->whereRaw('COALESCE(captured_at, created_at) = ?', [$cursor['at']])->where('id', '<', $cursor['id']);
@@ -106,10 +125,10 @@ final class PublicCommunityPhotos
         return $query->when($contextOrder, fn (Builder $q) => $q->orderByRaw('CASE WHEN manual_sort_order IS NULL THEN 1 ELSE 0 END')->orderBy('manual_sort_order'))->orderByRaw('COALESCE(captured_at, created_at) DESC')->orderByDesc('id');
     }
 
-    /** @return array{at:string,id:int} */
-    private function cursorFor(CommunityPhoto $photo): array
+    /** @return array{at:string,id:int,rank:int,manual:int} */
+    private function cursorFor(CommunityPhoto $photo, bool $contextOrder): array
     {
-        return ['at' => ($photo->captured_at ?? $photo->created_at)->format('Y-m-d H:i:s'), 'id' => $photo->id];
+        return ['at' => ($photo->captured_at ?? $photo->created_at)->format('Y-m-d H:i:s'), 'id' => $photo->id, 'rank' => $contextOrder && $photo->manual_sort_order === null ? 1 : 0, 'manual' => (int) ($photo->manual_sort_order ?? 0)];
     }
 
     /** @return array{at:string,id:int}|null */

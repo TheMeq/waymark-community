@@ -82,6 +82,35 @@ final class PublicGalleryTest extends TestCase
         $this->assertTrue(collect($queries)->contains(fn (string $sql): bool => str_contains(strtolower($sql), 'limit')));
     }
 
+    public function test_context_cursor_preserves_manual_order_without_skipping_newer_unpinned_photos(): void
+    {
+        config()->set('gallery.public.per_page', 1);
+        $event = Event::factory()->create();
+        $pinned = $this->photo(['event_id' => $event->id, 'manual_sort_order' => 1, 'captured_at' => now()->subDays(3)]);
+        $newer = $this->photo(['event_id' => $event->id, 'captured_at' => now()->subDay()]);
+        $first = app(PublicCommunityPhotos::class)->forEvent($event->id);
+        $second = app(PublicCommunityPhotos::class)->forEvent($event->id, $first->nextCursor);
+        $this->assertSame([$pinned->id], $first->items->pluck('id')->all());
+        $this->assertSame([$newer->id], $second->items->pluck('id')->all());
+    }
+
+    public function test_empty_bounded_scan_exposes_continuation_until_a_later_safe_photo_is_reached(): void
+    {
+        config()->set('gallery.public.per_page', 1);
+        config()->set('gallery.public.maximum_scan_chunks', 1);
+        foreach (range(1, 12) as $minute) {
+            $missing = $this->photo(['captured_at' => now()->subMinutes($minute)]);
+            Storage::disk('local')->delete(array_values($missing->processed_variants));
+        }
+        $valid = $this->photo(['captured_at' => now()->subMinutes(13)]);
+        $first = app(PublicCommunityPhotos::class)->recent();
+        $this->assertTrue($first->isEmpty());
+        $this->assertNotNull($first->nextCursor);
+        $second = app(PublicCommunityPhotos::class)->recent($first->nextCursor);
+        $this->assertSame([$valid->id], $second->items->pluck('id')->all());
+        $this->get('/photos')->assertSeeText('No photos yet.')->assertSeeText('Load more');
+    }
+
     public function test_a_stable_public_image_url_is_revoked_immediately_after_removal(): void
     {
         $photo = $this->photo();

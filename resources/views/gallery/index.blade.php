@@ -25,6 +25,9 @@
 
         @if ($photos->isEmpty())
             <p class="mt-[var(--wm-space-7)] text-ink-muted">No photos yet.</p>
+            @if ($photos->hasMorePages())
+                <a class="wm-button-secondary mt-[var(--wm-space-6)]" href="{{ $photos->nextPageUrl() }}" data-load-more>Load more</a>
+            @endif
         @else
             <div class="wm-gallery-grid mt-[var(--wm-space-7)]" x-data="galleryLightbox()" x-init="initialise()">
                 @foreach ($photos as $item)
