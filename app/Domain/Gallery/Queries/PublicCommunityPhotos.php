@@ -11,7 +11,10 @@ use Illuminate\Support\Collection;
 
 final class PublicCommunityPhotos
 {
-    public function __construct(private readonly PublicCommunityPhotoPresenter $presenter) {}
+    public function __construct(
+        private readonly PublicCommunityPhotoPresenter $presenter,
+        private readonly UploadablePublicEvents $events,
+    ) {}
 
     public function recent(?string $cursor = null, ?int $perPage = null): PublicCommunityPhotoPage
     {
@@ -141,7 +144,15 @@ final class PublicCommunityPhotos
     /** @return Builder<CommunityPhoto> */
     private function base(): Builder
     {
-        return CommunityPhoto::query()->where('moderation_status', 'approved')->whereNotNull('published_at')->where('published_at', '<=', now())->where('processing_status', 'complete');
+        return CommunityPhoto::query()
+            ->where('moderation_status', 'approved')
+            ->whereNotNull('published_at')
+            ->where('published_at', '<=', now())
+            ->where('processing_status', 'complete')
+            ->where(function (Builder $query): void {
+                $query->whereNotNull('special_album_id')
+                    ->orWhereHas('event', fn (Builder $eventQuery): Builder => $this->events->apply($eventQuery));
+            });
     }
 
     /** @return Builder<CommunityPhoto> */

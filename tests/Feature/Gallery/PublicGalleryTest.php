@@ -3,10 +3,12 @@
 namespace Tests\Feature\Gallery;
 
 use App\Domain\Events\Enums\EventStatus;
+use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Gallery\Queries\PublicCommunityPhotos;
+use App\Domain\Socials\Models\Social;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -86,7 +88,7 @@ final class PublicGalleryTest extends TestCase
     public function test_context_cursor_preserves_manual_order_without_skipping_newer_unpinned_photos(): void
     {
         config()->set('gallery.public.per_page', 1);
-        $event = Event::factory()->create();
+        $event = $this->publicEvent();
         $pinned = $this->photo(['event_id' => $event->id, 'manual_sort_order' => 1, 'captured_at' => now()->subDays(3)]);
         $newer = $this->photo(['event_id' => $event->id, 'captured_at' => now()->subDay()]);
         $first = app(PublicCommunityPhotos::class)->forEvent($event->id);
@@ -149,7 +151,7 @@ final class PublicGalleryTest extends TestCase
 
     public function test_gallery_is_context_first_with_eligible_event_and_album_counts(): void
     {
-        $event = Event::factory()->create(['title' => 'Moorland morning', 'slug' => 'moorland-morning', 'is_public' => true, 'status' => EventStatus::Published, 'published_at' => now()]);
+        $event = $this->publicEvent(['title' => 'Moorland morning', 'slug' => 'moorland-morning']);
         $album = SpecialAlbum::query()->create(['title' => 'Spring gathering', 'slug' => 'spring-gathering']);
         $this->photo(['event_id' => $event->id]);
         $this->photo(['event_id' => $event->id]);
@@ -173,11 +175,25 @@ final class PublicGalleryTest extends TestCase
         }
 
         return CommunityPhoto::query()->create(array_replace([
-            'event_id' => Event::factory()->create()->id,
+            'event_id' => $this->publicEvent()->id,
             'uploader_id' => User::factory()->create()->id,
             'media_type' => 'image', 'processing_status' => 'complete', 'storage_disk' => 'local',
             'source_path' => $variants['master'], 'processed_variants' => $variants,
             'moderation_status' => 'approved', 'published_at' => now(), 'caption' => 'A photo',
         ], $overrides));
+    }
+
+    /** @param array<string, mixed> $overrides */
+    private function publicEvent(array $overrides = []): Event
+    {
+        $event = Event::factory()->create(array_replace([
+            'type' => EventType::Social,
+            'status' => EventStatus::Published,
+            'is_public' => true,
+            'published_at' => now(),
+        ], $overrides));
+        Social::query()->create(['event_id' => $event->id, 'venue_name' => 'Village hall']);
+
+        return $event;
     }
 }

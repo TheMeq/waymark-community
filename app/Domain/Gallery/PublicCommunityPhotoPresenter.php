@@ -5,6 +5,7 @@ namespace App\Domain\Gallery;
 use App\Domain\Gallery\Data\PhotoStorageReference;
 use App\Domain\Gallery\Data\PublicCommunityPhotoPresentation;
 use App\Domain\Gallery\Models\CommunityPhoto;
+use App\Domain\Gallery\Queries\UploadablePublicEvents;
 use Illuminate\Support\Facades\Storage;
 
 final class PublicCommunityPhotoPresenter
@@ -12,12 +13,15 @@ final class PublicCommunityPhotoPresenter
     /** @var list<string> */
     private const VARIANTS = ['thumbnail', 'medium', 'large', 'master'];
 
+    public function __construct(private readonly UploadablePublicEvents $events) {}
+
     public function isEligible(CommunityPhoto $photo, string $variant = 'thumbnail'): bool
     {
         return $photo->moderation_status === 'approved'
             && $photo->published_at !== null
             && $photo->published_at->lessThanOrEqualTo(now())
             && $photo->processing_status === 'complete'
+            && $this->hasPublicContext($photo)
             && $this->safeExistingPath($photo, $variant) !== null;
     }
 
@@ -75,6 +79,17 @@ final class PublicCommunityPhotoPresenter
         }
 
         return null;
+    }
+
+    private function hasPublicContext(CommunityPhoto $photo): bool
+    {
+        if ($photo->special_album_id !== null) {
+            return true;
+        }
+
+        return $photo->event_id !== null
+            && $photo->event !== null
+            && $this->events->isEligible($photo->event);
     }
 
     /** @return list<string> */

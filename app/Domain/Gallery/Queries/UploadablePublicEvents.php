@@ -12,7 +12,14 @@ final class UploadablePublicEvents
     /** @return Builder<Event> */
     public function query(): Builder
     {
-        return Event::query()->where('is_public', true)->whereNotNull('published_at')->where('published_at', '<=', now())
+        return $this->apply(Event::query());
+    }
+
+    /** @param Builder<Event> $query
+     *  @return Builder<Event> */
+    public function apply(Builder $query): Builder
+    {
+        return $query->where('is_public', true)->whereNotNull('published_at')->where('published_at', '<=', now())
             ->whereIn('status', [EventStatus::Published, EventStatus::Changed, EventStatus::Postponed, EventStatus::Cancelled, EventStatus::Completed])
             ->where(function (Builder $query): void {
                 $query->where(fn (Builder $query): Builder => $query->where('type', EventType::Walk)->whereHas('walk'))
@@ -24,5 +31,10 @@ final class UploadablePublicEvents
     public function find(int $id): ?Event
     {
         return $this->query()->find($id);
+    }
+
+    public function isEligible(Event $event): bool
+    {
+        return $this->query()->whereKey($event->getKey())->exists();
     }
 }

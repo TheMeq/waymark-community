@@ -3,7 +3,6 @@
 namespace App\Filament\Pages;
 
 use App\Domain\Accounts\Enums\ModuleCapability;
-use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Actions\ModerateCommunityPhoto;
 use App\Domain\Gallery\Actions\ResolveCommunityPhotoRemovalRequest;
 use App\Domain\Gallery\Actions\ResolveCommunityPhotoReport;
@@ -17,6 +16,7 @@ use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Gallery\Queries\ModeratableCommunityPhotoRemovalRequests;
 use App\Domain\Gallery\Queries\ModeratableCommunityPhotoReports;
 use App\Domain\Gallery\Queries\ModeratableCommunityPhotos;
+use App\Domain\Gallery\Queries\UploadablePublicEvents;
 use App\Models\User;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -260,7 +260,10 @@ final class PhotoModeration extends Page
     {
         /** @var User $actor */
         $actor = auth()->user();
-        $events = Event::query()->when(! $actor->hasCapability(ModuleCapability::ModerateAllCommunityPhotos), fn ($query) => $query->where('organiser_id', $actor->id))->orderBy('starts_at')->limit(100)->pluck('title', 'id')->mapWithKeys(fn (string $title, int $id): array => ['event:'.$id => 'Event: '.$title]);
+        $events = app(UploadablePublicEvents::class)->query()
+            ->when(! $actor->hasCapability(ModuleCapability::ModerateAllCommunityPhotos), fn ($query) => $query->where('organiser_id', $actor->id))
+            ->orderBy('starts_at')->limit(100)->pluck('title', 'id')
+            ->mapWithKeys(fn (string $title, int $id): array => ['event:'.$id => 'Event: '.$title]);
         if (! $actor->hasCapability(ModuleCapability::ModerateAllCommunityPhotos)) {
             return $events->all();
         }

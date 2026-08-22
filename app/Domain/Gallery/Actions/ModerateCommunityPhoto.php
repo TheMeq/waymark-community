@@ -9,6 +9,7 @@ use App\Domain\Gallery\Data\CommunityPhotoModerationRequest;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\CommunityPhotoModerationAudit;
 use App\Domain\Gallery\Models\SpecialAlbum;
+use App\Domain\Gallery\Queries\UploadablePublicEvents;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,10 @@ use Illuminate\Validation\ValidationException;
 
 final class ModerateCommunityPhoto
 {
-    public function __construct(private readonly CommunityPhotoModerationPreviewResolver $readiness) {}
+    public function __construct(
+        private readonly CommunityPhotoModerationPreviewResolver $readiness,
+        private readonly UploadablePublicEvents $events,
+    ) {}
 
     public function approve(User $actor, CommunityPhoto $photo): CommunityPhoto
     {
@@ -85,10 +89,11 @@ final class ModerateCommunityPhoto
         return $this->mutate($actor, $photo, 'moved', function (CommunityPhoto $locked) use ($actor, $target): bool {
             $this->assertEditable($locked);
             [$event, $album] = $this->target($target);
-            $this->assertTargetScope($actor, $event, $album);
             if ($locked->event_id === $event?->id && $locked->special_album_id === $album?->id) {
                 return false;
             }
+            $this->assertTargetScope($actor, $event, $album);
+            $this->assertEligibleTarget($event);
             $locked->forceFill(['event_id' => $event?->id, 'special_album_id' => $album?->id, 'is_featured' => false])->save();
 
             return true;
@@ -102,11 +107,14 @@ final class ModerateCommunityPhoto
             $this->authorize($actor, $locked);
             $this->assertEditable($locked);
             [$event, $album] = $this->target($target);
-            $this->assertTargetScope($actor, $event, $album);
             $caption = $this->nullableText($request->caption, 2000, 'caption');
             $photographer = $this->nullableText($request->photographerName, 255, 'photographer_name');
             $before = $this->snapshot($locked);
             $contextChanged = $locked->event_id !== $event?->id || $locked->special_album_id !== $album?->id;
+            if ($contextChanged) {
+                $this->assertTargetScope($actor, $event, $album);
+                $this->assertEligibleTarget($event);
+            }
             if (! $contextChanged && $locked->caption === $caption && $locked->photographer_name === $photographer) {
                 return $locked;
             }
@@ -282,6 +290,13 @@ final class ModerateCommunityPhoto
             return;
         }
         throw new AuthorizationException;
+    }
+
+    private function assertEligibleTarget(?Event $event): void
+    {
+        if ($event instanceof Event && ! $this->events->isEligible($event)) {
+            throw ValidationException::withMessages(['context' => 'Choose an eligible event or special album.']);
+        }
     }
 
     private function assertProcessed(CommunityPhoto $photo): void

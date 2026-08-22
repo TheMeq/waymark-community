@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Data\PublicCommunityPhotoPage;
@@ -11,6 +10,7 @@ use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Gallery\PublicCommunityPhotoPresenter;
 use App\Domain\Gallery\Queries\HolidayCommunityPhotos;
 use App\Domain\Gallery\Queries\PublicCommunityPhotos;
+use App\Domain\Gallery\Queries\UploadablePublicEvents;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use Illuminate\Http\Request;
@@ -21,7 +21,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class PublicGalleryController
 {
-    public function __construct(private readonly PublicCommunityPhotoPresenter $presenter) {}
+    public function __construct(
+        private readonly PublicCommunityPhotoPresenter $presenter,
+        private readonly UploadablePublicEvents $events,
+    ) {}
 
     public function index(Request $request, PublicCommunityPhotos $photos): View
     {
@@ -30,14 +33,14 @@ final class PublicGalleryController
 
     public function event(Request $request, Event $event, PublicCommunityPhotos $photos): View
     {
-        abort_unless($this->isCurrentPublicEvent($event), 404);
+        abort_unless($this->events->isEligible($event), 404);
 
         return $this->view($event->title, $photos->forEvent($event->id, $request->string('cursor')->toString()), ['label' => $event->title, 'url' => route('gallery.events.show', $event->slug)]);
     }
 
     public function holiday(Request $request, Event $event, HolidayCommunityPhotos $photos): View
     {
-        abort_unless($event->type === EventType::Holiday && $event->holiday !== null && $this->isCurrentPublicEvent($event), 404);
+        abort_unless($event->type === EventType::Holiday && $event->holiday !== null && $this->events->isEligible($event), 404);
 
         return $this->view($event->title, $photos->forHoliday($event, $request->string('cursor')->toString()), ['label' => $event->title, 'url' => route('holidays.show', $event->slug)]);
     }
@@ -95,13 +98,6 @@ final class PublicGalleryController
             'image/avif' => 'avif',
             default => 'jpg',
         };
-    }
-
-    private function isCurrentPublicEvent(Event $event): bool
-    {
-        return $event->is_public
-            && $event->published_at?->lessThanOrEqualTo(now())
-            && in_array($event->status, [EventStatus::Published, EventStatus::Changed, EventStatus::Postponed, EventStatus::Cancelled, EventStatus::Completed], true);
     }
 
     /** @param array{label:string,url:string}|null $context */

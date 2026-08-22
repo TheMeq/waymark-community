@@ -4,6 +4,8 @@ namespace Tests\Feature\Gallery;
 
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Enums\ModuleCapability;
+use App\Domain\Events\Enums\EventStatus;
+use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Actions\DeletePendingCommunityPhoto;
 use App\Domain\Gallery\Actions\ProcessDeferredCommunityPhotos;
@@ -17,6 +19,7 @@ use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\CommunityPhotoProcessingJob;
 use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Gallery\Queries\ModeratableCommunityPhotoReports;
+use App\Domain\Socials\Models\Social;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -378,9 +381,22 @@ final class CommunityPhotoReportingTest extends TestCase
     {
         $path = 'community-photos/3f2504e0-4f89-41d3-9a0c-'.str_pad((string) (CommunityPhoto::query()->count() + 1), 12, '0', STR_PAD_LEFT).'/master.jpg';
         Storage::disk('local')->put($path, 'safe preview');
+        $eventId = array_key_exists('event_id', $overrides)
+            ? $overrides['event_id']
+            : Event::factory()->create()->id;
+        if ($eventId !== null) {
+            $event = Event::query()->findOrFail($eventId);
+            $event->forceFill([
+                'type' => EventType::Social,
+                'status' => EventStatus::Published,
+                'is_public' => true,
+                'published_at' => now(),
+            ])->save();
+            Social::query()->firstOrCreate(['event_id' => $event->id], ['venue_name' => 'Village hall']);
+        }
 
         return CommunityPhoto::query()->create(array_replace([
-            'event_id' => Event::factory()->create()->id,
+            'event_id' => $eventId,
             'uploader_id' => User::factory()->create()->id,
             'media_type' => 'image', 'processing_status' => 'complete', 'storage_disk' => 'local',
             'source_path' => $path, 'processed_variants' => ['master' => $path],

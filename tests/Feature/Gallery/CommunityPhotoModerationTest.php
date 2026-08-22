@@ -4,6 +4,8 @@ namespace Tests\Feature\Gallery;
 
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Enums\ModuleCapability;
+use App\Domain\Events\Enums\EventStatus;
+use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Actions\ModerateCommunityPhoto;
 use App\Domain\Gallery\Data\CommunityPhotoModerationRequest;
@@ -11,6 +13,7 @@ use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\CommunityPhotoModerationAudit;
 use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Gallery\Queries\ModeratableCommunityPhotos;
+use App\Domain\Socials\Models\Social;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -204,7 +207,13 @@ final class CommunityPhotoModerationTest extends TestCase
     {
         $moderator = User::factory()->create(['role' => AccountRole::Moderator]);
         $source = Event::factory()->create();
-        $destination = Event::factory()->create();
+        $destination = Event::factory()->create([
+            'type' => EventType::Social,
+            'status' => EventStatus::Published,
+            'is_public' => true,
+            'published_at' => now(),
+        ]);
+        Social::query()->create(['event_id' => $destination->id, 'venue_name' => 'Village hall']);
         $moving = $this->photoFor($source, ['moderation_status' => 'approved', 'is_featured' => true, 'published_at' => now()]);
         $existing = $this->photoFor($destination, ['moderation_status' => 'approved', 'is_featured' => true, 'published_at' => now()]);
 

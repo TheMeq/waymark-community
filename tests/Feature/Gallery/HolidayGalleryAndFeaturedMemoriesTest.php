@@ -13,6 +13,8 @@ use App\Domain\Gallery\Queries\HolidayCommunityPhotos;
 use App\Domain\Holidays\Actions\AssignHolidayChild;
 use App\Domain\Holidays\Actions\RemoveHolidayChild;
 use App\Domain\Holidays\Actions\SaveHolidayDetails;
+use App\Domain\Socials\Models\Social;
+use App\Domain\Walks\Models\Walk;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -124,7 +126,7 @@ final class HolidayGalleryAndFeaturedMemoriesTest extends TestCase
     {
         $startsAt = $holiday->starts_at->copy()->addDay()->setTime(10, 0);
 
-        return Event::factory()->create([
+        $event = Event::factory()->create([
             'type' => $type,
             'starts_at' => $startsAt,
             'ends_at' => $startsAt->copy()->addHours(2),
@@ -133,6 +135,17 @@ final class HolidayGalleryAndFeaturedMemoriesTest extends TestCase
             'published_at' => now(),
             ...$overrides,
         ]);
+
+        match ($type) {
+            EventType::Walk => Walk::query()->create([
+                'event_id' => $event->id,
+                'primary_leader_id' => User::factory()->create()->id,
+            ]),
+            EventType::Social => Social::query()->create(['event_id' => $event->id, 'venue_name' => 'Village hall']),
+            default => null,
+        };
+
+        return $event;
     }
 
     /** @param array<string, mixed> $overrides */
