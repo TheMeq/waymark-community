@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\SiteMedia\Actions\DeleteSiteMedia;
+use App\Domain\SiteMedia\Actions\MarkSiteMediaForRepair;
 use App\Domain\SiteMedia\Actions\PromoteCommunityPhotoToSiteMedia;
 use App\Domain\SiteMedia\Actions\UpdateSiteMediaMetadata;
 use App\Domain\SiteMedia\Actions\UploadSiteMedia;
@@ -106,6 +107,22 @@ final class SiteMediaLibrary extends Page
         $actor = auth()->user();
         app(DeleteSiteMedia::class)->handle($actor, SiteMedia::query()->findOrFail($mediaId));
         Notification::make()->success()->title('Media removed')->send();
+    }
+
+    public function repair(int $mediaId): void
+    {
+        /** @var User $actor */
+        $actor = auth()->user();
+        app(MarkSiteMediaForRepair::class)->handle($actor, SiteMedia::query()->findOrFail($mediaId));
+        Notification::make()->success()->title('Media health checked')->send();
+    }
+
+    public function retryRemoval(int $mediaId): void
+    {
+        /** @var User $actor */
+        $actor = auth()->user();
+        app(DeleteSiteMedia::class)->retry($actor, SiteMedia::query()->findOrFail($mediaId));
+        Notification::make()->success()->title('Media removal retried')->send();
     }
 
     public function uploadMedia(): void

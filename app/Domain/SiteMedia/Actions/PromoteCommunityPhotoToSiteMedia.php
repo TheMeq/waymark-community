@@ -31,13 +31,22 @@ final class PromoteCommunityPhotoToSiteMedia
             }
             $key = Str::uuid()->toString();
             $disk = Storage::disk($locked->storage_disk);
-            $destination = 'site-media/'.$key.'/master.jpg';
             $contents = $disk->get($path);
-            if ($contents === false || ! $disk->put($destination, $contents)) {
+            $image = @getimagesizefromstring($contents);
+            if ($contents === false || ! is_array($image) || ! isset($image['mime'], $image[0], $image[1])) {
                 throw ValidationException::withMessages(['photo' => 'The approved derivative could not be copied safely.']);
             }
+            $extension = match (strtolower((string) $image['mime'])) {
+                'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/avif' => 'avif', default => throw ValidationException::withMessages(['photo' => 'The approved derivative is not a supported raster image.'])
+            };
+            $destination = 'site-media/'.$key.'/master.'.$extension;
+            if (! $disk->put($destination, $contents)) {
+                $disk->deleteDirectory('site-media/'.$key);
+                throw ValidationException::withMessages(['photo' => 'The approved derivative could not be copied safely.']);
+            }
+            $variants = ['master' => $destination];
             try {
-                $media = SiteMedia::query()->create(array_merge($values, ['created_by_user_id' => $actor->id, 'source_community_photo_id' => $locked->id, 'storage_key' => $key, 'storage_disk' => $locked->storage_disk, 'processed_variants' => ['master' => $destination], 'mime_type' => 'image/jpeg', 'width' => max(1, (int) $locked->width), 'height' => max(1, (int) $locked->height), 'file_size_bytes' => strlen($contents), 'processing_status' => 'complete', 'health_status' => 'healthy']));
+                $media = SiteMedia::query()->create(array_merge($values, ['created_by_user_id' => $actor->id, 'source_community_photo_id' => $locked->id, 'storage_key' => $key, 'storage_disk' => $locked->storage_disk, 'processed_variants' => $variants, 'mime_type' => strtolower((string) $image['mime']), 'width' => (int) $image[0], 'height' => (int) $image[1], 'file_size_bytes' => strlen($contents), 'processing_status' => 'complete', 'health_status' => 'healthy']));
             } catch (\Throwable $exception) {
                 $disk->deleteDirectory('site-media/'.$key);
                 throw $exception;

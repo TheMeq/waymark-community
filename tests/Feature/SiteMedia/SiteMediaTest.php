@@ -4,6 +4,7 @@ namespace Tests\Feature\SiteMedia;
 
 use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Models\CommunityPhoto;
+use App\Domain\SiteMedia\Actions\MarkSiteMediaForRepair;
 use App\Domain\SiteMedia\Actions\PromoteCommunityPhotoToSiteMedia;
 use App\Domain\SiteMedia\Actions\UpdateSiteMediaMetadata;
 use App\Domain\SiteMedia\Actions\UploadSiteMedia;
@@ -32,7 +33,7 @@ final class SiteMediaTest extends TestCase
         Storage::fake('local');
         $actor = User::factory()->create(['is_admin' => true]);
         $photo = $this->approvedPhoto($actor);
-        Storage::disk('local')->put($photo->processed_variants['master'], 'safe derivative');
+        Storage::disk('local')->put($photo->processed_variants['master'], $this->safeRaster());
 
         $media = app(PromoteCommunityPhotoToSiteMedia::class)->handle($actor, $photo, new SiteMediaMetadata('Hill walkers', false, 0.3, 0.7));
 
@@ -60,7 +61,7 @@ final class SiteMediaTest extends TestCase
         Storage::fake('local');
         $actor = User::factory()->create(['is_admin' => true]);
         $photo = $this->approvedPhoto($actor);
-        Storage::disk('local')->put($photo->processed_variants['master'], 'safe derivative');
+        Storage::disk('local')->put($photo->processed_variants['master'], $this->safeRaster());
         $media = app(PromoteCommunityPhotoToSiteMedia::class)->handle($actor, $photo, new SiteMediaMetadata('Hill walkers', false));
 
         $photo->delete();
@@ -101,6 +102,25 @@ final class SiteMediaTest extends TestCase
         $this->assertSame('uploaded', $media->audits()->sole()->action);
     }
 
+    public function test_direct_model_save_rejects_out_of_bounds_focal_point(): void
+    {
+        $this->expectException(\LogicException::class);
+        SiteMedia::query()->create($this->attributes(['focal_point_x' => 1.01]));
+    }
+
+    public function test_repair_action_marks_missing_derivatives_and_is_idempotently_audited(): void
+    {
+        Storage::fake('local');
+        $actor = User::factory()->create(['is_admin' => true]);
+        $media = SiteMedia::query()->create($this->attributes());
+
+        app(MarkSiteMediaForRepair::class)->handle($actor, $media);
+        app(MarkSiteMediaForRepair::class)->handle($actor, $media);
+
+        $this->assertSame('repair_required', $media->fresh()->health_status);
+        $this->assertSame(['repair_required'], $media->audits()->pluck('action')->all());
+    }
+
     /** @return array<string, mixed> */
     private function attributes(array $overrides = []): array
     {
@@ -125,5 +145,10 @@ final class SiteMediaTest extends TestCase
             'processed_variants' => ['master' => 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3300/master.jpg'],
             'moderation_status' => 'approved', 'published_at' => now()->subMinute(),
         ]);
+    }
+
+    private function safeRaster(): string
+    {
+        return (string) base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADElEQVQImWNgYGAAAAAEAAGjChXjAAAAAElFTkSuQmCC', true);
     }
 }

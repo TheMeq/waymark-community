@@ -10,6 +10,7 @@ use App\Domain\Gallery\Data\ImageVariantDefinition;
 use App\Domain\Gallery\Data\PhotoStorageReference;
 use App\Domain\Gallery\Data\ProcessedCommunityPhoto;
 use App\Domain\Gallery\Data\ProcessedPhotoVariant;
+use App\Domain\SiteMedia\Data\SiteMediaStorageReference;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -47,7 +48,7 @@ final readonly class IngestCommunityPhoto
         try {
             $diskName = (string) config('gallery.photos.disk', 'local');
             $directory = $reservedDirectory ?? trim((string) config('gallery.photos.directory', 'community-photos'), '/').'/'.Str::uuid()->toString();
-            PhotoStorageReference::from($diskName, $directory.'/master.jpg');
+            $this->assertOutputReference($diskName, $directory.'/master.jpg');
             $disk = Storage::disk($diskName);
 
             try {
@@ -192,7 +193,7 @@ final readonly class IngestCommunityPhoto
     ): ProcessedPhotoVariant {
         $raster = $this->transformer->transform($source, $definition, $mimeType);
         $path = $directory.'/'.$definition->name.'.'.$this->extensionFor($raster->mimeType);
-        PhotoStorageReference::from($diskName, $path);
+        $this->assertOutputReference($diskName, $path);
 
         if (! $disk->put($path, $raster->contents)) {
             throw new RuntimeException('The processed photo could not be stored.');
@@ -216,5 +217,14 @@ final readonly class IngestCommunityPhoto
             'image/avif' => 'avif',
             default => throw new RuntimeException('Image processing returned an unsupported raster codec.'),
         };
+    }
+
+    private function assertOutputReference(string $disk, string $path): void
+    {
+        if (PhotoStorageReference::isSafe($disk, $path) || SiteMediaStorageReference::isSafe($disk, $path)) {
+            return;
+        }
+
+        throw new \InvalidArgumentException('Processed image storage references must use a generated private namespace.');
     }
 }

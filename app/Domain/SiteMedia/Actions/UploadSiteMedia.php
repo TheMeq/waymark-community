@@ -21,19 +21,15 @@ final class UploadSiteMedia
     {
         $this->authorizeSiteMedia($actor);
         $values = $this->validateMetadata($metadata);
-        $processed = $this->ingest->handle($upload);
         $diskName = (string) config('gallery.photos.disk', 'local');
         $disk = Storage::disk($diskName);
-        $temporaryDirectory = dirname(($processed->retainedSource ?? $processed->variants['master'])->path);
         $key = Str::uuid()->toString();
         $targetDirectory = 'site-media/'.$key;
         try {
+            $processed = $this->ingest->handle($upload, $targetDirectory);
             $variants = [];
             foreach ($processed->variants as $name => $variant) {
-                $target = $targetDirectory.'/'.$name.'.'.pathinfo($variant->path, PATHINFO_EXTENSION);
-                if (! $disk->copy($variant->path, $target)) {
-                    throw new \RuntimeException('The processed image could not be copied safely.');
-                } $variants[$name] = $target;
+                $variants[$name] = $variant->path;
             }
             $source = $processed->retainedSource ?? $processed->variants['master'];
             $media = DB::transaction(function () use ($actor, $values, $key, $diskName, $variants, $source): SiteMedia {
@@ -45,8 +41,6 @@ final class UploadSiteMedia
         } catch (\Throwable $exception) {
             $disk->deleteDirectory($targetDirectory);
             throw $exception;
-        } finally {
-            $disk->deleteDirectory($temporaryDirectory);
         }
 
         return $media;

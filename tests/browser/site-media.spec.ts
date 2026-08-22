@@ -16,6 +16,16 @@ test('site media library is accessible and promotes deliberate approved-photo co
     await expect(page.getByRole('heading', { name: 'Promote an approved gallery photo' })).toBeVisible();
     await page.getByRole('button', { name: 'Promote' }).first().click();
     await expect(page.getByText('Photo promoted to the media library')).toBeVisible();
+    await page.getByRole('button', { name: 'Edit' }).first().click();
+    await page.getByLabel('Alt text').last().fill('A deliberately promoted walking memory');
+    await page.getByRole('button', { name: 'Save details' }).click();
+    await expect(page.getByText('Media details saved')).toBeVisible();
+    await page.getByRole('button', { name: 'Check repair state' }).first().focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByText('Media health checked')).toBeVisible();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: 'Remove' }).first().click();
+    await expect(page.getByText('Media removed')).toBeVisible();
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
     expect(results.violations).toEqual([]);
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
