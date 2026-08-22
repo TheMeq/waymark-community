@@ -16,6 +16,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use RuntimeException;
 
 final readonly class IngestCommunityPhoto
@@ -114,7 +115,9 @@ final readonly class IngestCommunityPhoto
             throw ValidationException::withMessages(['photo' => 'The uploaded photo could not be read.']);
         }
 
-        $declaredMimeType = strtolower((string) $upload->getClientMimeType());
+        $declaredMimeType = strtolower((string) ($upload instanceof TemporaryUploadedFile
+            ? $upload->getMimeType()
+            : $upload->getClientMimeType()));
         $allowedMimeTypes = $configuration->allowedMimeTypes;
 
         if (! in_array($declaredMimeType, $allowedMimeTypes, true)) {

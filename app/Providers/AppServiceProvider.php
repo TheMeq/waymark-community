@@ -49,7 +49,7 @@ class AppServiceProvider extends ServiceProvider
 
         $testNow = env('WAYMARK_TEST_NOW');
 
-        if (app()->environment('testing') && is_string($testNow) && $testNow !== '') {
+        if (app()->environment(['testing', 'browser-testing']) && is_string($testNow) && $testNow !== '') {
             Carbon::setTestNow(Carbon::parse($testNow, config('app.timezone')));
         }
     }

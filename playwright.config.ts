@@ -46,7 +46,7 @@ export default defineConfig({
     webServer: {
         command: 'node tests/browser/prepare-browser-db.mjs && php artisan serve --host=127.0.0.1 --port=8000',
         env: {
-            APP_ENV: 'testing',
+            APP_ENV: 'browser-testing',
             PHP_INI_SCAN_DIR: 'C:\\Users\\richa\\AppData\\Local\\Temp\\waymark-php-ext',
             DB_CONNECTION: 'sqlite',
             DB_DATABASE: browserDatabase,

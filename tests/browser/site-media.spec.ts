@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { resolve } from 'node:path';
 
 async function signIn(page: Page) {
     await page.goto('/login');
@@ -14,6 +15,19 @@ test('site media library is accessible and promotes deliberate approved-photo co
     await expect(page.getByRole('heading', { name: 'Media library' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Site media', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Promote an approved gallery photo' })).toBeVisible();
+    const temporaryUploadBound = page.waitForResponse((response) => response.request().method() === 'POST'
+        && response.url().includes('/update')
+        && response.request().postData()?.includes('_finishUpload'));
+    await page.getByLabel('Site media image').setInputFiles(resolve('public/build/assets/layers-BWBAp2CZ.png'));
+    await temporaryUploadBound;
+    await page.getByLabel('Alt text').first().fill('A directly uploaded ridge');
+    const uploadAttempt = page.waitForResponse((response) => response.request().method() === 'POST'
+        && response.url().includes('/update')
+        && response.request().postData()?.includes('uploadMedia'));
+    await page.getByRole('button', { name: 'Upload media' }).click();
+    await uploadAttempt;
+    await expect(page.getByText('Media uploaded')).toBeVisible();
+    await expect(page.getByText('A directly uploaded ridge')).toBeVisible();
     await page.getByRole('button', { name: 'Promote' }).first().click();
     await expect(page.getByText('Photo promoted to the media library')).toBeVisible();
     await page.getByRole('button', { name: 'Edit' }).first().click();
