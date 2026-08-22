@@ -397,6 +397,32 @@ final class SiteMediaTest extends TestCase
         $this->assertSame(['repair_required'], $media->audits()->pluck('action')->all());
     }
 
+    public function test_repair_action_marks_an_empty_variant_set_for_repair(): void
+    {
+        Storage::fake('local');
+        $actor = User::factory()->create(['is_admin' => true]);
+        $media = SiteMedia::query()->create($this->attributes(['processed_variants' => []]));
+
+        app(MarkSiteMediaForRepair::class)->handle($actor, $media);
+
+        $this->assertSame('repair_required', $media->fresh()->health_status);
+        $this->assertSame('repair_required', $media->audits()->sole()->action);
+    }
+
+    public function test_repair_action_requires_a_safe_existing_master_variant(): void
+    {
+        Storage::fake('local');
+        $actor = User::factory()->create(['is_admin' => true]);
+        $thumbnail = 'site-media/3f2504e0-4f89-41d3-9a0c-0305e82c3300/thumbnail.jpg';
+        Storage::disk('local')->put($thumbnail, 'safe thumbnail');
+        $media = SiteMedia::query()->create($this->attributes(['processed_variants' => ['thumbnail' => $thumbnail]]));
+
+        app(MarkSiteMediaForRepair::class)->handle($actor, $media);
+
+        $this->assertSame('repair_required', $media->fresh()->health_status);
+        $this->assertSame('repair_required', $media->audits()->sole()->action);
+    }
+
     public function test_repair_action_marks_unsafe_derivatives_without_attempting_to_expose_or_replace_them(): void
     {
         $actor = User::factory()->create(['is_admin' => true]);

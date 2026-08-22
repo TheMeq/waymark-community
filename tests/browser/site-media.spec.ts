@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { resolve } from 'node:path';
+
+const siteMediaRaster = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAEAAAAAwCAIAAAAuKetIAAAACXBIWXMAAA7EAAAOxAGVKw4bAAABH0lEQVRoge2Yyw2DMBBEl+SeWtML11SRCrjSS4rIAQkhY2zvz6tBnvuO5y22YZneny8h6xEdQKsBEK0BEK0BEK0BEK0BEKp1mYEB1mUm3CewpSdQgD09IQIc05MJQOLoqvNaWoDNsQ9DdhWzLeTNcOWvAkhM/RgKznKArKkHQ9lTCNDt4FYXsr9GDdlarCQAVV8ThkYTNkCjr5KhvdzxTSxmYBXyALiZBAzcEgaArKOsKsESrQCaPe16bDp9jfpdXE0A3teixr8OEPWV1qiuA805q747FQDz9h8NTcxLAE6bx3YGipmJDVtzCdBz0tUoD4CSnrIAQOkJ8b9QohQAq/2UAMClp1ttIcT20w4Amp42ANz0dIMz8Jxev+gMKv0Bc6aH/hS35+EAAAAASUVORK5CYII=', 'base64');
 
 async function signIn(page: Page) {
     await page.goto('/login');
@@ -18,7 +19,11 @@ test('site media library is accessible and promotes deliberate approved-photo co
     const temporaryUploadBound = page.waitForResponse((response) => response.request().method() === 'POST'
         && response.url().includes('/update')
         && response.request().postData()?.includes('_finishUpload'));
-    await page.getByLabel('Site media image').setInputFiles(resolve('public/build/assets/layers-BWBAp2CZ.png'));
+    await page.getByLabel('Site media image').setInputFiles({
+        name: 'site-media-test.png',
+        mimeType: 'image/png',
+        buffer: siteMediaRaster,
+    });
     await temporaryUploadBound;
     await page.getByLabel('Alt text').first().fill('A directly uploaded ridge');
     const uploadAttempt = page.waitForResponse((response) => response.request().method() === 'POST'

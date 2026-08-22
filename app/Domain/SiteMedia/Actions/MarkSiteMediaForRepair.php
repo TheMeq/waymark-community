@@ -18,7 +18,11 @@ final class MarkSiteMediaForRepair
 
         return DB::transaction(function () use ($actor, $media): SiteMedia {
             $locked = SiteMedia::query()->lockForUpdate()->findOrFail($media->id);
-            $missing = $locked->processing_status !== 'complete' || collect((array) $locked->processed_variants)->contains(fn ($path): bool => ! is_string($path) || ! SiteMediaStorageReference::isSafe($locked->storage_disk, $path) || ! Storage::disk($locked->storage_disk)->exists($path));
+            $variants = (array) $locked->processed_variants;
+            $requiredVariants = array_keys((array) config('gallery.processing.variants', ['master' => []]));
+            $missing = $locked->processing_status !== 'complete'
+                || collect($requiredVariants)->contains(fn (string $name): bool => ! array_key_exists($name, $variants))
+                || collect($variants)->contains(fn ($path): bool => ! is_string($path) || ! SiteMediaStorageReference::isSafe($locked->storage_disk, $path) || ! Storage::disk($locked->storage_disk)->exists($path));
             if (! $missing || $locked->health_status === 'repair_required') {
                 return $locked;
             }
