@@ -18,4 +18,5 @@ enum ModuleCapability: string
     case ManageAccounts = 'accounts.manage';
     case ModerateOwnEventPhotos = 'gallery.moderate_own_event_photos';
     case ModerateAllCommunityPhotos = 'gallery.moderate_all_community_photos';
+    case ManageSpecialAlbums = 'gallery.manage_albums';
 }
