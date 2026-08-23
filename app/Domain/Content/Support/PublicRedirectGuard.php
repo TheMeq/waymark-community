@@ -29,7 +29,8 @@ final class PublicRedirectGuard
 
     private function safeSource(string $source): bool
     {
-        return str_starts_with($source, '/') && ! str_starts_with($source, '//') && $source === '/'.ltrim($source, '/')
+        return mb_strlen($source) <= 512
+            && str_starts_with($source, '/') && ! str_starts_with($source, '//') && $source === '/'.ltrim($source, '/')
             && ! str_contains($source, '..') && ! str_contains($source, '*') && ! str_contains($source, '?') && ! str_contains($source, '#')
             && ! preg_match('#\A/(?:admin|account|leader-hub|login|register|logout|up)(?:/|\z)#i', $source);
     }

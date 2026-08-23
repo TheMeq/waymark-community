@@ -37,6 +37,7 @@ final class RedirectUnavailableTest extends TestCase
         foreach ([
             ['/old-two', '/old-one'],
             ['/old-*', '/walks'],
+            ['/'.str_repeat('a', 512), '/walks'],
             ['/unsafe', 'http://tracking.example.test'],
             ['/self', '/self'],
         ] as [$source, $target]) {

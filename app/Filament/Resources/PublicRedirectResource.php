@@ -30,7 +30,7 @@ final class PublicRedirectResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            TextInput::make('source_path')->required()->maxLength(1024)->placeholder('/old-page'),
+            TextInput::make('source_path')->required()->maxLength(512)->placeholder('/old-page'),
             TextInput::make('target_url')->required()->maxLength(2048)->placeholder('/new-page'),
             Select::make('status_code')->options([301 => 'Permanent (301)', 302 => 'Temporary (302)'])->required()->default(301),
             Toggle::make('enabled')->default(true),
