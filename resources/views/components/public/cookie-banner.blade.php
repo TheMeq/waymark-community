@@ -1,5 +1,5 @@
 @if(! $cookiePreferences['decided'])
-<aside class="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-4xl rounded-[var(--wm-radius-card)] border border-border bg-surface-raised p-4 shadow-[var(--wm-shadow-float)] sm:p-5" aria-labelledby="cookie-banner-heading">
+<aside class="wm-print-hidden fixed inset-x-3 bottom-3 z-50 mx-auto max-w-4xl rounded-[var(--wm-radius-card)] border border-border bg-surface-raised p-4 shadow-[var(--wm-shadow-float)] sm:p-5" aria-labelledby="cookie-banner-heading">
     <div class="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
         <div>
             <h2 id="cookie-banner-heading" class="text-lg">Cookie choices</h2>

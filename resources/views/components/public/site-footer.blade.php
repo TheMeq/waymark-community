@@ -2,7 +2,7 @@
 @php($activeBranding = $brandingOverride ?? $branding)
 @php($siteName = $activeBranding['name'] ?? $site['name'])
 
-<footer {{ $attributes->class('bg-surface-strong py-4 text-[var(--wm-text-inverse)] lg:py-2.5') }}>
+<footer {{ $attributes->class('wm-print-hidden bg-surface-strong py-4 text-[var(--wm-text-inverse)] lg:py-2.5') }}>
     <div class="wm-container grid gap-8 md:grid-cols-[1fr_auto] md:items-end">
         <div class="sm:flex sm:items-center sm:gap-5">
             <a class="inline-flex items-center gap-3 font-semibold text-white" href="{{ route('home') }}" aria-label="{{ $siteName }} home">

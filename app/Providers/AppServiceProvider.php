@@ -27,6 +27,7 @@ use App\Domain\Operations\Analytics\ConsentPreferences;
 use App\Domain\Operations\Analytics\ExternalAnalytics;
 use App\Domain\Operations\AntiSpam\PublicFormChallenge;
 use App\Domain\Operations\AntiSpam\TurnstilePublicFormChallenge;
+use App\Domain\Operations\Environment\StagingMode;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Walks\RelatedContent\RelatedWalks;
 use App\Domain\Walks\RelatedContent\SignalRelatedWalks;
@@ -83,6 +84,7 @@ class AppServiceProvider extends ServiceProvider
             'branding' => app(PublicBranding::class)->get(),
             'analytics' => app(ExternalAnalytics::class)->forRequest(request()),
             'cookiePreferences' => app(ConsentPreferences::class)->forRequest(request()),
+            'staging' => app(StagingMode::class)->active(),
         ]));
 
         $testNow = env('WAYMARK_TEST_NOW');

@@ -11,7 +11,7 @@
         <title>{{ $seoMetadata?->title ?? trim($__env->yieldContent('title', config('app.name', 'Waymark Community'))) }}</title>
         <meta name="description" content="{{ $seoMetadata?->description ?? trim($__env->yieldContent('meta_description', 'Walks, weekends away and a welcoming local community.')) }}">
         <link rel="canonical" href="{{ $seoMetadata?->canonical ?? url()->current() }}">
-        <meta name="robots" content="{{ $seoMetadata?->robots ?? 'index,follow' }}">
+        <meta name="robots" content="{{ $staging ? 'noindex,nofollow' : ($seoMetadata?->robots ?? 'index,follow') }}">
         <meta property="og:type" content="{{ $seoMetadata?->openGraphType ?? 'website' }}">
         <meta property="og:title" content="{{ $seoMetadata?->title ?? trim($__env->yieldContent('title', config('app.name', 'Waymark Community'))) }}">
         <meta property="og:description" content="{{ $seoMetadata?->description ?? trim($__env->yieldContent('meta_description', 'Walks, weekends away and a welcoming local community.')) }}">

@@ -2,16 +2,20 @@
 
 namespace App\Domain\Operations\Analytics;
 
+use App\Domain\Operations\Environment\StagingMode;
 use App\Domain\Operations\Models\AnalyticsSetting;
 use Illuminate\Http\Request;
 
 final readonly class ExternalAnalytics
 {
-    public function __construct(private ConsentPreferences $consent) {}
+    public function __construct(
+        private ConsentPreferences $consent,
+        private StagingMode $staging,
+    ) {}
 
     public function forRequest(Request $request): ?AnalyticsViewModel
     {
-        if (! $this->consent->analyticsAllowed($request)) {
+        if ($this->staging->active() || ! $this->consent->analyticsAllowed($request)) {
             return null;
         }
 

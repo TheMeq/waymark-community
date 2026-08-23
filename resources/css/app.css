@@ -501,6 +501,10 @@
     }
 }
 
+@page {
+    margin: 15mm;
+}
+
 @media print {
     .wm-print-hidden,
     .leaflet-control-container {
@@ -512,6 +516,41 @@
     article {
         background: #fff !important;
         color: #000 !important;
+    }
+
+    body {
+        font-size: 11pt;
+    }
+
+    [data-print-detail] {
+        max-width: none !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+    }
+
+    [data-print-detail] .wm-container {
+        max-width: none !important;
+        padding-inline: 0 !important;
+    }
+
+    [data-print-detail] *,
+    [data-print-detail] ::before,
+    [data-print-detail] ::after {
+        box-shadow: none !important;
+        text-shadow: none !important;
+    }
+
+    [data-print-detail] h1,
+    [data-print-detail] h2,
+    [data-print-detail] h3,
+    [data-print-detail] figure,
+    [data-print-detail] dl {
+        break-inside: avoid;
+    }
+
+    [data-print-detail] img {
+        max-width: 100% !important;
+        break-inside: avoid;
     }
 
     a {

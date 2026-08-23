@@ -8,7 +8,7 @@
 @endsection
 
 @section('content')
-    <article class="bg-surface-raised py-10 sm:py-14">
+    <article data-print-detail class="bg-surface-raised py-10 sm:py-14">
         <div class="wm-container max-w-[var(--wm-container-copy)]">
             <a class="wm-print-hidden text-sm font-semibold text-brand underline decoration-brand/30 underline-offset-4" href="{{ route('walks.index') }}">&larr; All walks</a>
             <p class="text-xs font-semibold uppercase tracking-[0.15em] text-brand">Walk</p>
@@ -18,7 +18,7 @@
             @endif
             <p class="mt-4 text-ink-muted"><time datetime="{{ $event->starts_at->toAtomString() }}">{{ $walk['starts_at'] }}</time>@if ($walk['ends_at']) – {{ $walk['ends_at'] }}@endif</p>
             <x-account.favourite-control :favourite="$favourite" />
-            @auth<p class="mt-5"><x-public.button :href="route('community-photos.upload.create', ['event' => $event->id])" variant="secondary">Share photos</x-public.button></p>@endauth
+            @auth<p class="wm-print-hidden mt-5"><x-public.button :href="route('community-photos.upload.create', ['event' => $event->id])" variant="secondary">Share photos</x-public.button></p>@endauth
             @if ($walk['featured_image'])
                 <figure data-walk-featured-image class="mt-6 overflow-hidden rounded-[var(--wm-radius-md)] bg-surface-soft shadow-[var(--wm-shadow-card)]">
                     <img class="aspect-[16/8] w-full object-cover" src="{{ $walk['featured_image']['url'] }}" alt="{{ $walk['featured_image']['alt'] }}">
