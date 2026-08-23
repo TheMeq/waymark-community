@@ -6,7 +6,12 @@ use App\Domain\Accounts\Models\InstallationOwnership;
 use App\Domain\Communication\Contracts\NewsletterDelivery;
 use App\Domain\Communication\Services\MailNewsletterDelivery;
 use App\Domain\Content\Models\CmsPage;
+use App\Domain\Content\Models\FooterSection;
+use App\Domain\Content\Models\HomepageSection;
+use App\Domain\Content\Models\NavigationItem;
 use App\Domain\Content\Models\NewsArticle;
+use App\Domain\Content\Models\Testimonial;
+use App\Domain\Content\Observers\PublicContentCacheObserver;
 use App\Domain\Content\Observers\PublicSlugRedirectObserver;
 use App\Domain\Content\Queries\PublicBranding;
 use App\Domain\Content\Queries\PublicFooterSections;
@@ -22,6 +27,7 @@ use App\Domain\Operations\Analytics\ConsentPreferences;
 use App\Domain\Operations\Analytics\ExternalAnalytics;
 use App\Domain\Operations\AntiSpam\PublicFormChallenge;
 use App\Domain\Operations\AntiSpam\TurnstilePublicFormChallenge;
+use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Walks\RelatedContent\RelatedWalks;
 use App\Domain\Walks\RelatedContent\SignalRelatedWalks;
 use App\Http\Middleware\RequireSensitiveActionAssurance;
@@ -56,6 +62,9 @@ class AppServiceProvider extends ServiceProvider
     {
         foreach ([CmsPage::class, NewsArticle::class, Event::class, SpecialAlbum::class, Document::class] as $model) {
             $model::observe(PublicSlugRedirectObserver::class);
+        }
+        foreach ([SiteProfile::class, NavigationItem::class, FooterSection::class, HomepageSection::class, Testimonial::class] as $model) {
+            $model::observe(PublicContentCacheObserver::class);
         }
         RateLimiter::for('photo-upload', fn (Request $request) => [
             Limit::perMinute(12)->by('photo-upload:account:'.($request->user()?->id ?? 'guest')),

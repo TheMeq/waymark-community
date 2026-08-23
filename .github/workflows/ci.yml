@@ -95,3 +95,34 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+
+  performance:
+    name: Public performance budgets
+    runs-on: ubuntu-latest
+    env:
+      APP_ENV: browser-testing
+      APP_KEY: base64:KBRoK9V5HuswYGJYIBr33RbHtZqfL/PZ/Rfij5fPeTc=
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ${{ github.workspace }}/test-results/performance.sqlite
+      CACHE_STORE: file
+      SESSION_DRIVER: file
+      WAYMARK_TEST_NOW: '2026-08-20 12:00:00'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, sqlite3, gd
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: composer install --no-interaction --prefer-dist
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/browser/prepare-browser-db.mjs
+      - run: php artisan serve --no-reload --host=127.0.0.1 --port=8000 > /tmp/waymark-performance-server.log 2>&1 &
+      - run: curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-all-errors http://127.0.0.1:8000/ > /dev/null
+      - run: npm run test:performance

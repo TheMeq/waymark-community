@@ -164,9 +164,9 @@ $securityUser->forceFill([
 ])->save();
 
 foreach ([
-    ['Ridge and reservoir', 'hero-walkers.png', 8.5, 250, '2026-08-22 09:30:00'],
-    ['Woodland and water', 'woodland-walk.png', 6.0, 180, '2026-08-23 10:30:00'],
-    ['Moorland views', 'lakeside-friends.png', 10.0, 430, '2026-08-29 11:30:00'],
+    ['Ridge and reservoir', 'hero-walkers-768.webp', 8.5, 250, '2026-08-22 09:30:00'],
+    ['Woodland and water', 'woodland-walk-768.webp', 6.0, 180, '2026-08-23 10:30:00'],
+    ['Moorland views', 'lakeside-friends-768.webp', 10.0, 430, '2026-08-29 11:30:00'],
 ] as [$title, $image, $distance, $ascent, $start]) {
     $startsAt = CarbonImmutable::parse($start);
     $event = Event::query()->create([
@@ -258,7 +258,7 @@ app(SaveHolidayDetails::class)->handle($holiday, [
     'booking_contact' => 'Morgan Walker',
     'travel_details' => 'Rail connections and shared lifts are available.',
     'itinerary_notes' => 'Friday arrival, two full walking days and Monday departure.',
-    'featured_image_path' => '/images/demo/coastal-weekend.png',
+    'featured_image_path' => '/images/demo/coastal-weekend-768.webp',
 ]);
 
 $childWalk = $createEvent(
@@ -276,7 +276,7 @@ app(SaveWalkDetails::class)->handle($childWalk, [
     'ascent' => 280,
     'meeting_location_name' => 'Seaview Lodge',
     'availability' => 'Places available',
-    'featured_image_path' => '/images/demo/coastal-weekend.png',
+    'featured_image_path' => '/images/demo/coastal-weekend-768.webp',
 ]);
 app(AssignHolidayChild::class)->handle($holiday, $childWalk);
 
@@ -291,9 +291,9 @@ $childSocial = $createEvent(
 app(SaveSocialDetails::class)->handle($childSocial, ['venue_name' => 'Seaview Lodge']);
 app(AssignHolidayChild::class)->handle($holiday, $childSocial);
 
-$galleryImage = file_get_contents(public_path('images/demo/lakeside-friends.png'));
+$galleryImage = file_get_contents(public_path('images/demo/lakeside-friends-768.webp'));
 foreach (range(1, 7) as $number) {
-    $path = 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3302/holiday-memory-'.$number.'.png';
+    $path = 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3302/holiday-memory-'.$number.'.webp';
     Storage::disk('local')->put($path, $galleryImage);
     CommunityPhoto::query()->create([
         'event_id' => $number === 1 || $number % 2 === 0 ? $childWalk->id : $holiday->id,
@@ -308,7 +308,7 @@ foreach (range(1, 7) as $number) {
         'captured_at' => CarbonImmutable::parse('2026-08-20 11:0'.$number.':00'),
         'caption' => $number === 1 ? 'Clifftop featured memory' : 'Holiday memory '.$number,
         'is_featured' => $number === 1,
-        'width' => 1200,
-        'height' => 800,
+        'width' => 768,
+        'height' => 512,
     ]);
 }

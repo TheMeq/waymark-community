@@ -32,10 +32,10 @@ final readonly class WalkFeaturedImage
     private static function altFor(string $filename): string
     {
         return match (strtolower($filename)) {
-            'hero-walkers.png' => 'A group walking together across open moorland',
-            'woodland-walk.png' => 'Walkers following a path through green woodland',
-            'lakeside-friends.png' => 'Friends pausing beside an upland lake',
-            'coastal-weekend.png' => 'A walking group following a coastal path',
+            'hero-walkers.png', 'hero-walkers-768.webp', 'hero-walkers-1536.webp' => 'A group walking together across open moorland',
+            'woodland-walk.png', 'woodland-walk-768.webp', 'woodland-walk-1536.webp' => 'Walkers following a path through green woodland',
+            'lakeside-friends.png', 'lakeside-friends-768.webp', 'lakeside-friends-1536.webp' => 'Friends pausing beside an upland lake',
+            'coastal-weekend.png', 'coastal-weekend-768.webp', 'coastal-weekend-1536.webp' => 'A walking group following a coastal path',
             default => 'Walkers enjoying a countryside route',
         };
     }

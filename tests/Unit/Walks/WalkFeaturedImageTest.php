@@ -20,6 +20,14 @@ final class WalkFeaturedImageTest extends TestCase
         ], $image->toArray());
     }
 
+    public function test_responsive_demo_variant_preserves_the_descriptive_alt_text(): void
+    {
+        $image = WalkFeaturedImage::resolve('/images/demo/hero-walkers-768.webp');
+
+        $this->assertNotNull($image);
+        $this->assertSame('A group walking together across open moorland', $image->alt);
+    }
+
     public function test_rejects_demo_path_traversal_references(): void
     {
         $this->assertNull(WalkFeaturedImage::resolve('/images/demo/../private/member-photo.png'));

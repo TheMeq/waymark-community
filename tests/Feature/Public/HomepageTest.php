@@ -111,7 +111,8 @@ final class HomepageTest extends TestCase
     {
         $response = $this->get('/');
 
-        $response->assertSee('src="/images/demo/hero-walkers.png"', false)
+        $response->assertSee('src="/images/demo/hero-walkers-1536.webp"', false)
+            ->assertSee('srcset="/images/demo/hero-walkers-768.webp 768w, /images/demo/hero-walkers-1536.webp 1536w"', false)
             ->assertSee('alt="Friends walking together across open moorland"', false)
             ->assertDontSee('src="/images/demo/woodland-walk.png"', false)
             ->assertDontSee('src="/images/demo/lakeside-friends.png"', false);

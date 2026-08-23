@@ -17,7 +17,7 @@ final readonly class PublicHolidayCardViewModel
         return [
             'title' => $event->title,
             'url' => route('holidays.show', $event->slug),
-            'image_url' => $image?->url ?? '/images/demo/coastal-weekend.png',
+            'image_url' => $image?->url ?? '/images/demo/coastal-weekend-768.webp',
             'image_alt' => $image?->alt ?? 'A walking group enjoying a weekend away',
             'date' => $event->starts_at->format('l j F'),
             'day' => $event->starts_at->format('D'),
@@ -44,7 +44,7 @@ final readonly class PublicHolidayCardViewModel
         return [
             'title' => $event->title,
             'url' => route('holidays.show', $event->slug),
-            'image_url' => $image?->url ?? '/images/demo/coastal-weekend.png',
+            'image_url' => $image?->url ?? '/images/demo/coastal-weekend-768.webp',
             'image_alt' => $image?->alt ?? 'A walking group enjoying a weekend away',
             'duration' => $nights === null ? 'Weekend away' : $nights.' '.($nights === 1 ? 'night' : 'nights'),
             'location' => $holiday?->destination ?: 'Weekend away',

@@ -14,6 +14,7 @@
         <img
             class="absolute inset-0 -z-20 size-full object-cover object-[68%_center]"
             src="{{ $homepage->hero['image_url'] }}"
+            @if(filled($homepage->hero['image_srcset'] ?? null)) srcset="{{ $homepage->hero['image_srcset'] }}" sizes="100vw" @endif
             alt="{{ $homepage->hero['image_alt'] }}"
             fetchpriority="high"
         >

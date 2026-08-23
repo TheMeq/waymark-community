@@ -18,7 +18,7 @@ final readonly class PublicWalkCardViewModel
         return array_filter([
             'title' => $event->title,
             'url' => route('walks.show', $event->slug),
-            'image_url' => $image?->url ?? '/images/demo/hero-walkers.png',
+            'image_url' => $image?->url ?? '/images/demo/hero-walkers-768.webp',
             'image_alt' => $image?->alt ?? 'A group walking together across open moorland',
             'date' => $event->starts_at->format('l j F'),
             'day' => $event->starts_at->format('D'),

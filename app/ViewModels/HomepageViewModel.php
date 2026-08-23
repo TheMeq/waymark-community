@@ -39,7 +39,8 @@ final readonly class HomepageViewModel
                 'headline' => 'Great walks. Good people.',
                 'highlight' => 'Weekend adventures.',
                 'summary' => 'A friendly walking group for adults. Explore local trails and trips further afield with good company.',
-                'image_url' => '/images/demo/hero-walkers.png',
+                'image_url' => '/images/demo/hero-walkers-1536.webp',
+                'image_srcset' => '/images/demo/hero-walkers-768.webp 768w, /images/demo/hero-walkers-1536.webp 1536w',
                 'image_alt' => 'Friends walking together across open moorland',
             ],
             benefits: [
@@ -51,7 +52,7 @@ final readonly class HomepageViewModel
                 [
                     'title' => 'Ridge and reservoir',
                     'url' => route('walks.show', 'ridge-and-reservoir'),
-                    'image_url' => '/images/demo/hero-walkers.png',
+                    'image_url' => '/images/demo/hero-walkers-768.webp',
                     'image_alt' => 'Walkers following an upland trail above green valleys',
                     'date' => 'Saturday 24 August',
                     'day' => 'Sat',
@@ -68,7 +69,7 @@ final readonly class HomepageViewModel
                 [
                     'title' => 'Woodland and water',
                     'url' => route('walks.show', 'woodland-and-water'),
-                    'image_url' => '/images/demo/woodland-walk.png',
+                    'image_url' => '/images/demo/woodland-walk-768.webp',
                     'image_alt' => 'Walkers crossing a footbridge through green woodland',
                     'date' => 'Sunday 25 August',
                     'day' => 'Sun',
@@ -85,7 +86,7 @@ final readonly class HomepageViewModel
                 [
                     'title' => 'Moorland views',
                     'url' => route('walks.show', 'moorland-views'),
-                    'image_url' => '/images/demo/lakeside-friends.png',
+                    'image_url' => '/images/demo/lakeside-friends-768.webp',
                     'image_alt' => 'Friends pausing beside a quiet upland lake',
                     'date' => 'Monday 26 August',
                     'day' => 'Mon',
@@ -103,7 +104,7 @@ final readonly class HomepageViewModel
             holiday: $holiday ?? [
                 'title' => 'Coast and moor long weekend',
                 'url' => route('holidays.show', 'coast-and-moor'),
-                'image_url' => '/images/demo/coastal-weekend.png',
+                'image_url' => '/images/demo/coastal-weekend-768.webp',
                 'image_alt' => 'Walkers arriving at a stone lodge beside the coast',
                 'duration' => '3 nights',
                 'location' => 'Coast and moorland',
@@ -111,12 +112,12 @@ final readonly class HomepageViewModel
                 'summary' => 'Big skies, coastal paths and an easygoing base for the weekend.',
             ],
             gallery: $gallery ?? [
-                ['image_url' => '/images/demo/lakeside-friends.png', 'image_alt' => 'Friends sharing a warm drink beside an upland lake'],
-                ['image_url' => '/images/demo/woodland-walk.png', 'image_alt' => 'A footbridge winding through lush woodland'],
-                ['image_url' => '/images/demo/coastal-weekend.png', 'image_alt' => 'A walking weekend on a broad coastal headland'],
-                ['image_url' => '/images/demo/hero-walkers.png', 'image_alt' => 'A group walking across open moorland'],
-                ['image_url' => '/images/demo/woodland-walk.png', 'image_alt' => 'Sunlight falling through ferns beside a woodland trail'],
-                ['image_url' => '/images/demo/lakeside-friends.png', 'image_alt' => 'Walkers laughing together after a day outside'],
+                ['image_url' => '/images/demo/lakeside-friends-768.webp', 'image_alt' => 'Friends sharing a warm drink beside an upland lake'],
+                ['image_url' => '/images/demo/woodland-walk-768.webp', 'image_alt' => 'A footbridge winding through lush woodland'],
+                ['image_url' => '/images/demo/coastal-weekend-768.webp', 'image_alt' => 'A walking weekend on a broad coastal headland'],
+                ['image_url' => '/images/demo/hero-walkers-768.webp', 'image_alt' => 'A group walking across open moorland'],
+                ['image_url' => '/images/demo/woodland-walk-768.webp', 'image_alt' => 'Sunlight falling through ferns beside a woodland trail'],
+                ['image_url' => '/images/demo/lakeside-friends-768.webp', 'image_alt' => 'Walkers laughing together after a day outside'],
             ],
             memberResources: [
                 ['label' => 'Members area', 'url' => route('account.profile.edit')],
@@ -138,9 +139,14 @@ final readonly class HomepageViewModel
     {
         $defaults = self::demo($weekendWalks, $holiday ?? [], $gallery, $testimonial);
 
+        $hero = array_replace($defaults->hero, $heroOverrides);
+        if (($hero['image_url'] ?? null) !== '/images/demo/hero-walkers-1536.webp') {
+            unset($hero['image_srcset']);
+        }
+
         return new self(
             site: ['name' => $profile->group_name ?: 'Waymark Community', 'strapline' => 'A local walking community'],
-            hero: array_replace($defaults->hero, $heroOverrides),
+            hero: $hero,
             benefits: $defaults->benefits,
             weekendWalks: $weekendWalks,
             holiday: $holiday ?? [],

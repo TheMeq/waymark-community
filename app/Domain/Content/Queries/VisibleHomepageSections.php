@@ -3,12 +3,20 @@
 namespace App\Domain\Content\Queries;
 
 use App\Domain\Content\Models\HomepageSection;
+use App\Domain\Content\Support\PublicContentCache;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 final class VisibleHomepageSections
 {
     /** @return Collection<int, HomepageSection> */
     public function get(): Collection
+    {
+        return Cache::remember(PublicContentCache::HOMEPAGE_SECTIONS, (int) config('waymark.public_cache_seconds', 300), fn (): Collection => $this->query());
+    }
+
+    /** @return Collection<int, HomepageSection> */
+    private function query(): Collection
     {
         if (! HomepageSection::query()->exists()) {
             return collect(['hero', 'whats_on', 'gallery', 'join'])->map(fn (string $key, int $index): HomepageSection => new HomepageSection([
