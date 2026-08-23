@@ -93,6 +93,67 @@ final class DocumentLibraryTest extends TestCase
         $this->assertFalse(Schema::hasTable('document_downloads'));
     }
 
+    public function test_list_detail_and_download_share_the_current_document_availability_rules(): void
+    {
+        Storage::fake('local');
+        $actor = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
+        $available = $this->publishedDocument($actor, ['title' => 'Available policy', 'slug' => 'available-policy']);
+        $future = $this->publishedDocument($actor, ['title' => 'Future policy', 'slug' => 'future-policy', 'publication_date' => today()->addDay()]);
+        $controlledDraft = $this->publishedDocument($actor, ['title' => 'Unapproved controlled policy', 'slug' => 'unapproved-controlled-policy']);
+        $controlledDraft->update(['controlled' => true, 'approval_status' => 'draft']);
+        $versionNotDue = $this->publishedDocument($actor, ['title' => 'Version not due', 'slug' => 'version-not-due']);
+        $versionNotDue->currentVersion->update(['published_at' => now()->addHour()]);
+
+        $this->get(route('documents.index'))->assertOk()->assertSeeText($available->title)
+            ->assertDontSeeText($future->title)->assertDontSeeText($controlledDraft->title)->assertDontSeeText($versionNotDue->title);
+        foreach ([$future, $controlledDraft, $versionNotDue] as $unavailable) {
+            $this->get(route('documents.show', $unavailable->slug))->assertNotFound();
+            $this->get(route('documents.download', [$unavailable->slug, $unavailable->currentVersion]))->assertNotFound();
+        }
+        $this->assertSame(0, $future->fresh()->download_count);
+        $this->assertSame(0, $controlledDraft->fresh()->download_count);
+        $this->assertSame(0, $versionNotDue->fresh()->download_count);
+    }
+
+    public function test_document_audiences_are_enforced_for_list_detail_and_direct_download_routes(): void
+    {
+        Storage::fake('local');
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
+        $registered = User::factory()->create(['role' => AccountRole::RegisteredUser, 'email_verified_at' => now()]);
+        $leader = User::factory()->create(['role' => AccountRole::WalkLeader, 'email_verified_at' => now()]);
+        $committee = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
+        $registeredDocument = $this->publishedDocument($administrator, ['title' => 'Member handbook', 'slug' => 'member-handbook', 'visibility' => 'registered']);
+        $leaderDocument = $this->publishedDocument($administrator, ['title' => 'Leader handbook', 'slug' => 'leader-handbook', 'visibility' => 'leader']);
+        $committeeDocument = $this->publishedDocument($administrator, ['title' => 'Committee handbook', 'slug' => 'committee-handbook', 'visibility' => 'committee']);
+
+        $this->get(route('documents.show', $registeredDocument->slug))->assertNotFound();
+        $this->actingAs($registered)->get(route('documents.index'))->assertSeeText('Member handbook')->assertDontSeeText('Leader handbook')->assertDontSeeText('Committee handbook');
+        $this->actingAs($leader)->get(route('documents.download', [$leaderDocument->slug, $leaderDocument->currentVersion]))->assertOk();
+        $this->actingAs($registered)->get(route('documents.download', [$leaderDocument->slug, $leaderDocument->currentVersion]))->assertNotFound();
+        $this->actingAs($committee)->get(route('documents.download', [$committeeDocument->slug, $committeeDocument->currentVersion]))->assertOk();
+        $this->assertSame(1, $leaderDocument->fresh()->download_count);
+        $this->assertSame(1, $committeeDocument->fresh()->download_count);
+    }
+
+    public function test_restricted_documents_never_expose_version_history_and_leader_download_uses_the_same_boundary(): void
+    {
+        Storage::fake('local');
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
+        $leader = User::factory()->create(['role' => AccountRole::WalkLeader, 'email_verified_at' => now()]);
+        $document = $this->publishedDocument($administrator, ['visibility' => 'leader', 'public_version_history' => true]);
+        $old = $this->version($document, $administrator, 2);
+        Storage::disk('local')->put($old->storage_path, 'old');
+        $old->update(['published_at' => now()->subDay()]);
+
+        $this->actingAs($leader)->get(route('documents.show', $document->slug))->assertOk()->assertDontSeeText('Version history');
+        $this->actingAs($leader)->get(route('documents.download', [$document->slug, $old]))->assertNotFound();
+        $this->actingAs($leader)->get(route('leader-hub.documents.download', $document))->assertOk();
+
+        $document->update(['publication_date' => today()->addDay()]);
+        $this->actingAs($leader)->get(route('leader-hub.documents.download', $document))->assertNotFound();
+        $this->assertSame(1, $document->fresh()->download_count);
+    }
+
     public function test_review_query_returns_approaching_and_overdue_controlled_documents(): void
     {
         $overdue = $this->document(['slug' => 'overdue', 'controlled' => true, 'approval_status' => 'approved', 'review_date' => now()->subDay()->toDateString()]);
@@ -148,5 +209,16 @@ final class DocumentLibraryTest extends TestCase
     private function version(Document $document, User $actor, int $number): DocumentVersion
     {
         return $document->versions()->create(['version_number' => $number, 'storage_disk' => 'local', 'storage_path' => "documents/3f2504e0-4f89-41d3-9a0c-0305e82c3300/v{$number}.pdf", 'original_filename' => "walking-policy-v{$number}.pdf", 'mime_type' => 'application/pdf', 'file_size_bytes' => 12, 'created_by_user_id' => $actor->id]);
+    }
+
+    /** @param array<string, mixed> $overrides */
+    private function publishedDocument(User $actor, array $overrides = []): Document
+    {
+        $document = $this->document($overrides);
+        $version = $this->version($document, $actor, 1);
+        Storage::disk('local')->put($version->storage_path, 'document');
+        app(PublishDocumentVersion::class)->handle($actor, $document, $version);
+
+        return $document->refresh()->load('currentVersion');
     }
 }

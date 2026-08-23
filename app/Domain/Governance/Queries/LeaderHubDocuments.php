@@ -3,20 +3,19 @@
 namespace App\Domain\Governance\Queries;
 
 use App\Domain\Governance\Models\Document;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 
-final class LeaderHubDocuments
+final readonly class LeaderHubDocuments
 {
+    public function __construct(private AvailableDocuments $available) {}
+
     /** @return Collection<int, Document> */
-    public function get(): Collection
+    public function get(User $leader): Collection
     {
-        return Document::query()
+        return $this->available->query($leader)
             ->with(['category', 'currentVersion'])
             ->where('visibility', 'leader')
-            ->where('approval_status', 'approved')
-            ->whereNotNull('current_version_id')
-            ->where(fn ($query) => $query->whereNull('publication_date')->orWhere('publication_date', '<=', today()))
-            ->whereHas('currentVersion', fn ($query) => $query->whereNotNull('published_at')->where('published_at', '<=', now()))
             ->orderBy('title')
             ->get();
     }

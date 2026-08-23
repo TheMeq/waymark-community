@@ -18,6 +18,6 @@ final class CommitteeHubController
         abort_unless($actor instanceof User && $actor->hasCapability(ModuleCapability::AccessCommitteeHub), 403);
         $profile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
 
-        return view('committee.hub', [...$content->get(), 'site' => ['name' => $profile->group_name ?? 'Waymark Community', 'strapline' => 'A local walking community'], 'theme' => BrandTheme::fromSiteProfile($profile)]);
+        return view('committee.hub', [...$content->get($actor), 'site' => ['name' => $profile->group_name ?? 'Waymark Community', 'strapline' => 'A local walking community'], 'theme' => BrandTheme::fromSiteProfile($profile)]);
     }
 }

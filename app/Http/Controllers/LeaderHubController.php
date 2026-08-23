@@ -23,7 +23,7 @@ final class LeaderHubController extends Controller
             $walks->drafts($leader)->get(),
             $walks->currentOrUpcoming($leader)->get(),
             $walks->past($leader)->get(),
-            $documents->get(),
+            $documents->get($leader),
         )->toArray());
     }
 }

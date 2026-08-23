@@ -2,32 +2,32 @@
 
 namespace App\Http\Controllers;
 
-use App\Domain\Governance\Models\Document;
 use App\Domain\Governance\Models\DocumentVersion;
+use App\Domain\Governance\Queries\AvailableDocuments;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class PublicDocumentController
 {
-    public function index(): View
+    public function index(Request $request, AvailableDocuments $available): View
     {
-        return view('documents.index', [...$this->site(), 'documents' => Document::query()->with('category')->where('visibility', 'public')->whereNotNull('current_version_id')->orderBy('title')->get()]);
+        return view('documents.index', [...$this->site(), 'documents' => $available->query($request->user())->with('category')->orderBy('title')->get()]);
     }
 
-    public function show(string $slug): View
+    public function show(Request $request, AvailableDocuments $available, string $slug): View
     {
-        $document = Document::query()->with(['category', 'currentVersion', 'versions'])->where('visibility', 'public')->where('slug', $slug)->whereNotNull('current_version_id')->firstOrFail();
+        $document = $available->query($request->user())->with(['category', 'currentVersion', 'versions' => fn ($query) => $query->whereNotNull('published_at')->where('published_at', '<=', now())])->where('slug', $slug)->firstOrFail();
 
         return view('documents.show', [...$this->site(), 'document' => $document]);
     }
 
-    public function download(string $slug, DocumentVersion $version): StreamedResponse
+    public function download(Request $request, AvailableDocuments $available, string $slug, DocumentVersion $version): StreamedResponse
     {
-        $document = Document::query()->where('visibility', 'public')->where('slug', $slug)->firstOrFail();
-        abort_unless($version->document_id === $document->id && ($version->id === $document->current_version_id || ($document->public_version_history && $version->published_at !== null)), 404);
+        $document = $available->documentForVersion($slug, $version, $request->user());
         abort_unless(Storage::disk($version->storage_disk)->exists($version->storage_path), 404);
         $document->increment('download_count');
 

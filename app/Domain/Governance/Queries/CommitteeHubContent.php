@@ -5,15 +5,17 @@ namespace App\Domain\Governance\Queries;
 use App\Domain\Governance\Models\CommitteeHubLink;
 use App\Domain\Governance\Models\CommitteeMeeting;
 use App\Domain\Governance\Models\CommitteeRole;
-use App\Domain\Governance\Models\Document;
+use App\Models\User;
 
-final class CommitteeHubContent
+final readonly class CommitteeHubContent
 {
-    public function get(): array
+    public function __construct(private AvailableDocuments $available) {}
+
+    public function get(User $actor): array
     {
         return [
             'contacts' => CommitteeRole::query()->with('person')->where('active', true)->orderBy('sort_order')->get(),
-            'documents' => Document::query()->with('category')->where('visibility', 'committee')->orderBy('title')->get(),
+            'documents' => $this->available->query($actor)->with(['category', 'currentVersion'])->where('visibility', 'committee')->orderBy('title')->get(),
             'meetings' => CommitteeMeeting::query()->with('minutesVersion')->orderByDesc('meeting_date')->get(),
             'links' => CommitteeHubLink::query()->where('active', true)->orderBy('sort_order')->get(),
         ];
