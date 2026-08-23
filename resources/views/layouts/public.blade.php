@@ -38,6 +38,7 @@
         </main>
 
         @yield('site-footer')
+        <x-public.cookie-banner :cookie-preferences="$cookiePreferences" />
         @stack('scripts')
     </body>
 </html>

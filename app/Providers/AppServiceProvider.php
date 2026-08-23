@@ -19,6 +19,7 @@ use App\Domain\Gallery\Services\GdRasterImageTransformer;
 use App\Domain\Gallery\Services\PhpExifImageMetadataReader;
 use App\Domain\Governance\Models\Document;
 use App\Domain\Operations\Analytics\ExternalAnalytics;
+use App\Domain\Operations\Analytics\ConsentPreferences;
 use App\Domain\Walks\RelatedContent\RelatedWalks;
 use App\Domain\Walks\RelatedContent\SignalRelatedWalks;
 use App\Http\Middleware\RequireSensitiveActionAssurance;
@@ -69,6 +70,7 @@ class AppServiceProvider extends ServiceProvider
         View::composer('layouts.public', fn ($view) => $view->with([
             'branding' => app(PublicBranding::class)->get(),
             'analytics' => app(ExternalAnalytics::class)->forRequest(request()),
+            'cookiePreferences' => app(ConsentPreferences::class)->forRequest(request()),
         ]));
 
         $testNow = env('WAYMARK_TEST_NOW');

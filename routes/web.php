@@ -13,6 +13,7 @@ use App\Http\Controllers\CommunityPhotoModerationPreviewController;
 use App\Http\Controllers\CommunityPhotoReportController;
 use App\Http\Controllers\CommunityPhotoUploadController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\CookieSettingsController;
 use App\Http\Controllers\FavouriteController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LeaderHubController;
@@ -65,6 +66,8 @@ Route::get('/documents/{slug}/versions/{version}/download', [PublicDocumentContr
 Route::get('/committee', [PublicCommitteeController::class, 'index'])->name('committee.index');
 Route::get('/committee/meetings', [PublicCommitteeController::class, 'meetings'])->name('committee.meetings');
 Route::get('/contact', [ContactController::class, 'create'])->name('contact.create');
+Route::get('/cookie-settings', [CookieSettingsController::class, 'edit'])->name('cookie-settings.edit');
+Route::post('/cookie-settings', [CookieSettingsController::class, 'update'])->name('cookie-settings.update');
 Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:contact')->name('contact.store');
 Route::get('/pages/{slug}', [CmsPageController::class, 'show'])->name('cms.show');
 Route::get('/review/pages/{token}', [CmsPageController::class, 'review'])->name('cms.review');

@@ -22,6 +22,7 @@
                     <li><a class="hover:text-white" href="{{ route('contact.create') }}">Contact</a></li>
                 @endforelse
                 @foreach ($activeBranding['social_links'] ?? [] as $social)<li><a class="hover:text-white" href="{{ $social['url'] }}" rel="noopener">{{ $social['label'] }}</a></li>@endforeach
+                <li><a class="hover:text-white" href="{{ route('cookie-settings.edit') }}">Cookie settings</a></li>
                 @if (($activeBranding['affiliation_name'] ?? '') !== '' && ($activeBranding['affiliation_url'] ?? null))<li><a class="hover:text-white" href="{{ $activeBranding['affiliation_url'] }}" rel="noopener">{{ $activeBranding['affiliation_name'] }}</a></li>@endif
             </ul>
         </nav>
