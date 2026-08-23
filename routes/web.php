@@ -6,6 +6,7 @@ use App\Http\Controllers\AccountPrivacyController;
 use App\Http\Controllers\AccountProfileController;
 use App\Http\Controllers\AccountSecurityController;
 use App\Http\Controllers\CalendarFeedController;
+use App\Http\Controllers\CmsPageController;
 use App\Http\Controllers\CommunityPhotoModerationPreviewController;
 use App\Http\Controllers\CommunityPhotoReportController;
 use App\Http\Controllers\CommunityPhotoUploadController;
@@ -41,6 +42,8 @@ Route::get('/service-worker.js', [PwaController::class, 'serviceWorker'])->name(
 Route::get('/offline', [PwaController::class, 'offline'])->name('pwa.offline');
 Route::get('/media/{media}/image/{variant}', SiteMediaStreamController::class)->whereNumber('media')->name('site-media.stream');
 Route::get('/new-here', NewHereController::class)->name('new-here');
+Route::get('/pages/{slug}', [CmsPageController::class, 'show'])->name('cms.show');
+Route::get('/review/pages/{token}', [CmsPageController::class, 'review'])->name('cms.review');
 Route::get('/photos', [PublicGalleryController::class, 'index'])->name('gallery.index');
 Route::get('/photos/events/{event:slug}', [PublicGalleryController::class, 'event'])->name('gallery.events.show');
 Route::get('/photos/holidays/{event:slug}', [PublicGalleryController::class, 'holiday'])->name('gallery.holidays.show');
@@ -52,6 +55,7 @@ Route::get('/leaders/{slug}', PublicLeaderProfileController::class)->name('leade
 Route::get('/photos/{photo}/report', [CommunityPhotoReportController::class, 'create'])->whereNumber('photo')->name('community-photos.reports.create');
 Route::post('/photos/{photo?}/report', CommunityPhotoReportController::class)->whereNumber('photo')->middleware('throttle:photo-report')->name('community-photos.reports.store');
 Route::middleware('auth')->group(function (): void {
+    Route::get('/admin/pages/{page}/preview', [CmsPageController::class, 'preview'])->name('cms.preview');
     Route::get('/admin/photo-moderation/{photo}/preview', CommunityPhotoModerationPreviewController::class)->name('admin.photo-moderation.preview');
     Route::get('/photos/upload', [CommunityPhotoUploadController::class, 'create'])->name('community-photos.upload.create');
     Route::post('/photos/upload', [CommunityPhotoUploadController::class, 'store'])->middleware('throttle:photo-upload')->name('community-photos.upload.store');
