@@ -30,6 +30,17 @@ final class CmsPageTest extends TestCase
         $this->get('/pages/walking-with-us')->assertOk()->assertSeeText('Walking with us');
     }
 
+    public function test_public_page_uses_the_approved_public_site_chrome(): void
+    {
+        CmsPage::query()->create($this->page());
+
+        $this->get('/pages/walking-with-us')
+            ->assertOk()
+            ->assertSeeText('Upcoming walks')
+            ->assertSeeText('Privacy')
+            ->assertSeeText('Accessibility');
+    }
+
     public function test_blocks_are_constrained_and_rendered_without_arbitrary_markup(): void
     {
         $page = CmsPage::query()->create($this->page([

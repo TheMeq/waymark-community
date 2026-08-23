@@ -2,6 +2,10 @@
 
 @section('title', $page->seo_title ?: $page->title)
 
+@section('site-header')
+    <x-public.site-header :site="$site" />
+@endsection
+
 @section('content')
     <div class="wm-container py-12 sm:py-16">
         @if ($notice)
@@ -12,4 +16,8 @@
             <x-content.blocks class="mt-10" :blocks="$blocks" />
         </article>
     </div>
+@endsection
+
+@section('site-footer')
+    <x-public.site-footer :site="$site" />
 @endsection
