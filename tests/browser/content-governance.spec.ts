@@ -6,6 +6,7 @@ const pages = [
     { name: 'cms-page', path: '/pages/walking-with-us', heading: 'Walking with us' },
     { name: 'news-detail', path: '/news/paths-people-late-summer-plans', heading: 'Paths, people and late-summer plans' },
     { name: 'document-detail', path: '/documents/walking-guide', heading: 'Walking guide' },
+    { name: 'contact', path: '/contact', heading: 'Contact' },
 ];
 
 for (const publicPage of pages) {

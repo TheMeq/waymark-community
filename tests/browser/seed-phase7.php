@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Communication\Models\ContactDepartment;
 use App\Domain\Content\Models\CmsPage;
 use App\Domain\Content\Models\NewsArticle;
 use App\Domain\Governance\Actions\PublishDocumentVersion;
@@ -77,3 +78,20 @@ $version = DocumentVersion::query()->create([
     'created_by_user_id' => $administrator->id,
 ]);
 app(PublishDocumentVersion::class)->handle($administrator, $document, $version);
+
+ContactDepartment::query()->create([
+    'public_label' => 'Walk programme',
+    'destination_email' => 'walks@example.test',
+    'description' => 'Questions about upcoming walks, grades and meeting points.',
+    'show_address_publicly' => true,
+    'active' => true,
+    'sort_order' => 10,
+]);
+ContactDepartment::query()->create([
+    'public_label' => 'General enquiries',
+    'destination_email' => 'private@example.test',
+    'description' => 'Membership, volunteering and other questions.',
+    'show_address_publicly' => false,
+    'active' => true,
+    'sort_order' => 20,
+]);
