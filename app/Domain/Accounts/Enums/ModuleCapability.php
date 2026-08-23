@@ -22,4 +22,5 @@ enum ModuleCapability: string
     case ManageSiteMedia = 'site_media.manage';
     case ManageContent = 'content.manage';
     case ManageGovernance = 'governance.manage';
+    case AccessCommitteeHub = 'governance.access_committee_hub';
 }

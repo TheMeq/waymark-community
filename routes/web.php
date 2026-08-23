@@ -8,6 +8,7 @@ use App\Http\Controllers\AccountSecurityController;
 use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\BrandingPreviewController;
 use App\Http\Controllers\CmsPageController;
+use App\Http\Controllers\CommitteeHubController;
 use App\Http\Controllers\CommunityPhotoModerationPreviewController;
 use App\Http\Controllers\CommunityPhotoReportController;
 use App\Http\Controllers\CommunityPhotoUploadController;
@@ -66,6 +67,7 @@ Route::get('/leaders/{slug}', PublicLeaderProfileController::class)->name('leade
 Route::get('/photos/{photo}/report', [CommunityPhotoReportController::class, 'create'])->whereNumber('photo')->name('community-photos.reports.create');
 Route::post('/photos/{photo?}/report', CommunityPhotoReportController::class)->whereNumber('photo')->middleware('throttle:photo-report')->name('community-photos.reports.store');
 Route::middleware('auth')->group(function (): void {
+    Route::get('/committee-hub', CommitteeHubController::class)->name('committee-hub.index');
     Route::get('/admin/branding-preview', BrandingPreviewController::class)->name('branding.preview');
     Route::get('/admin/pages/{page}/preview', [CmsPageController::class, 'preview'])->name('cms.preview');
     Route::get('/admin/photo-moderation/{photo}/preview', CommunityPhotoModerationPreviewController::class)->name('admin.photo-moderation.preview');
