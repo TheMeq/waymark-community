@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Domain\Accounts\Models\InstallationOwnership;
+use App\Domain\Content\Queries\PublicFooterSections;
+use App\Domain\Content\Queries\PublicNavigationItems;
 use App\Domain\Gallery\Contracts\ImageMetadataReader;
 use App\Domain\Gallery\Contracts\RasterImageTransformer;
 use App\Domain\Gallery\Services\GdRasterImageTransformer;
@@ -16,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 
@@ -46,6 +49,8 @@ class AppServiceProvider extends ServiceProvider
         ]);
         Gate::policy(InstallationOwnership::class, InstallationOwnershipPolicy::class);
         Livewire::addPersistentMiddleware([RequireSensitiveActionAssurance::class]);
+        View::composer('components.public.site-header', fn ($view) => $view->with('navigationItems', app(PublicNavigationItems::class)->get()));
+        View::composer('components.public.site-footer', fn ($view) => $view->with('footerSections', app(PublicFooterSections::class)->get()));
 
         $testNow = env('WAYMARK_TEST_NOW');
 

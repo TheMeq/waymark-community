@@ -12,9 +12,13 @@
 
         <nav aria-label="Footer navigation">
             <ul class="flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/80">
-                <li><a class="hover:text-white" href="/privacy">Privacy</a></li>
-                <li><a class="hover:text-white" href="/accessibility">Accessibility</a></li>
-                <li><a class="hover:text-white" href="/contact">Contact</a></li>
+                @forelse ($footerSections->flatMap(fn ($section) => $section->links) as $link)
+                    <li><a class="hover:text-white" href="{{ $link['url'] }}">{{ $link['label'] }}</a></li>
+                @empty
+                    <li><a class="hover:text-white" href="/privacy">Privacy</a></li>
+                    <li><a class="hover:text-white" href="/accessibility">Accessibility</a></li>
+                    <li><a class="hover:text-white" href="/contact">Contact</a></li>
+                @endforelse
             </ul>
         </nav>
     </div>

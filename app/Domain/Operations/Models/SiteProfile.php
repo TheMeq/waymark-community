@@ -15,8 +15,13 @@ use Illuminate\Database\Eloquent\Model;
     'ascent_unit',
     'start_year',
     'logo_path',
+    'favicon_path',
+    'hero_default_path',
     'primary_colour',
     'accent_colour',
+    'typography_option',
+    'social_links',
+    'terminology',
     'affiliation_name',
     'affiliation_url',
     'module_configuration',
@@ -43,6 +48,8 @@ final class SiteProfile extends Model
         return [
             'start_year' => 'integer',
             'module_configuration' => 'array',
+            'social_links' => 'array',
+            'terminology' => 'array',
         ];
     }
 }
