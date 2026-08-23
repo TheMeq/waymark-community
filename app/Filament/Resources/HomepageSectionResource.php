@@ -57,7 +57,13 @@ final class HomepageSectionResource extends Resource
             IconColumn::make('enabled')->boolean(),
             TextColumn::make('sort_order')->label('Order')->sortable(),
             TextColumn::make('layout_variant')->label('Layout'),
-        ])->defaultSort('sort_order')->recordActions([EditAction::make(), DeleteAction::make()]);
+        ])
+            ->defaultSort('sort_order')
+            ->reorderable('sort_order')
+            ->authorizeReorder(fn (): bool => self::canManage())
+            ->beforeReordering(fn (ListHomepageSections $livewire, array $order): mixed => $livewire->captureHomepageSectionState($order))
+            ->afterReordering(fn (ListHomepageSections $livewire): mixed => $livewire->snapshotHomepageSectionReorder())
+            ->recordActions([EditAction::make(), DeleteAction::make()]);
     }
 
     public static function canViewAny(): bool

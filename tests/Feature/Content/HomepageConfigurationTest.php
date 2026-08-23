@@ -17,10 +17,12 @@ use App\Domain\Holidays\Models\Holiday;
 use App\Domain\Operations\Actions\UpdateSiteProfile;
 use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Domain\Walks\Models\Walk;
+use App\Filament\Resources\HomepageSectionResource\Pages\ListHomepageSections;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 final class HomepageConfigurationTest extends TestCase
@@ -223,6 +225,49 @@ final class HomepageConfigurationTest extends TestCase
 
         $this->actingAs($administrator)->get('/admin/homepage-sections')->assertOk()->assertSeeText('Homepage');
         $this->actingAs($member)->get('/admin/homepage-sections')->assertForbidden();
+    }
+
+    public function test_content_manager_can_drag_reorder_all_sections_with_snapshots_and_public_order_persistence(): void
+    {
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
+        $gallery = HomepageSection::query()->create($this->section([
+            'section_key' => 'gallery',
+            'sort_order' => 30,
+            'enabled' => false,
+            'empty_behavior' => 'message',
+        ]));
+        $hero = HomepageSection::query()->create($this->section(['section_key' => 'hero', 'sort_order' => 10]));
+        $join = HomepageSection::query()->create($this->section([
+            'section_key' => 'join',
+            'sort_order' => 20,
+            'visible_from' => now()->addHour(),
+        ]));
+
+        $this->actingAs($administrator);
+        Livewire::test(ListHomepageSections::class)
+            ->call('reorderTable', [$gallery->id, $hero->id, $join->id]);
+
+        $this->assertSame(1, $gallery->fresh()->sort_order);
+        $this->assertSame(2, $hero->fresh()->sort_order);
+        $this->assertSame(3, $join->fresh()->sort_order);
+        $this->assertCount(3, HomepageConfigurationSnapshot::query()->get());
+        $gallerySnapshot = HomepageConfigurationSnapshot::query()->where('homepage_section_id', $gallery->id)->sole();
+        $this->assertSame($administrator->id, $gallerySnapshot->actor_id);
+        $this->assertSame(30, $gallerySnapshot->previous_values['sort_order']);
+        $this->assertSame(1, $gallerySnapshot->new_values['sort_order']);
+
+        $gallery->update(['enabled' => true]);
+        $join->update(['visible_from' => now()->subMinute()]);
+
+        $this->assertSame(
+            ['gallery', 'hero', 'join'],
+            app(VisibleHomepageSections::class)->get()->pluck('section_key')->all(),
+        );
+        $this->get('/')->assertOk()
+            ->assertSee('data-homepage-section="gallery"', false)
+            ->assertSee('style="order: 1"', false)
+            ->assertSee('style="order: 2"', false)
+            ->assertSee('style="order: 3"', false);
     }
 
     /** @param array<string, mixed> $overrides */
