@@ -61,6 +61,7 @@ test('an authenticated user can save, list and remove a favourite accessibly', a
     });
     await expectNoHorizontalOverflow(page);
 
+    await page.getByRole('button', { name: 'Use essential only' }).click();
     await page.getByRole('button', { name: 'Remove' }).click();
     await expect(page.getByText('No saved events yet.')).toBeVisible();
 });
