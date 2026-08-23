@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 async function signIn(page: Page) {
     await page.goto('/login');
-    await page.getByLabel('Email address').fill('morgan.leader@example.test');
+    await page.getByLabel('Email address').fill('photo.moderator@example.test');
     await page.getByLabel('Password').fill('password');
     await Promise.all([
         page.waitForURL('**/new-here'),

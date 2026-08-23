@@ -47,6 +47,12 @@ $mediaAdmin = User::factory()->create([
     'password' => 'password',
     'is_admin' => true,
 ]);
+$moderationLeader = User::factory()->create([
+    'name' => 'Photo Moderation Leader',
+    'email' => 'photo.moderator@example.test',
+    'password' => 'password',
+    'role' => AccountRole::WalkLeader,
+]);
 
 $moderationEvent = Event::query()->create([
     'type' => EventType::Walk,
@@ -59,10 +65,10 @@ $moderationEvent = Event::query()->create([
     'status' => EventStatus::Completed,
     'is_public' => true,
     'published_at' => CarbonImmutable::parse('2026-08-19 12:00:00'),
-    'organiser_id' => $leader->id,
+    'organiser_id' => $moderationLeader->id,
 ]);
 app(SaveWalkDetails::class)->handle($moderationEvent, [
-    'primary_leader_id' => $leader->id,
+    'primary_leader_id' => $moderationLeader->id,
     'grade_id' => $grade->id,
     'distance' => 7.5,
     'ascent' => 220,
@@ -75,7 +81,7 @@ foreach (range(1, 21) as $number) {
     Storage::disk('local')->put('community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/browser-'.$number.'.jpg', $preview);
     CommunityPhoto::query()->create([
         'event_id' => $moderationEvent->id,
-        'uploader_id' => $leader->id,
+        'uploader_id' => $moderationLeader->id,
         'media_type' => 'image',
         'processing_status' => 'complete',
         'storage_disk' => 'local',
@@ -90,7 +96,7 @@ Storage::disk('local')->put('community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c33
 
 CommunityPhoto::query()->create([
     'event_id' => $moderationEvent->id,
-    'uploader_id' => $leader->id,
+    'uploader_id' => $moderationLeader->id,
     'media_type' => 'image',
     'processing_status' => 'complete',
     'storage_disk' => 'local',
@@ -108,11 +114,11 @@ foreach (range(1, 3) as $number) {
     Storage::disk('local')->put($pendingPath, $preview);
     Storage::disk('local')->put($publishedPath, $preview);
     CommunityPhoto::query()->create([
-        'event_id' => $moderationEvent->id, 'uploader_id' => $leader->id, 'media_type' => 'image', 'processing_status' => 'complete', 'storage_disk' => 'local',
+        'event_id' => $moderationEvent->id, 'uploader_id' => $moderationLeader->id, 'media_type' => 'image', 'processing_status' => 'complete', 'storage_disk' => 'local',
         'source_path' => $pendingPath, 'processed_variants' => ['master' => $pendingPath], 'moderation_status' => 'pending', 'caption' => 'Browser own pending '.$number,
     ]);
     $published = CommunityPhoto::query()->create([
-        'event_id' => $moderationEvent->id, 'uploader_id' => $leader->id, 'media_type' => 'image', 'processing_status' => 'complete', 'storage_disk' => 'local',
+        'event_id' => $moderationEvent->id, 'uploader_id' => $moderationLeader->id, 'media_type' => 'image', 'processing_status' => 'complete', 'storage_disk' => 'local',
         'source_path' => $publishedPath, 'processed_variants' => ['master' => $publishedPath], 'moderation_status' => 'approved', 'published_at' => CarbonImmutable::parse('2026-08-20 10:00:00'), 'captured_at' => CarbonImmutable::parse('2026-08-19 10:00:00'), 'caption' => 'Browser own published '.$number,
     ]);
     $reportPath = 'community-photos/3f2504e0-4f89-41d3-9a0c-0305e82c3301/browser-report-'.$number.'.jpg';
