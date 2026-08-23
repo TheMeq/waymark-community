@@ -6,6 +6,8 @@ use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Content\Actions\SavePublicRedirect;
 use App\Domain\Content\Models\CmsPage;
 use App\Domain\Content\Models\PublicRedirect;
+use App\Domain\Events\Enums\EventType;
+use App\Domain\Events\Models\Event;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -27,6 +29,74 @@ final class RedirectUnavailableTest extends TestCase
             'automatic' => true,
         ]);
         $this->get('/pages/walking-with-us')->assertRedirect('/pages/join-a-walk')->assertStatus(301);
+    }
+
+    public function test_slug_redirect_chains_compress_to_the_current_canonical_path(): void
+    {
+        $page = CmsPage::query()->create($this->page(['slug' => 'a']));
+
+        $page->update(['slug' => 'b']);
+        $page->update(['slug' => 'c']);
+
+        $this->assertDatabaseHas('public_redirects', ['source_path' => '/pages/a', 'target_url' => '/pages/c']);
+        $this->assertDatabaseHas('public_redirects', ['source_path' => '/pages/b', 'target_url' => '/pages/c']);
+        $this->get('/pages/a')->assertMovedPermanently()->assertRedirect('/pages/c');
+        $this->get('/pages/b')->assertMovedPermanently()->assertRedirect('/pages/c');
+    }
+
+    public function test_reverting_a_cms_slug_restores_the_original_path_as_canonical(): void
+    {
+        $page = CmsPage::query()->create($this->page(['slug' => 'a']));
+
+        $page->update(['slug' => 'b']);
+        $page->update(['slug' => 'a']);
+
+        $this->assertDatabaseMissing('public_redirects', ['source_path' => '/pages/a']);
+        $this->get('/pages/a')->assertOk()->assertSeeText('Walking with us');
+    }
+
+    public function test_reverting_a_social_slug_redirects_the_intermediate_path_to_the_canonical_event(): void
+    {
+        $event = Event::factory()->create(['type' => EventType::Social, 'slug' => 'a']);
+
+        $event->update(['slug' => 'b']);
+        $event->update(['slug' => 'a']);
+
+        $this->assertDatabaseMissing('public_redirects', ['source_path' => '/socials/a']);
+        $this->assertDatabaseHas('public_redirects', [
+            'source_path' => '/socials/b',
+            'target_url' => '/socials/a',
+            'automatic' => true,
+        ]);
+    }
+
+    public function test_multiple_historical_aliases_collapse_without_a_cycle(): void
+    {
+        $actor = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
+        $page = CmsPage::query()->create($this->page(['slug' => 'a']));
+        app(SavePublicRedirect::class)->handle($actor, null, '/legacy-guide', '/pages/a', 301, true);
+
+        foreach (['b', 'c', 'd'] as $slug) {
+            $page->update(['slug' => $slug]);
+        }
+
+        foreach (['/legacy-guide', '/pages/a', '/pages/b', '/pages/c'] as $source) {
+            $this->assertDatabaseHas('public_redirects', ['source_path' => $source, 'target_url' => '/pages/d']);
+        }
+        $this->assertSame(4, PublicRedirect::query()->where('target_url', '/pages/d')->count());
+    }
+
+    public function test_a_new_canonical_path_removes_a_conflicting_managed_redirect(): void
+    {
+        $actor = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
+        $page = CmsPage::query()->create($this->page(['slug' => 'a']));
+        app(SavePublicRedirect::class)->handle($actor, null, '/pages/b', '/walks', 302, true);
+
+        $page->update(['slug' => 'b']);
+
+        $this->assertDatabaseMissing('public_redirects', ['source_path' => '/pages/b']);
+        $this->assertDatabaseHas('public_redirects', ['source_path' => '/pages/a', 'target_url' => '/pages/b']);
+        $this->get('/pages/b')->assertOk()->assertSeeText('Walking with us');
     }
 
     public function test_redirects_reject_loops_wildcards_and_unsafe_external_targets(): void
