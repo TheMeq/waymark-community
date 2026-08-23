@@ -33,6 +33,7 @@ test('public gallery retains an accessible no-JS detail flow and enhanced lightb
     await firstPhoto.click();
     const dialog = page.getByRole('dialog', { name: 'Photo viewer' });
     await expect(dialog).toBeVisible();
+    await waitForPageImages(page);
     await expect(dialog).toHaveScreenshot(`gallery-lightbox-${testInfo.project.name}.png`);
     const firstDialogImage = await dialog.locator('img').getAttribute('src');
     await expect(dialog.getByRole('button', { name: 'Previous' })).toBeDisabled();
