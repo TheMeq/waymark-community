@@ -8,7 +8,9 @@
 @endsection
 
 @section('content')
-    <section class="wm-hero relative isolate overflow-hidden bg-surface-raised">
+    <div class="flex flex-col">
+    @if ($homepageSections->has('hero'))
+    <section class="wm-hero relative isolate overflow-hidden bg-surface-raised" style="order: {{ $homepageSections['hero']->sort_order }}">
         <img
             class="absolute inset-0 -z-20 size-full object-cover object-[68%_center]"
             src="{{ $homepage->hero['image_url'] }}"
@@ -53,13 +55,15 @@
             </div>
         </div>
     </section>
+    @endif
 
-    <section class="bg-surface-raised py-7 sm:py-8 lg:py-5" aria-labelledby="weekend-heading">
+    @if ($homepageSections->has('whats_on'))
+    <section class="bg-surface-raised py-7 sm:py-8 lg:py-5" aria-labelledby="weekend-heading" style="order: {{ $homepageSections['whats_on']->sort_order }}">
         <div class="wm-container grid gap-10 lg:grid-cols-[minmax(0,2.45fr)_minmax(19rem,1fr)] lg:gap-6">
             <div class="min-w-0">
                 <div class="flex items-end justify-between gap-4">
-                    <h2 id="weekend-heading" class="text-3xl text-ink lg:text-2xl">This Weekend</h2>
-                    <a class="text-sm font-semibold text-brand underline decoration-brand/30 underline-offset-4 sm:hidden" href="/walks">View all</a>
+                    <h2 id="weekend-heading" class="text-3xl text-ink lg:text-2xl">{{ $homepageSections['whats_on']->heading ?: 'This Weekend' }}</h2>
+                    <a class="text-sm font-semibold text-brand underline decoration-brand/30 underline-offset-4 sm:hidden" href="/walks">{{ $homepageSections['whats_on']->cta_label ?: 'View all' }}</a>
                 </div>
                 @if ($homepage->weekendWalks !== [])
                     <div class="wm-card-rail mt-5 grid gap-4 lg:mt-3 lg:gap-3">
@@ -92,12 +96,14 @@
             </div>
         </div>
     </section>
+    @endif
 
-    <section class="border-y border-border bg-surface py-5 lg:py-4" aria-labelledby="gallery-heading">
+    @if ($homepageSections->has('gallery'))
+    <section class="border-y border-border bg-surface py-5 lg:py-4" aria-labelledby="gallery-heading" style="order: {{ $homepageSections['gallery']->sort_order }}">
         <div class="wm-container wm-photo-band grid gap-4 lg:gap-3">
             <div class="flex flex-col justify-center pb-2 lg:pb-0">
                 <p class="text-xs font-semibold uppercase tracking-[0.15em] text-brand">Our community</p>
-                <h2 id="gallery-heading" class="mt-2 text-3xl lg:mt-1 lg:text-2xl">Photos from our walks &amp; holidays</h2>
+                <h2 id="gallery-heading" class="mt-2 text-3xl lg:mt-1 lg:text-2xl">{{ $homepageSections['gallery']->heading ?: 'Photos from our walks & holidays' }}</h2>
                 <p class="mt-2 text-xs text-ink-muted lg:mt-1">Moments worth sharing.</p>
                 <a class="mt-3 text-sm font-semibold text-brand lg:mt-2 lg:text-xs" href="/photos">View gallery <span aria-hidden="true">&rarr;</span></a>
             </div>
@@ -116,8 +122,10 @@
             </div>
         </div>
     </section>
+    @endif
 
-    <section class="bg-surface-raised py-6 sm:py-7 lg:py-3">
+    @if ($homepageSections->has('join'))
+    <section class="bg-surface-raised py-6 sm:py-7 lg:py-3" style="order: {{ $homepageSections['join']->sort_order }}">
         <div class="wm-container grid gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(18rem,1fr)] lg:gap-4">
             <div class="rounded-[var(--wm-radius-md)] bg-surface-soft p-4 sm:p-5 lg:p-3">
                 <div class="flex flex-col gap-5 md:flex-row md:flex-wrap md:items-center lg:gap-3">
@@ -148,6 +156,8 @@
             </aside>
         </div>
     </section>
+    @endif
+    </div>
 @endsection
 
 @section('site-footer')

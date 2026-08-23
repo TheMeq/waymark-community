@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Content\Queries\VisibleHomepageSections;
 use App\Domain\Gallery\Queries\HomepageCommunityPhotos;
 use App\Domain\Holidays\Queries\PublicHolidaysQuery;
 use App\Domain\Operations\Models\SiteProfile;
@@ -14,7 +15,7 @@ use Illuminate\Contracts\View\View;
 
 final class HomeController
 {
-    public function __invoke(PublicWalksQuery $walks, PublicHolidaysQuery $holidays, HomepageCommunityPhotos $photos): View
+    public function __invoke(PublicWalksQuery $walks, PublicHolidaysQuery $holidays, HomepageCommunityPhotos $photos, VisibleHomepageSections $sections): View
     {
         $siteProfile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
         $weekendWalks = $walks->weekend()
@@ -37,6 +38,7 @@ final class HomeController
 
         return view('home', [
             'homepage' => HomepageViewModel::demo($weekendWalks, $holiday === null ? null : PublicHolidayCardViewModel::spotlight($holiday), $gallery),
+            'homepageSections' => $sections->get()->keyBy('section_key'),
             'theme' => BrandTheme::fromSiteProfile($siteProfile),
         ]);
     }
