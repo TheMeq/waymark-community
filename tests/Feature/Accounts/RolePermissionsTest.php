@@ -68,6 +68,10 @@ final class RolePermissionsTest extends TestCase
             'gallery.moderate_all_community_photos',
             'gallery.manage_albums',
             'site_media.manage',
+            'content.manage',
+            'governance.manage',
+            'governance.access_committee_hub',
+            'communications.manage',
         ], array_map(static fn (ModuleCapability $capability): string => $capability->value, ModuleCapability::cases()));
     }
 
@@ -95,12 +99,16 @@ final class RolePermissionsTest extends TestCase
                 'accounts.manage_membership_verification',
                 'admin.access',
                 'admin.manage_permissions',
+                'communications.manage',
+                'content.manage',
                 'event_configuration.manage',
                 'event_updates.manage_all',
                 'event_updates.manage_own',
                 'gallery.manage_albums',
                 'gallery.moderate_all_community_photos',
                 'gallery.moderate_own_event_photos',
+                'governance.access_committee_hub',
+                'governance.manage',
                 'holidays.manage',
                 'site_media.manage',
                 'socials.manage',

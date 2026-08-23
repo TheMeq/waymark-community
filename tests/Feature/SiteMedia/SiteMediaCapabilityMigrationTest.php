@@ -14,6 +14,7 @@ final class SiteMediaCapabilityMigrationTest extends TestCase
 
     public function test_the_default_administrator_matrix_receives_site_media_management_idempotently(): void
     {
+        $this->removeLaterPhaseCapabilities();
         $migration = $this->migration();
         $migration->down();
 
@@ -31,6 +32,7 @@ final class SiteMediaCapabilityMigrationTest extends TestCase
 
     public function test_a_customised_administrator_matrix_is_not_overwritten_on_upgrade_or_rollback(): void
     {
+        $this->removeLaterPhaseCapabilities();
         $migration = $this->migration();
         $migration->down();
         DB::table('role_capabilities')->where('role', AccountRole::Administrator->value)->where('capability', ModuleCapability::ManageHolidays->value)->delete();
@@ -46,6 +48,16 @@ final class SiteMediaCapabilityMigrationTest extends TestCase
     private function migration(): object
     {
         return require database_path('migrations/2026_08_22_104000_seed_site_media_management_capability.php');
+    }
+
+    private function removeLaterPhaseCapabilities(): void
+    {
+        DB::table('role_capabilities')->where('role', AccountRole::Administrator->value)->whereIn('capability', [
+            ModuleCapability::ManageContent->value,
+            ModuleCapability::ManageGovernance->value,
+            ModuleCapability::AccessCommitteeHub->value,
+            ModuleCapability::ManageCommunications->value,
+        ])->delete();
     }
 
     /** @return array<int, string> */

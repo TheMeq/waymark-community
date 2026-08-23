@@ -217,9 +217,9 @@ final class FavouritesTest extends TestCase
             ->map(fn (string $path): string => (string) file_get_contents($path))
             ->implode("\n");
 
-        $this->assertStringNotContainsString('reminder', strtolower($routes));
-        $this->assertStringNotContainsString('reminder', strtolower($migrationContents));
-        $this->assertStringNotContainsString('notification', strtolower($migrationContents));
+        $this->assertStringNotContainsString('favourite.reminder', strtolower($routes));
+        $this->assertStringNotContainsString('favourite_reminder', strtolower($migrationContents));
+        $this->assertStringNotContainsString('favourite_notification', strtolower($migrationContents));
     }
 
     /** @param array<string, mixed> $attributes */
