@@ -10,6 +10,7 @@ writeFileSync(database, '');
 for (const [command, args] of [
     ['php', ['artisan', 'migrate:fresh', '--force']],
     ['php', ['tests/browser/seed-public-walks.php']],
+    ['php', ['tests/browser/seed-phase7.php']],
 ]) {
     const result = spawnSync(command, args, { env: process.env, stdio: 'inherit' });
 
