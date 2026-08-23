@@ -4,10 +4,14 @@ use App\Http\Middleware\RecordAccountActivity;
 use App\Http\Middleware\RequireActiveAccount;
 use App\Http\Middleware\RequireSensitiveActionAssurance;
 use App\Http\Middleware\RequireSensitivePasswordConfirmation;
+use App\Http\Middleware\ResolvePublicRedirects;
+use App\Http\Responses\PublicNotFoundResponse;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -16,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->prepend(ResolvePublicRedirects::class);
         $middleware->web(append: [RecordAccountActivity::class, RequireActiveAccount::class]);
         $middleware->alias([
             'sensitive.confirmed' => RequireSensitiveActionAssurance::class,
@@ -23,6 +28,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(fn (NotFoundHttpException $exception, Request $request) => $request->expectsJson() ? null : app(PublicNotFoundResponse::class)->make($request));
+        $exceptions->render(fn (ModelNotFoundException $exception, Request $request) => $request->expectsJson() ? null : app(PublicNotFoundResponse::class)->make($request));
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

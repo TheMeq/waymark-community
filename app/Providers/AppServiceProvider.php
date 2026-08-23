@@ -5,13 +5,19 @@ namespace App\Providers;
 use App\Domain\Accounts\Models\InstallationOwnership;
 use App\Domain\Communication\Contracts\NewsletterDelivery;
 use App\Domain\Communication\Services\MailNewsletterDelivery;
+use App\Domain\Content\Models\CmsPage;
+use App\Domain\Content\Models\NewsArticle;
+use App\Domain\Content\Observers\PublicSlugRedirectObserver;
 use App\Domain\Content\Queries\PublicBranding;
 use App\Domain\Content\Queries\PublicFooterSections;
 use App\Domain\Content\Queries\PublicNavigationItems;
+use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Contracts\ImageMetadataReader;
 use App\Domain\Gallery\Contracts\RasterImageTransformer;
+use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Gallery\Services\GdRasterImageTransformer;
 use App\Domain\Gallery\Services\PhpExifImageMetadataReader;
+use App\Domain\Governance\Models\Document;
 use App\Domain\Walks\RelatedContent\RelatedWalks;
 use App\Domain\Walks\RelatedContent\SignalRelatedWalks;
 use App\Http\Middleware\RequireSensitiveActionAssurance;
@@ -43,6 +49,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        foreach ([CmsPage::class, NewsArticle::class, Event::class, SpecialAlbum::class, Document::class] as $model) {
+            $model::observe(PublicSlugRedirectObserver::class);
+        }
         RateLimiter::for('photo-upload', fn (Request $request) => [
             Limit::perMinute(12)->by('photo-upload:account:'.($request->user()?->id ?? 'guest')),
             Limit::perMinute(30)->by('photo-upload:ip:'.$request->ip()),
