@@ -23,4 +23,5 @@ enum ModuleCapability: string
     case ManageContent = 'content.manage';
     case ManageGovernance = 'governance.manage';
     case AccessCommitteeHub = 'governance.access_committee_hub';
+    case ManageCommunications = 'communications.manage';
 }

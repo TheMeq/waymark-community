@@ -1,0 +1,1 @@
+<h1>Website contact</h1><p><strong>Department:</strong> {{ $submission->department->public_label }}</p><p><strong>From:</strong> {{ $submission->name }} ({{ $submission->email }})</p><p>{!! nl2br(e($submission->message)) !!}</p>

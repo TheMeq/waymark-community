@@ -9,6 +9,7 @@ use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\BrandingPreviewController;
 use App\Http\Controllers\CmsPageController;
 use App\Http\Controllers\CommitteeHubController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\CommunityPhotoModerationPreviewController;
 use App\Http\Controllers\CommunityPhotoReportController;
 use App\Http\Controllers\CommunityPhotoUploadController;
@@ -54,6 +55,8 @@ Route::get('/documents/{slug}', [PublicDocumentController::class, 'show'])->name
 Route::get('/documents/{slug}/versions/{version}/download', [PublicDocumentController::class, 'download'])->whereNumber('version')->name('documents.download');
 Route::get('/committee', [PublicCommitteeController::class, 'index'])->name('committee.index');
 Route::get('/committee/meetings', [PublicCommitteeController::class, 'meetings'])->name('committee.meetings');
+Route::get('/contact', [ContactController::class, 'create'])->name('contact.create');
+Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:contact')->name('contact.store');
 Route::get('/pages/{slug}', [CmsPageController::class, 'show'])->name('cms.show');
 Route::get('/review/pages/{token}', [CmsPageController::class, 'review'])->name('cms.review');
 Route::get('/photos', [PublicGalleryController::class, 'index'])->name('gallery.index');
