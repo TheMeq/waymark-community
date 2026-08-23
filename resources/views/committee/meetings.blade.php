@@ -1,0 +1,5 @@
+@extends('layouts.public')
+@section('title', 'Committee meetings')
+@section('site-header')<x-public.site-header :site="$site" />@endsection
+@section('content')<section class="wm-container py-12 sm:py-16"><h1 class="wm-heading-xl">Committee meetings</h1><div class="mt-10 space-y-4">@forelse($meetings as $meeting)<article class="rounded-[var(--wm-radius-card)] border border-border bg-surface-raised p-6"><p class="text-sm font-semibold text-brand">{{ $meeting->meeting_date->format('j F Y') }}</p><h2 class="mt-2 text-2xl">{{ $meeting->title }}</h2>@if($meeting->agenda)<p class="mt-3 text-ink-muted">{{ $meeting->agenda }}</p>@endif @if($meeting->minutesVersion?->published_at && $meeting->minutesVersion->document?->visibility === 'public')<a class="mt-4 inline-block text-brand underline" href="{{ route('documents.download', [$meeting->minutesVersion->document->slug, $meeting->minutesVersion]) }}">Approved minutes</a>@endif</article>@empty<p>No public meeting records.</p>@endforelse</div></section>@endsection
+@section('site-footer')<x-public.site-footer :site="$site" />@endsection
