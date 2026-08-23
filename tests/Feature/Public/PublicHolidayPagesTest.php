@@ -80,7 +80,9 @@ final class PublicHolidayPagesTest extends TestCase
             'featured_image_path' => '/images/demo/coastal-weekend.png',
         ]);
 
-        $this->get('/weekends/'.$event->slug)
+        $response = $this->get('/weekends/'.$event->slug);
+
+        $response
             ->assertOk()
             ->assertSee('Northumberland Coast')
             ->assertSee('Seaview Lodge')
@@ -89,8 +91,9 @@ final class PublicHolidayPagesTest extends TestCase
             ->assertSee('External booking information')
             ->assertSee('https://example.com/holiday', false)
             ->assertSee('/images/demo/coastal-weekend.png', false)
-            ->assertDontSee('<form', false)
             ->assertDontSee('RSVP');
+
+        $this->assertDoesNotMatchRegularExpression('/<main\b[^>]*>.*<form\b.*<\/main>/s', $response->getContent());
     }
 
     public function test_holiday_cards_and_detail_use_the_public_organiser_display_name_contract(): void

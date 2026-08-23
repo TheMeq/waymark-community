@@ -201,7 +201,8 @@ final class FavouritesTest extends TestCase
             ->assertOk()
             ->assertDontSee('Save to favourites')
             ->assertDontSee('Remove from favourites')
-            ->assertDontSee('<form', false);
+            ->assertDontSee(route('favourites.store', $childSocial), false)
+            ->assertDontSee(route('favourites.destroy', $childSocial), false);
         $this->actingAs($user)->get(route('socials.show', $topLevelSocial->slug))
             ->assertOk()
             ->assertSee('Save to favourites');

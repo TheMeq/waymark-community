@@ -7,6 +7,7 @@ use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Schema;
 
 final readonly class PublicNotFoundResponse
 {
@@ -14,7 +15,9 @@ final readonly class PublicNotFoundResponse
 
     public function make(Request $request): Response
     {
-        $profile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
+        $profile = Schema::hasTable('site_profiles')
+            ? (SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile)
+            : new SiteProfile;
         $content = $this->knownContent->find($request->path());
 
         return response()->view($content === null ? 'errors.404' : 'errors.unavailable', [
