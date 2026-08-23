@@ -62,7 +62,7 @@ test('gallery context page is responsive and accessible', async ({ page }, testI
     const context = page.getByRole('region', { name: /explore albums/i }).getByRole('link', { name: /Coast and moor long weekend/i });
     await context.click();
     await page.waitForLoadState('networkidle');
-    await expect(page.getByRole('heading')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
     expect(results.violations).toEqual([]);
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
