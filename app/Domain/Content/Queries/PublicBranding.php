@@ -14,6 +14,13 @@ final class PublicBranding
         $profile = Schema::hasTable('site_profiles')
             ? (SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile)
             : new SiteProfile;
+
+        return $this->forProfile($profile);
+    }
+
+    /** @return array<string, mixed> */
+    public function forProfile(SiteProfile $profile): array
+    {
         $terminology = collect((array) $profile->terminology)
             ->only(['walks', 'members', 'join', 'holidays', 'gallery'])
             ->map(fn ($label): string => mb_substr(trim((string) $label), 0, 60))

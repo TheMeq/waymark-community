@@ -45,4 +45,13 @@ final class BrandThemeTest extends TestCase
             '--wm-on-accent' => '#1F261C',
         ], $theme->cssVariables());
     }
+
+    public function test_contrast_guidance_uses_the_same_safe_foreground_calculation(): void
+    {
+        $this->assertNull(BrandTheme::contrastGuidance('#000000'));
+        $this->assertSame(
+            'Contrast may be weak in some components.',
+            BrandTheme::contrastGuidance('#777777'),
+        );
+    }
 }

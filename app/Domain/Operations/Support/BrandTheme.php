@@ -53,6 +53,20 @@ final readonly class BrandTheme
         ];
     }
 
+    public static function contrastGuidance(?string $colour): ?string
+    {
+        if (! is_string($colour) || preg_match('/^#[0-9a-f]{6}$/i', $colour) !== 1) {
+            return null;
+        }
+
+        $normalised = strtoupper($colour);
+        $foreground = self::contrastSafeForeground($normalised);
+
+        return self::contrastRatio($normalised, $foreground) < 4.5
+            ? 'Contrast may be weak in some components.'
+            : null;
+    }
+
     private static function normaliseColour(?string $colour, string $fallback): string
     {
         if (! is_string($colour) || preg_match('/^#[0-9a-f]{6}$/i', $colour) !== 1) {

@@ -10,9 +10,13 @@ use App\Domain\Content\Queries\PublicNavigationItems;
 use App\Domain\Operations\Actions\CreateBrandingPreview;
 use App\Domain\Operations\Actions\UpdateSiteProfile;
 use App\Domain\Operations\Models\BrandingConfigurationSnapshot;
+use App\Domain\Operations\Models\SiteProfile;
+use App\Filament\Pages\BrandingSettings;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 final class NavigationBrandingTest extends TestCase
@@ -116,5 +120,78 @@ final class NavigationBrandingTest extends TestCase
             'terminology' => ['internal_model_name' => 'Something else'],
             'social_links' => ['Unsafe' => 'javascript:alert(1)'],
         ]);
+    }
+
+    public function test_branding_page_previews_unsaved_values_at_each_viewport_without_saving(): void
+    {
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
+        $otherAdministrator = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
+        app(UpdateSiteProfile::class)->handle([
+            'group_name' => 'Saved Walkers',
+            'primary_colour' => '#526B3F',
+            'accent_colour' => '#D6B269',
+            'typography_option' => 'instrument',
+        ]);
+
+        $this->actingAs($administrator);
+        $component = Livewire::test(BrandingSettings::class)
+            ->fillForm([
+                'group_name' => 'Unsaved Pathfinders',
+                'primary_colour' => '#000000',
+                'accent_colour' => '#FFFFFF',
+                'logo_path' => '/images/demo/waymark-logo.svg',
+            ])
+            ->call('preview')
+            ->assertHasNoErrors();
+
+        $links = $component->get('previewLinks');
+        $this->assertIsArray($links);
+        $this->assertSame(['desktop', 'tablet', 'mobile'], array_keys($links));
+
+        parse_str((string) parse_url($links['desktop'], PHP_URL_QUERY), $desktopQuery);
+        $token = $desktopQuery['token'];
+        $this->assertSame('Unsaved Pathfinders', Cache::store('file')->get('branding-preview:'.$token)['values']['group_name']);
+
+        foreach ($links as $viewport => $url) {
+            parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+            $this->assertSame($token, $query['token']);
+            $this->assertSame($viewport, $query['viewport']);
+            $this->actingAs($administrator)->get($url)
+                ->assertOk()
+                ->assertSeeText(ucfirst($viewport).' preview')
+                ->assertSeeText('Unsaved Pathfinders');
+        }
+
+        $profile = SiteProfile::query()->findOrFail(SiteProfile::SINGLETON_ID);
+        $this->assertSame('Saved Walkers', $profile->group_name);
+        $this->assertSame('#526B3F', $profile->primary_colour);
+
+        $this->actingAs($otherAdministrator)->get($links['desktop'])->assertNotFound();
+        $this->travel(31)->minutes();
+        $this->actingAs($administrator)->get($links['desktop'])->assertNotFound();
+    }
+
+    public function test_branding_preview_rejects_unsafe_unsaved_public_values(): void
+    {
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
+
+        $this->expectException(ValidationException::class);
+        app(CreateBrandingPreview::class)->handle($administrator, [
+            'group_name' => 'Unsafe preview',
+            'logo_path' => 'javascript:alert(1)',
+        ]);
+    }
+
+    public function test_branding_editor_shows_concise_guidance_only_for_weak_contrast(): void
+    {
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
+        app(UpdateSiteProfile::class)->handle(['group_name' => 'Trail Friends', 'typography_option' => 'instrument']);
+
+        $this->actingAs($administrator);
+        Livewire::test(BrandingSettings::class)
+            ->set('data.primary_colour', '#000000')
+            ->assertDontSee('Contrast may be weak in some components.')
+            ->set('data.primary_colour', '#777777')
+            ->assertSee('Contrast may be weak in some components.');
     }
 }

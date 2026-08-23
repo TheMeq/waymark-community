@@ -3,8 +3,10 @@
 namespace App\Filament\Pages;
 
 use App\Domain\Accounts\Enums\ModuleCapability;
+use App\Domain\Operations\Actions\CreateBrandingPreview;
 use App\Domain\Operations\Actions\UpdateSiteProfile;
 use App\Domain\Operations\Models\SiteProfile;
+use App\Domain\Operations\Support\BrandTheme;
 use App\Models\User;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\KeyValue;
@@ -24,6 +26,9 @@ final class BrandingSettings extends Page
     protected string $view = 'filament.pages.branding-settings';
 
     public array $data = [];
+
+    /** @var array{desktop: string, tablet: string, mobile: string}|array{} */
+    public array $previewLinks = [];
 
     public static function getSlug(?Panel $panel = null): string
     {
@@ -52,8 +57,14 @@ final class BrandingSettings extends Page
             TextInput::make('logo_path')->label('Logo URL')->maxLength(2048),
             TextInput::make('favicon_path')->label('Favicon URL')->maxLength(2048),
             TextInput::make('hero_default_path')->label('Default hero image URL')->maxLength(2048),
-            ColorPicker::make('primary_colour'),
-            ColorPicker::make('accent_colour'),
+            ColorPicker::make('primary_colour')
+                ->label('Primary colour')
+                ->live()
+                ->helperText(fn (?string $state): ?string => BrandTheme::contrastGuidance($state)),
+            ColorPicker::make('accent_colour')
+                ->label('Accent colour')
+                ->live()
+                ->helperText(fn (?string $state): ?string => BrandTheme::contrastGuidance($state)),
             Select::make('typography_option')->options(['instrument' => 'Instrument Sans', 'system' => 'System sans'])->required(),
             KeyValue::make('social_links')->label('Social links')->keyLabel('Label')->valueLabel('Secure URL'),
             KeyValue::make('terminology')->label('Terminology aliases')->keyLabel('Approved key')->valueLabel('Public label'),
@@ -66,5 +77,18 @@ final class BrandingSettings extends Page
     { /** @var User $actor */ $actor = auth()->user();
         app(UpdateSiteProfile::class)->handle($this->form->getState(), $actor);
         Notification::make()->success()->title('Branding saved')->send();
+    }
+
+    public function preview(): void
+    {
+        /** @var User $actor */
+        $actor = auth()->user();
+        $preview = app(CreateBrandingPreview::class)->handle($actor, $this->form->getState());
+
+        $this->previewLinks = collect(['desktop', 'tablet', 'mobile'])
+            ->mapWithKeys(fn (string $viewport): array => [
+                $viewport => route('branding.preview', ['token' => $preview->token, 'viewport' => $viewport]),
+            ])
+            ->all();
     }
 }
