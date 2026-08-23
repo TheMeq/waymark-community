@@ -25,7 +25,7 @@ final readonly class HomepageViewModel
     ) {}
 
     /** @param array<int, array<string, string>>|null $weekendWalks */
-    public static function demo(?array $weekendWalks = null, ?array $holiday = null, ?array $gallery = null): self
+    public static function demo(?array $weekendWalks = null, ?array $holiday = null, ?array $gallery = null, ?string $testimonial = null): self
     {
         return new self(
             site: [
@@ -122,7 +122,7 @@ final readonly class HomepageViewModel
                 ['label' => 'Walk leader resources', 'url' => '/walk-leaders'],
                 ['label' => 'Contacts', 'url' => '/contact'],
             ],
-            testimonial: '“I came along for one walk and found a whole community.”',
+            testimonial: $testimonial ?? '“I came along for one walk and found a whole community.”',
         );
     }
 }

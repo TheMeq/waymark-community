@@ -22,6 +22,7 @@ use App\Http\Controllers\PublicHolidayAttachmentDownloadController;
 use App\Http\Controllers\PublicHolidayIndexController;
 use App\Http\Controllers\PublicHolidayShowController;
 use App\Http\Controllers\PublicLeaderProfileController;
+use App\Http\Controllers\PublicNewsController;
 use App\Http\Controllers\PublicSocialAttachmentDownloadController;
 use App\Http\Controllers\PublicSocialIndexController;
 use App\Http\Controllers\PublicSocialShowController;
@@ -43,6 +44,8 @@ Route::get('/service-worker.js', [PwaController::class, 'serviceWorker'])->name(
 Route::get('/offline', [PwaController::class, 'offline'])->name('pwa.offline');
 Route::get('/media/{media}/image/{variant}', SiteMediaStreamController::class)->whereNumber('media')->name('site-media.stream');
 Route::get('/new-here', NewHereController::class)->name('new-here');
+Route::get('/news', [PublicNewsController::class, 'index'])->name('news.index');
+Route::get('/news/{slug}', [PublicNewsController::class, 'show'])->name('news.show');
 Route::get('/pages/{slug}', [CmsPageController::class, 'show'])->name('cms.show');
 Route::get('/review/pages/{token}', [CmsPageController::class, 'review'])->name('cms.review');
 Route::get('/photos', [PublicGalleryController::class, 'index'])->name('gallery.index');
