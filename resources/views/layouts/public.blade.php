@@ -11,6 +11,7 @@
         <meta name="description" content="@yield('meta_description', 'Walks, weekends away and a welcoming local community.')">
         <link rel="manifest" href="/manifest.webmanifest">
         <meta name="theme-color" content="{{ $theme->primaryColour }}">
+        @if ($branding['favicon_url'])<link rel="icon" href="{{ $branding['favicon_url'] }}">@endif
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         @stack('head')

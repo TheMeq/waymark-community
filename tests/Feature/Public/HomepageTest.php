@@ -50,7 +50,7 @@ final class HomepageTest extends TestCase
             ->assertOk()
             ->assertSee('Members can upload photos linked to specific walks and holidays.')
             ->assertSee('Upload your photos')
-            ->assertSee('href="/photos/upload"', false);
+            ->assertSee('href="'.route('community-photos.upload.create').'"', false);
     }
 
     public function test_publicly_eligible_pinned_gallery_photo_is_presented_first(): void

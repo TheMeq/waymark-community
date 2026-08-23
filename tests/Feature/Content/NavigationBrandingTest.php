@@ -69,4 +69,52 @@ final class NavigationBrandingTest extends TestCase
             $this->actingAs($member)->get($path)->assertForbidden();
         }
     }
+
+    public function test_approved_identity_social_affiliation_and_terminology_settings_are_exposed_and_presented(): void
+    {
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
+        app(UpdateSiteProfile::class)->handle([
+            'group_name' => 'Peak Pathfinders',
+            'short_name' => 'PP',
+            'contact_email' => 'hello@example.org',
+            'logo_path' => '/images/demo/waymark-logo.svg',
+            'favicon_path' => '/images/demo/favicon.png',
+            'hero_default_path' => '/images/demo/hero-walkers.png',
+            'social_links' => ['Instagram' => 'https://instagram.com/peak-pathfinders'],
+            'terminology' => ['walks' => 'Rambles', 'members' => 'Community', 'join' => 'Join our circle'],
+            'affiliation_name' => 'County Walking Network',
+            'affiliation_url' => 'https://example.org/network',
+        ], $administrator);
+
+        $this->actingAs($administrator)->get('/admin/branding')->assertOk()
+            ->assertSeeText('Group name')->assertSeeText('Social links')->assertSeeText('Terminology aliases')
+            ->assertSeeText('Affiliation name')->assertDontSeeText('Custom CSS');
+
+        $this->get('/')->assertOk()
+            ->assertSeeText('Peak Pathfinders')->assertSeeText('Rambles')->assertSeeText('Community')->assertSeeText('Join our circle')
+            ->assertSeeText('Instagram')->assertSee('https://instagram.com/peak-pathfinders', false)
+            ->assertSeeText('County Walking Network')->assertSee('href="/images/demo/favicon.png"', false);
+    }
+
+    public function test_fallback_public_links_use_current_named_routes(): void
+    {
+        $content = $this->get('/')->assertOk()->getContent();
+        $this->assertIsString($content);
+
+        foreach ([route('walks.index'), route('events.index'), route('holidays.index'), route('gallery.index'), route('contact.create'), route('policies.show', 'privacy'), route('policies.show', 'accessibility')] as $url) {
+            $this->assertStringContainsString($url, $content);
+        }
+        foreach (['/account"', '/walk-leaders', 'href="/privacy"', 'href="/accessibility"'] as $stale) {
+            $this->assertStringNotContainsString($stale, $content);
+        }
+    }
+
+    public function test_branding_rejects_unapproved_terminology_and_unsafe_public_links(): void
+    {
+        $this->expectException(ValidationException::class);
+        app(UpdateSiteProfile::class)->handle([
+            'terminology' => ['internal_model_name' => 'Something else'],
+            'social_links' => ['Unsafe' => 'javascript:alert(1)'],
+        ]);
+    }
 }

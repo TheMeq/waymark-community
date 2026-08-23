@@ -50,7 +50,7 @@ final readonly class HomepageViewModel
             weekendWalks: $weekendWalks ?? [
                 [
                     'title' => 'Ridge and reservoir',
-                    'url' => '/walks/ridge-and-reservoir',
+                    'url' => route('walks.show', 'ridge-and-reservoir'),
                     'image_url' => '/images/demo/hero-walkers.png',
                     'image_alt' => 'Walkers following an upland trail above green valleys',
                     'date' => 'Saturday 24 August',
@@ -67,7 +67,7 @@ final readonly class HomepageViewModel
                 ],
                 [
                     'title' => 'Woodland and water',
-                    'url' => '/walks/woodland-and-water',
+                    'url' => route('walks.show', 'woodland-and-water'),
                     'image_url' => '/images/demo/woodland-walk.png',
                     'image_alt' => 'Walkers crossing a footbridge through green woodland',
                     'date' => 'Sunday 25 August',
@@ -84,7 +84,7 @@ final readonly class HomepageViewModel
                 ],
                 [
                     'title' => 'Moorland views',
-                    'url' => '/walks/moorland-views',
+                    'url' => route('walks.show', 'moorland-views'),
                     'image_url' => '/images/demo/lakeside-friends.png',
                     'image_alt' => 'Friends pausing beside a quiet upland lake',
                     'date' => 'Monday 26 August',
@@ -102,7 +102,7 @@ final readonly class HomepageViewModel
             ],
             holiday: $holiday ?? [
                 'title' => 'Coast and moor long weekend',
-                'url' => '/weekends/coast-and-moor',
+                'url' => route('holidays.show', 'coast-and-moor'),
                 'image_url' => '/images/demo/coastal-weekend.png',
                 'image_alt' => 'Walkers arriving at a stone lodge beside the coast',
                 'duration' => '3 nights',
@@ -119,10 +119,10 @@ final readonly class HomepageViewModel
                 ['image_url' => '/images/demo/lakeside-friends.png', 'image_alt' => 'Walkers laughing together after a day outside'],
             ],
             memberResources: [
-                ['label' => 'Members area', 'url' => '/account'],
-                ['label' => 'Policies and documents', 'url' => '/documents'],
-                ['label' => 'Walk leader resources', 'url' => '/walk-leaders'],
-                ['label' => 'Contacts', 'url' => '/contact'],
+                ['label' => 'Members area', 'url' => route('account.profile.edit')],
+                ['label' => 'Policies and documents', 'url' => route('documents.index')],
+                ['label' => 'Walk leader resources', 'url' => route('leader-hub.index')],
+                ['label' => 'Contacts', 'url' => route('contact.create')],
             ],
             testimonial: $testimonial ?? '“I came along for one walk and found a whole community.”',
         );

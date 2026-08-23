@@ -133,11 +133,11 @@ if (app()->environment(['local', 'testing', 'browser-testing'])) {
                 'version' => 'component-story-v1',
                 'message' => 'Booking is open for the next weekend away.',
                 'action_label' => 'See the weekend',
-                'action_url' => '/weekends',
+                'action_url' => route('holidays.index'),
             ],
             'event' => [
                 'title' => 'Ridge and reservoir',
-                'url' => '/walks/ridge-and-reservoir',
+                'url' => route('walks.show', 'ridge-and-reservoir'),
                 'image_url' => '/images/demo/hero-walkers.png',
                 'image_alt' => 'Walkers following a mountain path',
                 'date' => 'Saturday 24 August',

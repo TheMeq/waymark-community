@@ -81,7 +81,7 @@
             <div>
                 <div class="flex flex-wrap items-end justify-between gap-4">
                     <h2 class="text-2xl text-ink lg:text-xl">Holidays &amp; Weekends Away</h2>
-                    <a class="text-sm font-semibold text-brand lg:text-xs" href="/weekends">View all <span aria-hidden="true">&rarr;</span></a>
+                    <a class="text-sm font-semibold text-brand lg:text-xs" href="{{ route('holidays.index') }}">View all <span aria-hidden="true">&rarr;</span></a>
                 </div>
                 @if ($homepage->holiday !== [])<article class="group mt-5 overflow-hidden rounded-[var(--wm-radius-md)] border border-border bg-surface-raised shadow-[var(--wm-shadow-card)] md:grid md:grid-cols-[1.55fr_1fr] lg:mt-3 lg:block">
                     <div class="relative overflow-hidden">
@@ -121,7 +121,7 @@
 
             <div class="wm-photo-upload flex flex-col gap-2 text-xs text-ink-muted sm:flex-row sm:items-center sm:justify-between">
                 <p>Members can upload photos linked to specific walks and holidays.</p>
-                <a class="shrink-0 font-semibold text-brand" href="/photos/upload">Upload your photos <span aria-hidden="true">&rarr;</span></a>
+                <a class="shrink-0 font-semibold text-brand" href="{{ route('community-photos.upload.create') }}">Upload your photos <span aria-hidden="true">&rarr;</span></a>
             </div>
         </div>
     </section>

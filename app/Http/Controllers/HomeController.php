@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Domain\Content\Models\HomepageSection;
 use App\Domain\Content\Models\Testimonial;
 use App\Domain\Content\Queries\HomepageNews;
+use App\Domain\Content\Queries\PublicBranding;
 use App\Domain\Content\Queries\PublicCmsPages;
 use App\Domain\Content\Queries\VisibleHomepageSections;
 use App\Domain\Content\Queries\VisibleTestimonials;
@@ -23,7 +24,7 @@ use Illuminate\Contracts\View\View;
 
 final class HomeController
 {
-    public function __invoke(PublicWalksQuery $walks, PublicHolidaysQuery $holidays, HomepageCommunityPhotos $photos, PublicCommunityPhotos $publicPhotos, VisibleHomepageSections $sections, VisibleTestimonials $testimonials, PublicCmsPages $pages, HomepageNews $news, SiteMediaPresenter $mediaPresenter): View
+    public function __invoke(PublicWalksQuery $walks, PublicHolidaysQuery $holidays, HomepageCommunityPhotos $photos, PublicCommunityPhotos $publicPhotos, VisibleHomepageSections $sections, VisibleTestimonials $testimonials, PublicCmsPages $pages, PublicBranding $branding, HomepageNews $news, SiteMediaPresenter $mediaPresenter): View
     {
         $siteProfile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
         $homepageSections = $sections->get()->keyBy('section_key');
@@ -82,6 +83,7 @@ final class HomeController
         $heroOverrides = array_filter([
             'headline' => $heroSection?->heading,
             'summary' => $heroSection?->supporting_copy,
+            'image_url' => $branding->get()['hero_url'],
         ], fn ($value): bool => filled($value));
         if ($heroSection?->content_mode === 'pinned') {
             $media = SiteMedia::query()->find($heroSection->pinned_id);

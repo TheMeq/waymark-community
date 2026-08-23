@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Domain\Accounts\Models\InstallationOwnership;
 use App\Domain\Communication\Contracts\NewsletterDelivery;
 use App\Domain\Communication\Services\MailNewsletterDelivery;
+use App\Domain\Content\Queries\PublicBranding;
 use App\Domain\Content\Queries\PublicFooterSections;
 use App\Domain\Content\Queries\PublicNavigationItems;
 use App\Domain\Gallery\Contracts\ImageMetadataReader;
@@ -53,8 +54,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('contact', fn (Request $request) => Limit::perMinute(5)->by('contact:'.$request->ip()));
         Gate::policy(InstallationOwnership::class, InstallationOwnershipPolicy::class);
         Livewire::addPersistentMiddleware([RequireSensitiveActionAssurance::class]);
-        View::composer('components.public.site-header', fn ($view) => $view->with('navigationItems', app(PublicNavigationItems::class)->get()));
-        View::composer('components.public.site-footer', fn ($view) => $view->with('footerSections', app(PublicFooterSections::class)->get()));
+        View::composer('components.public.site-header', fn ($view) => $view->with(['navigationItems' => app(PublicNavigationItems::class)->get(), 'branding' => app(PublicBranding::class)->get()]));
+        View::composer('components.public.site-footer', fn ($view) => $view->with(['footerSections' => app(PublicFooterSections::class)->get(), 'branding' => app(PublicBranding::class)->get()]));
+        View::composer('layouts.public', fn ($view) => $view->with('branding', app(PublicBranding::class)->get()));
 
         $testNow = env('WAYMARK_TEST_NOW');
 

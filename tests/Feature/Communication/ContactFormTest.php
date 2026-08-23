@@ -31,6 +31,19 @@ final class ContactFormTest extends TestCase
         $this->assertTrue($submission->retention_expires_at->isFuture());
     }
 
+    public function test_public_contact_page_shows_descriptions_and_only_explicitly_public_addresses(): void
+    {
+        ContactDepartment::query()->create(['public_label' => 'Walks', 'destination_email' => 'walks-public@example.org', 'description' => 'Questions about the walk programme.', 'show_address_publicly' => true, 'routing_rules' => ['access' => 'access-private@example.org'], 'active' => true, 'sort_order' => 10]);
+        ContactDepartment::query()->create(['public_label' => 'Committee', 'destination_email' => 'committee-private@example.org', 'description' => 'Questions for the committee.', 'show_address_publicly' => false, 'active' => true, 'sort_order' => 20]);
+
+        $this->get(route('contact.create'))->assertOk()
+            ->assertSeeText('Questions about the walk programme.')
+            ->assertSeeText('Questions for the committee.')
+            ->assertSee('mailto:walks-public@example.org', false)
+            ->assertDontSee('committee-private@example.org')
+            ->assertDontSee('access-private@example.org');
+    }
+
     public function test_department_keyword_rule_can_route_to_a_private_specialist_address(): void
     {
         Mail::fake();
