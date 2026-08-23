@@ -53,10 +53,25 @@ final class NewsletterResource extends Resource
         ])->defaultSort('created_at', 'desc')->recordActions([EditAction::make(), DeleteAction::make()]);
     }
 
-    public static function canViewAny(): bool { return self::canManage(); }
-    public static function canCreate(): bool { return self::canManage(); }
-    public static function canEdit($record): bool { return self::canManage(); }
-    public static function canDelete($record): bool { return self::canManage(); }
+    public static function canViewAny(): bool
+    {
+        return self::canManage();
+    }
+
+    public static function canCreate(): bool
+    {
+        return self::canManage();
+    }
+
+    public static function canEdit($record): bool
+    {
+        return self::canManage();
+    }
+
+    public static function canDelete($record): bool
+    {
+        return self::canManage();
+    }
 
     public static function getPages(): array
     {

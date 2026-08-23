@@ -15,10 +15,15 @@ final readonly class SendNewsletter
 
     public function handle(User $actor, Newsletter $newsletter): int
     {
-        if (! $actor->hasCapability(ModuleCapability::ManageCommunications) || ! in_array($newsletter->status, ['draft', 'scheduled'], true) || ($newsletter->status === 'scheduled' && $newsletter->scheduled_for?->isFuture())) { throw ValidationException::withMessages(['newsletter' => 'This newsletter cannot be sent now.']); }
+        if (! $actor->hasCapability(ModuleCapability::ManageCommunications) || ! in_array($newsletter->status, ['draft', 'scheduled'], true) || ($newsletter->status === 'scheduled' && $newsletter->scheduled_for?->isFuture())) {
+            throw ValidationException::withMessages(['newsletter' => 'This newsletter cannot be sent now.']);
+        }
         $recipients = $this->audience->for($newsletter);
-        foreach ($recipients as $recipient) { $this->delivery->send($newsletter, $recipient); }
+        foreach ($recipients as $recipient) {
+            $this->delivery->send($newsletter, $recipient);
+        }
         $newsletter->update(['status' => 'sent', 'sent_at' => now()]);
+
         return $recipients->count();
     }
 }

@@ -20,7 +20,9 @@ use Filament\Tables\Table;
 final class EmailTemplateResource extends Resource
 {
     protected static ?string $model = EmailTemplate::class;
+
     protected static string|\UnitEnum|null $navigationGroup = 'Communication';
+
     protected static ?string $navigationLabel = 'Email templates';
 
     public static function form(Schema $schema): Schema
@@ -39,10 +41,25 @@ final class EmailTemplateResource extends Resource
         return $table->columns([TextColumn::make('template_key')->searchable(), TextColumn::make('subject')->searchable()])->recordActions([EditAction::make(), DeleteAction::make()]);
     }
 
-    public static function canViewAny(): bool { return self::canManage(); }
-    public static function canCreate(): bool { return self::canManage(); }
-    public static function canEdit($record): bool { return self::canManage(); }
-    public static function canDelete($record): bool { return self::canManage(); }
+    public static function canViewAny(): bool
+    {
+        return self::canManage();
+    }
+
+    public static function canCreate(): bool
+    {
+        return self::canManage();
+    }
+
+    public static function canEdit($record): bool
+    {
+        return self::canManage();
+    }
+
+    public static function canDelete($record): bool
+    {
+        return self::canManage();
+    }
 
     public static function getPages(): array
     {

@@ -21,7 +21,9 @@ use Filament\Tables\Table;
 final class PolicyPageResource extends Resource
 {
     protected static ?string $model = PolicyPage::class;
+
     protected static string|\UnitEnum|null $navigationGroup = 'Communication';
+
     protected static ?string $navigationLabel = 'Policy pages';
 
     public static function form(Schema $schema): Schema
@@ -39,10 +41,25 @@ final class PolicyPageResource extends Resource
         return $table->columns([TextColumn::make('title')->searchable(), TextColumn::make('policy_key'), TextColumn::make('currentVersion.version_number')->label('Current version')])->recordActions([EditAction::make(), DeleteAction::make()]);
     }
 
-    public static function canViewAny(): bool { return self::canManage(); }
-    public static function canCreate(): bool { return self::canManage(); }
-    public static function canEdit($record): bool { return self::canManage(); }
-    public static function canDelete($record): bool { return self::canManage(); }
+    public static function canViewAny(): bool
+    {
+        return self::canManage();
+    }
+
+    public static function canCreate(): bool
+    {
+        return self::canManage();
+    }
+
+    public static function canEdit($record): bool
+    {
+        return self::canManage();
+    }
+
+    public static function canDelete($record): bool
+    {
+        return self::canManage();
+    }
 
     public static function getPages(): array
     {

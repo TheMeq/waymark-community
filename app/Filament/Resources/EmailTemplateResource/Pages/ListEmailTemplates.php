@@ -9,5 +9,9 @@ use Filament\Resources\Pages\ListRecords;
 final class ListEmailTemplates extends ListRecords
 {
     protected static string $resource = EmailTemplateResource::class;
-    protected function getHeaderActions(): array { return [CreateAction::make()]; }
+
+    protected function getHeaderActions(): array
+    {
+        return [CreateAction::make()];
+    }
 }

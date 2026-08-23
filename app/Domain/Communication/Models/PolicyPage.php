@@ -10,6 +10,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable(['policy_key', 'title', 'slug', 'review_notice', 'current_version_id'])]
 final class PolicyPage extends Model
 {
-    public function versions(): HasMany { return $this->hasMany(PolicyVersion::class); }
-    public function currentVersion(): BelongsTo { return $this->belongsTo(PolicyVersion::class, 'current_version_id'); }
+    public function versions(): HasMany
+    {
+        return $this->hasMany(PolicyVersion::class);
+    }
+
+    public function currentVersion(): BelongsTo
+    {
+        return $this->belongsTo(PolicyVersion::class, 'current_version_id');
+    }
 }

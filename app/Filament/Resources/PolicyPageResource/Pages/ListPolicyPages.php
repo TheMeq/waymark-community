@@ -9,5 +9,9 @@ use Filament\Resources\Pages\ListRecords;
 final class ListPolicyPages extends ListRecords
 {
     protected static string $resource = PolicyPageResource::class;
-    protected function getHeaderActions(): array { return [CreateAction::make()]; }
+
+    protected function getHeaderActions(): array
+    {
+        return [CreateAction::make()];
+    }
 }
