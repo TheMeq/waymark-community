@@ -6,9 +6,11 @@ use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Content\Actions\CreateCmsReviewLink;
 use App\Domain\Content\Models\CmsPage;
 use App\Domain\Content\Queries\PublicCmsPages;
+use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
@@ -47,6 +49,63 @@ final class CmsPageTest extends TestCase
 
         $this->expectException(ValidationException::class);
         CmsPage::query()->create($this->page(['slug' => 'unsafe', 'blocks' => [['type' => 'custom_html', 'content' => '<iframe>']]]));
+    }
+
+    public function test_every_approved_block_has_a_bounded_public_rendering_contract(): void
+    {
+        Storage::fake('local');
+        $path = 'site-media/3f2504e0-4f89-41d3-9a0c-0305e82c3300/master.jpg';
+        Storage::disk('local')->put($path, 'image');
+        $media = SiteMedia::query()->create([
+            'created_by_user_id' => User::factory()->create()->id,
+            'storage_disk' => 'local',
+            'storage_key' => '3f2504e0-4f89-41d3-9a0c-0305e82c3300',
+            'processed_variants' => ['master' => $path],
+            'mime_type' => 'image/jpeg',
+            'width' => 1200,
+            'height' => 800,
+            'file_size_bytes' => 100,
+            'alt_text' => 'Leaders on a ridge',
+            'is_decorative' => false,
+            'focal_point_x' => 0.5,
+            'focal_point_y' => 0.5,
+            'processing_status' => 'complete',
+            'health_status' => 'healthy',
+        ]);
+        $page = CmsPage::query()->create($this->page([
+            'blocks' => [
+                ['type' => 'image_text', 'media_id' => $media->id, 'heading' => 'Image story', 'body' => 'A safe media reference.'],
+                ['type' => 'quote', 'quote' => 'The best Saturdays.', 'attribution' => 'A walker'],
+                ['type' => 'cta', 'heading' => 'Come along', 'body' => 'Choose a walk.', 'label' => 'See walks', 'url' => '/walks'],
+                ['type' => 'button_group', 'heading' => 'Useful links', 'items' => [['label' => 'Contact', 'url' => '/contact']]],
+                ['type' => 'document_list', 'heading' => 'Downloads', 'items' => [['label' => 'Walking guide', 'url' => '/documents/walking-guide']]],
+                ['type' => 'gallery', 'heading' => 'From the hills', 'media_ids' => [$media->id]],
+                ['type' => 'statistics', 'heading' => 'At a glance', 'items' => [['value' => '42', 'label' => 'walks']]],
+                ['type' => 'timeline', 'heading' => 'Our story', 'items' => [['label' => '2026', 'body' => 'Waymark launched.']]],
+                ['type' => 'columns', 'heading' => 'Plan your day', 'items' => [['label' => 'Before', 'body' => 'Check the route.'], ['label' => 'After', 'body' => 'Share photos.']]],
+            ],
+        ]));
+
+        $response = $this->get('/pages/'.$page->slug)->assertOk();
+        foreach (['Image story', 'The best Saturdays.', 'See walks', 'Contact', 'Walking guide', '42', 'Waymark launched.', 'Share photos.'] as $copy) {
+            $response->assertSeeText($copy);
+        }
+        $response->assertSee('alt="Leaders on a ridge"', false)->assertSee(route('site-media.stream', [$media, 'master']), false);
+    }
+
+    public function test_block_links_and_limited_columns_reject_unsafe_or_unbounded_structures(): void
+    {
+        foreach ([
+            [['type' => 'cta', 'heading' => 'Unsafe', 'label' => 'Open', 'url' => 'javascript:alert(1)']],
+            [['type' => 'columns', 'items' => [['body' => '1'], ['body' => '2'], ['body' => '3'], ['body' => '4']]]],
+        ] as $blocks) {
+            try {
+                CmsPage::query()->create($this->page(['slug' => 'unsafe-'.md5(serialize($blocks)), 'blocks' => $blocks]));
+                $this->fail('An unsafe or unbounded block structure was accepted.');
+            } catch (ValidationException) {
+                $this->assertTrue(true);
+            }
+        }
     }
 
     public function test_authenticated_preview_and_expiring_revocable_review_links_are_secure(): void

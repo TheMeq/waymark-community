@@ -6,6 +6,7 @@ use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Content\Models\CmsPage;
 use App\Domain\Content\Models\CmsReviewLink;
 use App\Domain\Content\Queries\PublicCmsPages;
+use App\Domain\Content\Support\CmsBlockPresenter;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Models\User;
@@ -43,6 +44,7 @@ final class CmsPageController extends Controller
 
         return view('pages.show', [
             'page' => $page,
+            'blocks' => app(CmsBlockPresenter::class)->present($page->blocks),
             'notice' => $notice,
             'site' => ['name' => $profile->group_name ?? 'Waymark Community', 'strapline' => 'A local walking community'],
             'theme' => BrandTheme::fromSiteProfile($profile),

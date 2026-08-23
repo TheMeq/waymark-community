@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Content\Models\CmsPage;
+use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Filament\Resources\CmsPageResource\Pages\CreateCmsPage;
 use App\Filament\Resources\CmsPageResource\Pages\EditCmsPage;
 use App\Filament\Resources\CmsPageResource\Pages\ListCmsPages;
@@ -33,10 +34,7 @@ final class CmsPageResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        $simple = fn (string $name, string $label): Block => Block::make($name)->label($label)->schema([
-            TextInput::make('heading')->maxLength(255),
-            Textarea::make('body')->rows(4)->maxLength(10000),
-        ]);
+        $mediaOptions = fn (): array => SiteMedia::query()->where('processing_status', 'complete')->orderBy('alt_text')->pluck('alt_text', 'id')->all();
 
         return $schema->components([
             TextInput::make('title')->required()->maxLength(255),
@@ -46,17 +44,17 @@ final class CmsPageResource extends Resource
             Select::make('hero_media_id')->relationship('heroMedia', 'alt_text')->searchable()->preload(),
             Builder::make('blocks')->required()->blocks([
                 Block::make('rich_text')->schema([RichEditor::make('content')->required()]),
-                $simple('image_text', 'Image and text'),
-                $simple('callout', 'Callout'),
+                Block::make('image_text')->label('Image and text')->schema([Select::make('media_id')->options($mediaOptions)->required()->searchable(), TextInput::make('heading'), Textarea::make('body')->required()]),
+                Block::make('callout')->schema([TextInput::make('heading'), Textarea::make('body')->required()]),
                 Block::make('faq')->schema([Repeater::make('items')->schema([TextInput::make('question')->required(), Textarea::make('answer')->required()])]),
                 Block::make('quote')->schema([Textarea::make('quote')->required(), TextInput::make('attribution')]),
-                $simple('cta', 'Call to action'),
-                Block::make('button_group')->schema([TextInput::make('heading'), Repeater::make('items')->schema([TextInput::make('label')->required(), TextInput::make('url')->required()])]),
-                $simple('document_list', 'Document list'),
-                $simple('gallery', 'Gallery'),
-                Block::make('statistics')->schema([TextInput::make('heading'), Repeater::make('items')->schema([TextInput::make('value')->required(), TextInput::make('label')->required()])]),
-                Block::make('timeline')->schema([TextInput::make('heading'), Repeater::make('items')->schema([TextInput::make('label')->required(), Textarea::make('body')])]),
-                Block::make('columns')->schema([TextInput::make('heading'), Repeater::make('items')->minItems(2)->maxItems(3)->schema([TextInput::make('label'), Textarea::make('body')])]),
+                Block::make('cta')->label('Call to action')->schema([TextInput::make('heading'), Textarea::make('body'), TextInput::make('label')->required(), TextInput::make('url')->required()]),
+                Block::make('button_group')->schema([TextInput::make('heading'), Repeater::make('items')->minItems(1)->maxItems(4)->schema([TextInput::make('label')->required(), TextInput::make('url')->required()])]),
+                Block::make('document_list')->label('Document list')->schema([TextInput::make('heading'), Repeater::make('items')->minItems(1)->maxItems(12)->schema([TextInput::make('label')->required(), TextInput::make('url')->required()])]),
+                Block::make('gallery')->schema([TextInput::make('heading'), Select::make('media_ids')->multiple()->options($mediaOptions)->minItems(1)->maxItems(6)->required()->searchable()]),
+                Block::make('statistics')->schema([TextInput::make('heading'), Repeater::make('items')->minItems(1)->maxItems(6)->schema([TextInput::make('value')->required(), TextInput::make('label')->required()])]),
+                Block::make('timeline')->schema([TextInput::make('heading'), Repeater::make('items')->minItems(1)->maxItems(12)->schema([TextInput::make('label')->required(), Textarea::make('body')->required()])]),
+                Block::make('columns')->schema([TextInput::make('heading'), Repeater::make('items')->minItems(2)->maxItems(3)->schema([TextInput::make('label'), Textarea::make('body')->required()])]),
             ]),
             TextInput::make('seo_title')->maxLength(255),
             Textarea::make('seo_description')->maxLength(1000),
