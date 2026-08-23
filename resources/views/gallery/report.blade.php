@@ -14,6 +14,7 @@
             <div><label class="font-semibold" for="reason">Reason</label><select class="wm-form-control mt-2 w-full" id="reason" name="reason" required><option value="">Choose a reason</option><option value="in_photo">I am in this photo</option><option value="privacy">Privacy</option><option value="copyright">Copyright</option><option value="inappropriate">Inappropriate content</option><option value="other">Other</option></select></div>
             <div><label class="font-semibold" for="detail">Details</label><textarea class="wm-form-control mt-2 w-full" id="detail" name="detail" maxlength="1000"></textarea></div>
             <div><label class="font-semibold" for="contact">Contact email (optional)</label><input class="wm-form-control mt-2 w-full" id="contact" type="email" name="contact" maxlength="255"></div>
+            <x-public.turnstile />
             <button class="wm-button wm-button-primary justify-self-start" type="submit">Send report</button>
         </form>
     </div>

@@ -30,7 +30,7 @@ final class UploadDocumentVersion
         }
         $extension = strtolower($upload->getClientOriginalExtension());
         $mime = (string) $upload->getMimeType();
-        if (! $upload->isValid() || ! isset(self::MIME_TYPES[$extension]) || ! in_array($mime, self::MIME_TYPES[$extension], true) || $upload->getSize() > 20 * 1024 * 1024) {
+        if (! $upload->isValid() || ! isset(self::MIME_TYPES[$extension]) || ! in_array($mime, self::MIME_TYPES[$extension], true) || $upload->getSize() > 20 * 1024 * 1024 || ! $this->contentMatchesExtension($upload, $extension)) {
             throw ValidationException::withMessages(['document' => 'Choose an approved document file up to 20 MB.']);
         }
 
@@ -50,7 +50,7 @@ final class UploadDocumentVersion
                     'version_number' => $number,
                     'storage_disk' => $disk,
                     'storage_path' => $storedPath,
-                    'original_filename' => basename($upload->getClientOriginalName()),
+                    'original_filename' => $this->safeOriginalFilename($upload),
                     'mime_type' => $mime,
                     'file_size_bytes' => $upload->getSize(),
                     'created_by_user_id' => $actor->id,
@@ -62,5 +62,44 @@ final class UploadDocumentVersion
             }
             throw $exception;
         }
+    }
+
+    private function contentMatchesExtension(UploadedFile $upload, string $extension): bool
+    {
+        $path = $upload->getRealPath();
+        if (! is_string($path) || ! is_file($path)) {
+            return false;
+        }
+
+        $header = (string) file_get_contents($path, false, null, 0, 8);
+        if ($extension === 'pdf') {
+            return str_starts_with($header, '%PDF-');
+        }
+        if (in_array($extension, ['doc', 'xls'], true)) {
+            return $header === "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1";
+        }
+
+        $archive = new \ZipArchive;
+        if ($archive->open($path) !== true) {
+            return false;
+        }
+
+        try {
+            return match ($extension) {
+                'docx' => $archive->locateName('[Content_Types].xml') !== false && $archive->locateName('word/document.xml') !== false,
+                'xlsx' => $archive->locateName('[Content_Types].xml') !== false && $archive->locateName('xl/workbook.xml') !== false,
+                'odt' => $archive->getFromName('mimetype') === 'application/vnd.oasis.opendocument.text',
+                default => false,
+            };
+        } finally {
+            $archive->close();
+        }
+    }
+
+    private function safeOriginalFilename(UploadedFile $upload): string
+    {
+        $filename = preg_replace('/[\x00-\x1F\x7F]/', '', basename($upload->getClientOriginalName())) ?? '';
+
+        return mb_substr($filename !== '' ? $filename : 'document', 0, 255);
     }
 }

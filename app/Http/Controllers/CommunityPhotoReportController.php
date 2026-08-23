@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Domain\Gallery\Actions\SubmitCommunityPhotoReport;
 use App\Domain\Gallery\Models\CommunityPhoto;
+use App\Domain\Operations\AntiSpam\PublicFormChallenge;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Models\User;
@@ -23,8 +24,9 @@ final class CommunityPhotoReportController
         return view('gallery.report', ['photo' => $photo, 'theme' => BrandTheme::fromSiteProfile($siteProfile), 'site' => ['name' => $siteProfile->group_name ?? 'Waymark Community']]);
     }
 
-    public function __invoke(Request $request, ?int $photo, SubmitCommunityPhotoReport $reports): RedirectResponse
+    public function __invoke(Request $request, ?int $photo, SubmitCommunityPhotoReport $reports, PublicFormChallenge $challenge): RedirectResponse
     {
+        $challenge->verify($request);
         $validated = $request->validate(['reason' => ['required', 'string', 'in:in_photo,privacy,copyright,inappropriate,other'], 'detail' => ['nullable', 'string', 'max:1000', 'required_if:reason,other'], 'contact' => ['nullable', 'email:rfc,dns', 'max:255'], 'website' => ['nullable', 'max:0']]);
         try {
             $photo = is_int($photo) ? CommunityPhoto::query()->find($photo) : null;

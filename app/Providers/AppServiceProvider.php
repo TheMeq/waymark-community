@@ -18,8 +18,10 @@ use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Gallery\Services\GdRasterImageTransformer;
 use App\Domain\Gallery\Services\PhpExifImageMetadataReader;
 use App\Domain\Governance\Models\Document;
-use App\Domain\Operations\Analytics\ExternalAnalytics;
 use App\Domain\Operations\Analytics\ConsentPreferences;
+use App\Domain\Operations\Analytics\ExternalAnalytics;
+use App\Domain\Operations\AntiSpam\PublicFormChallenge;
+use App\Domain\Operations\AntiSpam\TurnstilePublicFormChallenge;
 use App\Domain\Walks\RelatedContent\RelatedWalks;
 use App\Domain\Walks\RelatedContent\SignalRelatedWalks;
 use App\Http\Middleware\RequireSensitiveActionAssurance;
@@ -44,6 +46,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ImageMetadataReader::class, PhpExifImageMetadataReader::class);
         $this->app->bind(RasterImageTransformer::class, GdRasterImageTransformer::class);
         $this->app->bind(NewsletterDelivery::class, MailNewsletterDelivery::class);
+        $this->app->bind(PublicFormChallenge::class, TurnstilePublicFormChallenge::class);
     }
 
     /**

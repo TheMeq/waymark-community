@@ -47,7 +47,7 @@ final class DocumentLibraryTest extends TestCase
         $member = User::factory()->create(['role' => AccountRole::RegisteredUser, 'email_verified_at' => now()]);
         $document = $this->document();
 
-        $version = app(UploadDocumentVersion::class)->handle($administrator, $document, UploadedFile::fake()->create('walking-policy.pdf', 12, 'application/pdf'));
+        $version = app(UploadDocumentVersion::class)->handle($administrator, $document, UploadedFile::fake()->createWithContent('walking-policy.pdf', "%PDF-1.4\n%%EOF")->mimeType('application/pdf'));
 
         $this->assertSame(1, $version->version_number);
         $this->assertMatchesRegularExpression('#^documents/[a-f0-9-]{36}/v1\.pdf$#', $version->storage_path);
