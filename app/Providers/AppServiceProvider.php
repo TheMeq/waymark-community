@@ -18,6 +18,7 @@ use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Domain\Gallery\Services\GdRasterImageTransformer;
 use App\Domain\Gallery\Services\PhpExifImageMetadataReader;
 use App\Domain\Governance\Models\Document;
+use App\Domain\Operations\Analytics\ExternalAnalytics;
 use App\Domain\Walks\RelatedContent\RelatedWalks;
 use App\Domain\Walks\RelatedContent\SignalRelatedWalks;
 use App\Http\Middleware\RequireSensitiveActionAssurance;
@@ -65,7 +66,10 @@ class AppServiceProvider extends ServiceProvider
         Livewire::addPersistentMiddleware([RequireSensitiveActionAssurance::class]);
         View::composer('components.public.site-header', fn ($view) => $view->with(['navigationItems' => app(PublicNavigationItems::class)->get(), 'branding' => app(PublicBranding::class)->get()]));
         View::composer('components.public.site-footer', fn ($view) => $view->with(['footerSections' => app(PublicFooterSections::class)->get(), 'branding' => app(PublicBranding::class)->get()]));
-        View::composer('layouts.public', fn ($view) => $view->with('branding', app(PublicBranding::class)->get()));
+        View::composer('layouts.public', fn ($view) => $view->with([
+            'branding' => app(PublicBranding::class)->get(),
+            'analytics' => app(ExternalAnalytics::class)->forRequest(request()),
+        ]));
 
         $testNow = env('WAYMARK_TEST_NOW');
 

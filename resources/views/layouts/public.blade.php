@@ -25,6 +25,7 @@
         @if ($branding['favicon_url'])<link rel="icon" href="{{ $branding['favicon_url'] }}">@endif
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+        <x-public.analytics :analytics="$analytics" />
         @stack('head')
     </head>
     <body>

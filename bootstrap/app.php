@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\RecordAccountActivity;
+use App\Http\Middleware\CaptureCampaignParameters;
 use App\Http\Middleware\RequireActiveAccount;
 use App\Http\Middleware\RequireSensitiveActionAssurance;
 use App\Http\Middleware\RequireSensitivePasswordConfirmation;
@@ -21,7 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(ResolvePublicRedirects::class);
-        $middleware->web(append: [RecordAccountActivity::class, RequireActiveAccount::class]);
+        $middleware->web(append: [CaptureCampaignParameters::class, RecordAccountActivity::class, RequireActiveAccount::class]);
         $middleware->alias([
             'sensitive.confirmed' => RequireSensitiveActionAssurance::class,
             'sensitive.password-confirmed' => RequireSensitivePasswordConfirmation::class,
