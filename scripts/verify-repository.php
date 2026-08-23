@@ -57,6 +57,10 @@ foreach ($required as $path) {
     }
 }
 
+if (is_file($root.DIRECTORY_SEPARATOR.'public'.DIRECTORY_SEPARATOR.'robots.txt')) {
+    $errors[] = 'public/robots.txt must remain application-routed so staging indexing safeguards cannot be bypassed.';
+}
+
 $tracked = [];
 exec('git ls-files', $tracked, $gitExitCode);
 
