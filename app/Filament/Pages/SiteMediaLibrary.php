@@ -13,12 +13,14 @@ use App\Domain\SiteMedia\Actions\UploadSiteMedia;
 use App\Domain\SiteMedia\Data\SiteMediaMetadata;
 use App\Domain\SiteMedia\Data\SiteMediaPresentation;
 use App\Domain\SiteMedia\Models\SiteMedia;
+use App\Domain\SiteMedia\Queries\PromotableCommunityPhotos;
 use App\Domain\SiteMedia\SiteMediaPresenter;
 use App\Models\User;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Panel;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 
@@ -69,7 +71,16 @@ final class SiteMediaLibrary extends Page
     /** @return LengthAwarePaginator<int, CommunityPhoto> */
     public function promotablePhotos(): LengthAwarePaginator
     {
-        return CommunityPhoto::query()->where('moderation_status', 'approved')->where('processing_status', 'complete')->whereNotNull('published_at')->where('published_at', '<=', now())->latest('published_at')->paginate(10, ['*'], 'photosPage');
+        $photos = app(PromotableCommunityPhotos::class)->get();
+        $page = Paginator::resolveCurrentPage('photosPage');
+
+        return new LengthAwarePaginator(
+            $photos->forPage($page, 10)->values(),
+            $photos->count(),
+            10,
+            $page,
+            ['path' => request()->url(), 'pageName' => 'photosPage'],
+        );
     }
 
     public function preview(SiteMedia $media): ?SiteMediaPresentation

@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\SiteMedia;
 
+use App\Domain\Events\Enums\EventStatus;
+use App\Domain\Events\Enums\EventType;
+use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Contracts\DecodedRasterImage;
 use App\Domain\Gallery\Contracts\ImageMetadataReader;
 use App\Domain\Gallery\Contracts\RasterImageTransformer;
@@ -29,6 +32,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Mockery;
@@ -58,6 +62,38 @@ final class SiteMediaTest extends TestCase
         $this->assertStringStartsWith('site-media/', $media->processed_variants['master']);
         $this->assertTrue(Storage::disk('local')->exists($media->processed_variants['master']));
         $this->assertTrue(Storage::disk('local')->exists($photo->processed_variants['master']));
+    }
+
+    public function test_promotable_listing_uses_the_same_public_context_and_derivative_eligibility_as_promotion(): void
+    {
+        Storage::fake('local');
+        $actor = User::factory()->create(['is_admin' => true]);
+        $eligible = $this->approvedPhoto($actor);
+        Storage::disk('local')->put($eligible->processed_variants['master'], $this->safeRaster());
+        $draftEvent = Event::factory()->create([
+            'type' => EventType::Walk,
+            'status' => EventStatus::Draft,
+            'is_public' => false,
+            'published_at' => null,
+        ]);
+        $ineligiblePath = 'community-photos/'.Str::uuid().'/master.jpg';
+        $ineligible = CommunityPhoto::query()->create([
+            'event_id' => $draftEvent->id,
+            'uploader_id' => $actor->id,
+            'media_type' => 'image',
+            'processing_status' => 'complete',
+            'storage_disk' => 'local',
+            'source_path' => $ineligiblePath,
+            'processed_variants' => ['master' => $ineligiblePath],
+            'moderation_status' => 'approved',
+            'published_at' => now()->subMinute(),
+        ]);
+        Storage::disk('local')->put($ineligiblePath, $this->safeRaster());
+
+        $ids = (new SiteMediaLibrary)->promotablePhotos()->pluck('id')->all();
+
+        $this->assertSame([$eligible->id], $ids);
+        $this->assertNotContains($ineligible->id, $ids);
     }
 
     public function test_metadata_update_enforces_focal_bounds_and_records_an_audit(): void
