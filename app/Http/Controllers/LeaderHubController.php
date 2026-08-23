@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Accounts\Queries\LeaderHubWalksQuery;
+use App\Domain\Governance\Queries\LeaderHubDocuments;
 use App\Models\User;
 use App\ViewModels\LeaderHubPageViewModel;
 use Illuminate\Contracts\View\View;
@@ -11,7 +12,7 @@ use Illuminate\Support\Facades\Gate;
 
 final class LeaderHubController extends Controller
 {
-    public function __invoke(Request $request, LeaderHubWalksQuery $walks): View
+    public function __invoke(Request $request, LeaderHubWalksQuery $walks, LeaderHubDocuments $documents): View
     {
         /** @var User $leader */
         $leader = $request->user();
@@ -22,6 +23,7 @@ final class LeaderHubController extends Controller
             $walks->drafts($leader)->get(),
             $walks->currentOrUpcoming($leader)->get(),
             $walks->past($leader)->get(),
+            $documents->get(),
         )->toArray());
     }
 }

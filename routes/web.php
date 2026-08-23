@@ -16,6 +16,7 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\FavouriteController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LeaderHubController;
+use App\Http\Controllers\LeaderHubDocumentDownloadController;
 use App\Http\Controllers\LeaderHubDuplicateWalkController;
 use App\Http\Controllers\LeaderProfileSettingsController;
 use App\Http\Controllers\NewHereController;
@@ -101,6 +102,7 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/favourites/{event}', [FavouriteController::class, 'store'])->name('favourites.store');
     Route::delete('/favourites/{event}', [FavouriteController::class, 'destroy'])->name('favourites.destroy');
     Route::get('/leader-hub', LeaderHubController::class)->name('leader-hub.index');
+    Route::get('/leader-hub/documents/{document}/download', LeaderHubDocumentDownloadController::class)->name('leader-hub.documents.download');
     Route::get('/leader-hub/profile', [LeaderProfileSettingsController::class, 'edit'])->name('leader-hub.profile.edit');
     Route::patch('/leader-hub/profile', [LeaderProfileSettingsController::class, 'update'])->name('leader-hub.profile.update');
     Route::get('/leader-hub/walks/{walk}/duplicate', [LeaderHubDuplicateWalkController::class, 'edit'])->name('leader-hub.walks.duplicate.edit');

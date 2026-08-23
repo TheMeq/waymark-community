@@ -3,6 +3,7 @@
 namespace App\ViewModels;
 
 use App\Domain\Events\Models\Event;
+use App\Domain\Governance\Models\Document;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Domain\Walks\Models\Walk;
@@ -23,6 +24,7 @@ final readonly class LeaderHubPageViewModel
         public string $leaderName,
         public ?string $createWalkUrl,
         public array $walks,
+        public array $resources,
     ) {}
 
     /**
@@ -30,7 +32,7 @@ final readonly class LeaderHubPageViewModel
      * @param  Collection<int, Event>  $upcoming
      * @param  Collection<int, Event>  $past
      */
-    public static function from(User $leader, Collection $drafts, Collection $upcoming, Collection $past): self
+    public static function from(User $leader, Collection $drafts, Collection $upcoming, Collection $past, Collection $documents): self
     {
         $siteProfile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
         $canAccessAdministration = $leader->canAccessPanel(Filament::getPanel('admin'));
@@ -50,6 +52,12 @@ final readonly class LeaderHubPageViewModel
                 'upcoming' => self::walks($upcoming, $leader, $canAccessAdministration),
                 'past' => self::walks($past, $leader, $canAccessAdministration),
             ],
+            resources: $documents->map(fn (Document $document): array => [
+                'title' => $document->title,
+                'description' => $document->description,
+                'category' => $document->category?->name,
+                'download_url' => route('leader-hub.documents.download', $document),
+            ])->all(),
         );
     }
 
@@ -74,7 +82,7 @@ final readonly class LeaderHubPageViewModel
         })->all();
     }
 
-    /** @return array{site: array<string, string>, theme: BrandTheme, leaderName: string, createWalkUrl: ?string, walks: array<string, list<array<string, string|null>>>} */
+    /** @return array{site: array<string, string>, theme: BrandTheme, leaderName: string, createWalkUrl: ?string, walks: array<string, list<array<string, string|null>>>, resources: list<array<string, string|null>>} */
     public function toArray(): array
     {
         return [
@@ -83,6 +91,7 @@ final readonly class LeaderHubPageViewModel
             'leaderName' => $this->leaderName,
             'createWalkUrl' => $this->createWalkUrl,
             'walks' => $this->walks,
+            'resources' => $this->resources,
         ];
     }
 }
