@@ -7,6 +7,7 @@ use App\Domain\Governance\Models\Document;
 use App\Filament\Resources\DocumentResource\Pages\CreateDocument;
 use App\Filament\Resources\DocumentResource\Pages\EditDocument;
 use App\Filament\Resources\DocumentResource\Pages\ListDocuments;
+use App\Filament\Resources\DocumentResource\RelationManagers\VersionsRelationManager;
 use App\Models\User;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -60,6 +61,11 @@ final class DocumentResource extends Resource
     public static function getPages(): array
     {
         return ['index' => ListDocuments::route('/'), 'create' => CreateDocument::route('/create'), 'edit' => EditDocument::route('/{record}/edit')];
+    }
+
+    public static function getRelations(): array
+    {
+        return [VersionsRelationManager::class];
     }
 
     private static function canManage(): bool

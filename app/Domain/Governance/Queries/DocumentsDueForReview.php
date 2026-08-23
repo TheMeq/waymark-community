@@ -9,6 +9,6 @@ final class DocumentsDueForReview
 {
     public function get(int $withinDays = 30): Collection
     {
-        return Document::query()->where('controlled', true)->whereNotNull('review_date')->whereDate('review_date', '<=', now()->addDays($withinDays))->orderBy('review_date')->get();
+        return Document::query()->with('category')->where('controlled', true)->whereNotNull('review_date')->whereDate('review_date', '<=', now()->addDays($withinDays))->orderBy('review_date')->get();
     }
 }

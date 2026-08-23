@@ -5,6 +5,7 @@ use App\Domain\Accounts\Actions\ProcessPersonalDataExports;
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Communication\Actions\SendDueNewsletters;
 use App\Domain\Gallery\Actions\ProcessDeferredCommunityPhotos;
+use App\Domain\Governance\Actions\SendDocumentReviewReminders;
 use App\Models\User;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -40,8 +41,13 @@ Artisan::command('communications:send-due-newsletters', function (SendDueNewslet
     return 0;
 })->purpose('Send newsletters whose schedule is due without a permanent worker');
 
+Artisan::command('governance:send-document-review-reminders', function (SendDocumentReviewReminders $reminders): void {
+    $this->info((string) $reminders->handle().' document review reminder(s) sent.');
+})->purpose('Send selected document review reminders without a permanent worker');
+
 Schedule::command('gallery:process-deferred-photos --limit=25')
     ->everyMinute()
     ->withoutOverlapping(max(1, min(59, (int) config('gallery.deferred.schedule_lock_minutes', 5))));
 
 Schedule::command('communications:send-due-newsletters')->hourly()->withoutOverlapping();
+Schedule::command('governance:send-document-review-reminders')->dailyAt('08:00')->withoutOverlapping();

@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Validation\ValidationException;
 
-#[Fillable(['document_category_id', 'title', 'slug', 'description', 'visibility', 'publication_date', 'public_version_history', 'current_version_id', 'download_count', 'controlled', 'approval_status', 'approver_id', 'approved_at', 'review_date', 'review_email_reminder'])]
+#[Fillable(['document_category_id', 'title', 'slug', 'description', 'visibility', 'publication_date', 'public_version_history', 'current_version_id', 'download_count', 'controlled', 'approval_status', 'approver_id', 'approved_at', 'review_date', 'review_email_reminder', 'last_review_reminder_sent_at'])]
 final class Document extends Model
 {
     use SoftDeletes;
@@ -26,7 +26,7 @@ final class Document extends Model
 
     protected function casts(): array
     {
-        return ['publication_date' => 'date', 'public_version_history' => 'boolean', 'download_count' => 'integer', 'controlled' => 'boolean', 'approved_at' => 'datetime', 'review_date' => 'date', 'review_email_reminder' => 'boolean'];
+        return ['publication_date' => 'date', 'public_version_history' => 'boolean', 'download_count' => 'integer', 'controlled' => 'boolean', 'approved_at' => 'datetime', 'review_date' => 'date', 'review_email_reminder' => 'boolean', 'last_review_reminder_sent_at' => 'datetime'];
     }
 
     public function category(): BelongsTo

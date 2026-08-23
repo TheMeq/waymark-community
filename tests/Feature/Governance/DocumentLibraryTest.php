@@ -5,12 +5,17 @@ namespace Tests\Feature\Governance;
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Governance\Actions\ApproveControlledDocument;
 use App\Domain\Governance\Actions\PublishDocumentVersion;
+use App\Domain\Governance\Actions\SendDocumentReviewReminders;
+use App\Domain\Governance\Actions\UploadDocumentVersion;
+use App\Domain\Governance\Mail\DocumentReviewReminderMail;
 use App\Domain\Governance\Models\Document;
 use App\Domain\Governance\Models\DocumentCategory;
 use App\Domain\Governance\Models\DocumentVersion;
 use App\Domain\Governance\Queries\DocumentsDueForReview;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -33,6 +38,23 @@ final class DocumentLibraryTest extends TestCase
         $this->assertSame($version2->id, $document->fresh()->current_version_id);
         $this->assertSame([1, 2], $document->versions()->orderBy('version_number')->pluck('version_number')->all());
         $this->assertNotNull($version1->fresh()->published_at);
+    }
+
+    public function test_governance_manager_can_upload_a_safe_private_version_and_member_cannot(): void
+    {
+        Storage::fake('local');
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
+        $member = User::factory()->create(['role' => AccountRole::RegisteredUser, 'email_verified_at' => now()]);
+        $document = $this->document();
+
+        $version = app(UploadDocumentVersion::class)->handle($administrator, $document, UploadedFile::fake()->create('walking-policy.pdf', 12, 'application/pdf'));
+
+        $this->assertSame(1, $version->version_number);
+        $this->assertMatchesRegularExpression('#^documents/[a-f0-9-]{36}/v1\.pdf$#', $version->storage_path);
+        Storage::disk('local')->assertExists($version->storage_path);
+
+        $this->expectException(ValidationException::class);
+        app(UploadDocumentVersion::class)->handle($member, $document, UploadedFile::fake()->create('unsafe.pdf', 12, 'application/pdf'));
     }
 
     public function test_controlled_document_requires_approval_and_records_approver(): void
@@ -80,14 +102,39 @@ final class DocumentLibraryTest extends TestCase
         $this->assertSame([$overdue->id, $approaching->id], app(DocumentsDueForReview::class)->get(30)->pluck('id')->all());
     }
 
+    public function test_selected_document_review_reminders_send_once_per_day_to_administrators(): void
+    {
+        Mail::fake();
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
+        $category = DocumentCategory::query()->create(['name' => 'Policies', 'slug' => 'policies', 'sort_order' => 10, 'review_reminders_enabled' => true]);
+        $document = Document::query()->create([
+            'document_category_id' => $category->id,
+            'title' => 'Safety policy',
+            'slug' => 'safety-policy',
+            'visibility' => 'leader',
+            'public_version_history' => false,
+            'download_count' => 0,
+            'controlled' => true,
+            'approval_status' => 'approved',
+            'review_date' => now()->addDays(7)->toDateString(),
+            'review_email_reminder' => true,
+        ]);
+
+        $this->assertSame(1, app(SendDocumentReviewReminders::class)->handle());
+        $this->assertSame(0, app(SendDocumentReviewReminders::class)->handle());
+        Mail::assertSent(DocumentReviewReminderMail::class, fn (DocumentReviewReminderMail $mail): bool => $mail->hasTo($administrator->email) && $mail->document->is($document));
+    }
+
     public function test_document_administration_is_governance_manager_only(): void
     {
         $administrator = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
         $member = User::factory()->create(['role' => AccountRole::RegisteredUser, 'email_verified_at' => now()]);
+        $document = $this->document();
         foreach (['/admin/documents', '/admin/document-categories'] as $path) {
             $this->actingAs($administrator)->get($path)->assertOk();
             $this->actingAs($member)->get($path)->assertForbidden();
         }
+        $this->actingAs($administrator)->get('/admin/documents/'.$document->id.'/edit')->assertOk()->assertSeeText('Upload version');
     }
 
     /** @param array<string, mixed> $overrides */
