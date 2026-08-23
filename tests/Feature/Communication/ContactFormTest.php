@@ -31,6 +31,29 @@ final class ContactFormTest extends TestCase
         $this->assertTrue($submission->retention_expires_at->isFuture());
     }
 
+    public function test_department_keyword_rule_can_route_to_a_private_specialist_address(): void
+    {
+        Mail::fake();
+        $department = ContactDepartment::query()->create([
+            'public_label' => 'Walks',
+            'destination_email' => 'walks-private@example.org',
+            'routing_rules' => ['accessibility' => 'access-private@example.org'],
+            'active' => true,
+            'sort_order' => 10,
+        ]);
+
+        $this->post('/contact', [
+            'contact_department_id' => $department->id,
+            'name' => 'Taylor',
+            'email' => 'taylor@example.net',
+            'message' => 'I have an accessibility question about a walk.',
+            'website' => '',
+        ])->assertRedirect('/contact');
+
+        Mail::assertSent(ContactSubmissionMail::class, fn (ContactSubmissionMail $mail): bool => $mail->hasTo('access-private@example.org'));
+        $this->get('/contact')->assertDontSee('access-private@example.org');
+    }
+
     public function test_honeypot_and_inactive_department_are_rejected(): void
     {
         Mail::fake();
