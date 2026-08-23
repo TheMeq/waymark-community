@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Middleware\RecordAccountActivity;
 use App\Http\Middleware\CaptureCampaignParameters;
+use App\Http\Middleware\RecordAccountActivity;
 use App\Http\Middleware\RequireActiveAccount;
 use App\Http\Middleware\RequireSensitiveActionAssurance;
 use App\Http\Middleware\RequireSensitivePasswordConfirmation;
