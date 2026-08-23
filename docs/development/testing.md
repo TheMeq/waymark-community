@@ -21,6 +21,8 @@ Required layers:
 
 The implementation plan must give exact commands and acceptance criteria.
 
+The release-level manual accessibility pass is documented in [`accessibility-acceptance-checklist.md`](accessibility-acceptance-checklist.md). Automated axe, keyboard, reduced-motion, 200% text-size, and touch-target checks run in the Playwright suite.
+
 ## Phase 1 commands
 
 From the repository root:

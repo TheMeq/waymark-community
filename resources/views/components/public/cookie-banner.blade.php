@@ -7,8 +7,8 @@
             <a class="mt-2 inline-block text-sm font-semibold text-brand" href="{{ route('cookie-settings.edit') }}">Review cookie settings</a>
         </div>
         <div class="flex flex-wrap gap-2">
-            <form method="post" action="{{ route('cookie-settings.update') }}">@csrf<input type="hidden" name="analytics" value="0"><button class="wm-button wm-button-secondary" type="submit">Use essential only</button></form>
-            <form method="post" action="{{ route('cookie-settings.update') }}">@csrf<input type="hidden" name="analytics" value="1"><button class="wm-button wm-button-primary" type="submit">Allow analytics</button></form>
+            <form method="post" action="{{ route('cookie-settings.update') }}">@csrf<input type="hidden" name="analytics" value="0"><x-public.button type="submit" variant="secondary">Use essential only</x-public.button></form>
+            <form method="post" action="{{ route('cookie-settings.update') }}">@csrf<input type="hidden" name="analytics" value="1"><x-public.button type="submit">Allow analytics</x-public.button></form>
         </div>
     </div>
 </aside>
