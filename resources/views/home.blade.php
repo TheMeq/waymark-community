@@ -157,6 +157,33 @@
         </div>
     </section>
     @endif
+
+    @if ($homepageSections->has('news') && ($homeNews !== [] || $homepageSections['news']->empty_behavior === 'message'))
+    <section class="border-y border-border bg-surface py-8 sm:py-10" aria-labelledby="news-heading" style="order: {{ $homepageSections['news']->sort_order }}">
+        <div class="wm-container">
+            <div class="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-[0.15em] text-brand">From the group</p>
+                    <h2 id="news-heading" class="mt-2 text-3xl text-ink">{{ $homepageSections['news']->heading ?: 'Latest news' }}</h2>
+                    @if (filled($homepageSections['news']->supporting_copy))<p class="mt-2 max-w-2xl text-sm text-ink-muted">{{ $homepageSections['news']->supporting_copy }}</p>@endif
+                </div>
+                <a class="text-sm font-semibold text-brand" href="{{ $homepageSections['news']->cta_url ?: route('news.index') }}">{{ $homepageSections['news']->cta_label ?: 'All news' }} <span aria-hidden="true">&rarr;</span></a>
+            </div>
+            @if ($homeNews === [])
+                <p class="mt-6 text-sm text-ink-muted">No current news.</p>
+            @else
+                <div class="mt-6 grid gap-4 md:grid-cols-3">
+                    @foreach ($homeNews as $article)
+                        <article class="overflow-hidden rounded-[var(--wm-radius-md)] border border-border bg-surface-raised shadow-[var(--wm-shadow-card)] {{ $homepageSections['news']->layout_variant === 'featured' && $loop->first ? 'md:col-span-2' : '' }}">
+                            @if ($article['image'])<img class="aspect-[16/7] w-full object-cover" src="{{ $article['image']->url }}" alt="{{ $article['image']->alt }}" width="{{ $article['image']->width }}" height="{{ $article['image']->height }}" loading="lazy">@endif
+                            <div class="p-5"><p class="text-xs font-semibold uppercase tracking-wider text-brand">{{ $article['category'] }}</p><h3 class="mt-2 text-xl"><a class="hover:text-brand" href="{{ $article['url'] }}">{{ $article['title'] }}</a></h3>@if(filled($article['summary']))<p class="mt-2 text-sm text-ink-muted">{{ $article['summary'] }}</p>@endif</div>
+                        </article>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    </section>
+    @endif
     </div>
 @endsection
 

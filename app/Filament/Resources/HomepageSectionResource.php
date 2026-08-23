@@ -42,7 +42,7 @@ final class HomepageSectionResource extends Resource
             TextInput::make('cta_label')->maxLength(100),
             TextInput::make('cta_url')->maxLength(2048),
             Select::make('content_mode')->options(['automatic' => 'Automatic', 'pinned' => 'Pinned override'])->required(),
-            TextInput::make('pinned_type')->maxLength(100),
+            Select::make('pinned_type')->options(['site_media' => 'Site media', 'event' => 'Event', 'community_photo' => 'Community photo', 'cms_page' => 'CMS page', 'testimonial' => 'Testimonial', 'news_article' => 'News article']),
             TextInput::make('pinned_id')->numeric(),
             DateTimePicker::make('visible_from'),
             DateTimePicker::make('visible_until'),

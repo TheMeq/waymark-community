@@ -6,6 +6,7 @@ use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Content\Actions\SaveHomepageSection;
 use App\Domain\Content\Models\HomepageConfigurationSnapshot;
 use App\Domain\Content\Models\HomepageSection;
+use App\Domain\Content\Models\NewsArticle;
 use App\Domain\Content\Queries\VisibleHomepageSections;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -63,6 +64,45 @@ final class HomepageConfigurationTest extends TestCase
             ->assertDontSeeText('Photos from our walks & holidays');
     }
 
+    public function test_manual_news_pin_is_used_first_and_missing_pin_falls_back_to_automatic_selection(): void
+    {
+        $author = User::factory()->create();
+        $automatic = NewsArticle::query()->create($this->article($author, ['title' => 'Automatic update', 'slug' => 'automatic-update', 'featured_on_homepage' => true]));
+        $pinned = NewsArticle::query()->create($this->article($author, ['title' => 'Pinned update', 'slug' => 'pinned-update', 'publish_at' => now()->subDay()]));
+        $section = HomepageSection::query()->create($this->section([
+            'section_key' => 'news',
+            'content_mode' => 'pinned',
+            'pinned_type' => 'news_article',
+            'pinned_id' => $pinned->id,
+        ]));
+
+        $this->get('/')->assertOk()->assertSeeInOrder([$pinned->title, $automatic->title]);
+
+        $section->update(['pinned_id' => 999999]);
+        $this->get('/')->assertOk()->assertSeeText($automatic->title);
+    }
+
+    public function test_homepage_empty_state_can_hide_or_show_a_concise_message(): void
+    {
+        $section = HomepageSection::query()->create($this->section(['section_key' => 'news', 'heading' => 'Latest news', 'empty_behavior' => 'hide']));
+
+        $this->get('/')->assertOk()->assertDontSeeText('Latest news')->assertDontSeeText('No current news.');
+
+        $section->update(['empty_behavior' => 'message']);
+        $this->get('/')->assertOk()->assertSeeText('Latest news')->assertSeeText('No current news.');
+    }
+
+    public function test_pinned_content_type_is_constrained_per_approved_section(): void
+    {
+        $this->expectException(ValidationException::class);
+        HomepageSection::query()->create($this->section([
+            'section_key' => 'news',
+            'content_mode' => 'pinned',
+            'pinned_type' => 'arbitrary_model',
+            'pinned_id' => 1,
+        ]));
+    }
+
     public function test_homepage_configuration_admin_is_content_manager_only(): void
     {
         $administrator = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
@@ -82,6 +122,22 @@ final class HomepageConfigurationTest extends TestCase
             'layout_variant' => 'default',
             'content_mode' => 'automatic',
             'empty_behavior' => 'hide',
+        ], $overrides);
+    }
+
+    /** @param array<string, mixed> $overrides */
+    private function article(User $author, array $overrides = []): array
+    {
+        return array_merge([
+            'title' => 'Group update',
+            'slug' => 'group-update',
+            'summary' => 'A short community update.',
+            'blocks' => [['type' => 'rich_text', 'content' => '<p>News body.</p>']],
+            'author_id' => $author->id,
+            'primary_category' => 'Community',
+            'publication_state' => 'published',
+            'publish_at' => now()->subHour(),
+            'featured_on_homepage' => false,
         ], $overrides);
     }
 }
