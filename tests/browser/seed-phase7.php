@@ -2,6 +2,7 @@
 
 use App\Domain\Communication\Models\ContactDepartment;
 use App\Domain\Content\Models\CmsPage;
+use App\Domain\Content\Models\HomepageSection;
 use App\Domain\Content\Models\NewsArticle;
 use App\Domain\Governance\Actions\PublishDocumentVersion;
 use App\Domain\Governance\Models\Document;
@@ -51,6 +52,42 @@ NewsArticle::query()->create([
     'publish_at' => CarbonImmutable::parse('2026-08-19 10:00:00'),
     'featured_on_homepage' => true,
 ]);
+
+foreach ([
+    ['Trail care morning', 'trail-care-morning', 'Members are helping to care for a much-loved local path.'],
+    ['Autumn programme preview', 'autumn-programme-preview', 'A first look at the varied walks planned for the new season.'],
+] as [$title, $slug, $summary]) {
+    NewsArticle::query()->create([
+        'title' => $title,
+        'slug' => $slug,
+        'summary' => $summary,
+        'blocks' => [['type' => 'rich_text', 'content' => '<p>'.$summary.'</p>']],
+        'author_id' => $administrator->id,
+        'primary_category' => 'Community',
+        'tags' => ['community'],
+        'publication_state' => 'published',
+        'publish_at' => CarbonImmutable::parse('2026-08-19 09:30:00'),
+        'featured_on_homepage' => true,
+    ]);
+}
+
+foreach ([
+    ['hero', 10, 'compact'],
+    ['whats_on', 20, 'walks_first'],
+    ['gallery', 30, 'feature_first'],
+    ['join', 40, 'resources_first'],
+    ['holiday', 50, 'wide'],
+    ['news', 60, 'featured'],
+] as [$sectionKey, $sortOrder, $layoutVariant]) {
+    HomepageSection::query()->create([
+        'section_key' => $sectionKey,
+        'enabled' => true,
+        'sort_order' => $sortOrder,
+        'layout_variant' => $layoutVariant,
+        'content_mode' => 'automatic',
+        'empty_behavior' => 'message',
+    ]);
+}
 
 $category = DocumentCategory::query()->create(['name' => 'Walking guidance', 'slug' => 'walking-guidance', 'sort_order' => 10]);
 $document = Document::query()->create([

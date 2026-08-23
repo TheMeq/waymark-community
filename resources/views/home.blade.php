@@ -19,21 +19,21 @@
         >
         <div class="wm-hero-shade absolute inset-0 -z-10"></div>
 
-        <div class="wm-container flex min-h-[34rem] items-center py-10 sm:min-h-[38rem] lg:min-h-[20rem] lg:py-4">
-            <div class="w-full min-w-0 max-w-[44rem] pt-24 sm:pt-14 lg:max-w-[40rem] lg:pt-0">
-                <p class="mb-4 text-xs font-semibold uppercase tracking-[0.17em] text-brand lg:mb-2">{{ $homepage->hero['eyebrow'] }}</p>
-                <h1 class="text-[clamp(2.75rem,5vw,3.6rem)] text-ink lg:text-[3.15rem]">
+        <div class="wm-hero-frame wm-container flex items-center">
+            <div class="wm-hero-copy">
+                <p class="wm-hero-eyebrow text-xs font-semibold uppercase tracking-[0.17em] text-brand">{{ $homepage->hero['eyebrow'] }}</p>
+                <h1 class="wm-hero-heading text-ink">
                     {{ $homepage->hero['headline'] }}
                     <span class="block text-brand">{{ $homepage->hero['highlight'] }}</span>
                 </h1>
-                <p class="mt-4 max-w-lg text-base leading-relaxed text-ink lg:mt-2 lg:max-w-md lg:text-sm lg:leading-normal">{{ $homepage->hero['summary'] }}</p>
+                <p class="wm-hero-summary max-w-lg text-base leading-relaxed text-ink lg:max-w-md lg:text-sm lg:leading-normal">{{ $homepage->hero['summary'] }}</p>
 
-                <div class="mt-5 flex flex-wrap gap-3 lg:mt-3">
+                <div class="wm-hero-actions flex flex-wrap gap-3">
                     <x-public.button :href="$homepageSections['hero']->cta_url ?: route('walks.index')">{{ $homepageSections['hero']->cta_label ?: 'Upcoming walks' }} <span aria-hidden="true">&rarr;</span></x-public.button>
                     <x-public.button :href="route('new-here')" variant="secondary">Join us</x-public.button>
                 </div>
 
-                <ul class="mt-6 grid gap-3 border-t border-ink/10 pt-4 sm:grid-cols-3 lg:mt-4 lg:max-w-[38rem] lg:gap-2 lg:pt-3" aria-label="Community highlights">
+                <ul class="wm-hero-benefits grid gap-3 border-t border-ink/10 sm:grid-cols-3 lg:max-w-[38rem] lg:gap-2" aria-label="Community highlights">
                     @foreach ($homepage->benefits as $benefit)
                         <li class="flex items-center gap-3 lg:gap-2">
                             <span class="grid size-10 shrink-0 place-items-center rounded-full border border-brand/30 bg-white/70 text-brand lg:size-8" aria-hidden="true">
@@ -60,7 +60,7 @@
     @if ($homepageSections->has('whats_on'))
     <section data-homepage-section="whats_on" data-layout="{{ $homepageSections['whats_on']->layout_variant }}" class="wm-home-layout-{{ $homepageSections['whats_on']->layout_variant }} bg-surface-raised py-7 sm:py-8 lg:py-5" aria-labelledby="weekend-heading" style="order: {{ $homepageSections['whats_on']->sort_order }}">
         <div class="wm-container grid gap-10 {{ $homepageSections['whats_on']->layout_variant === 'walks_first' ? 'lg:grid-cols-[minmax(0,3fr)_minmax(17rem,1fr)]' : 'lg:grid-cols-[minmax(0,2.45fr)_minmax(19rem,1fr)]' }} lg:gap-6">
-            <div class="min-w-0">
+            <div data-homepage-whats-on-walks class="min-w-0">
                 <div class="flex items-end justify-between gap-4">
                     <h2 id="weekend-heading" class="text-3xl text-ink lg:text-2xl">{{ $homepageSections['whats_on']->heading ?: 'This Weekend' }}</h2>
                     <a class="text-sm font-semibold text-brand underline decoration-brand/30 underline-offset-4 sm:hidden" href="{{ $homepageSections['whats_on']->cta_url ?: route('walks.index') }}">{{ $homepageSections['whats_on']->cta_label ?: 'View all' }}</a>
@@ -78,7 +78,7 @@
             </div>
 
             @if (! $configuredSectionKeys->contains('holiday'))
-            <div>
+            <div data-homepage-whats-on-holiday>
                 <div class="flex flex-wrap items-end justify-between gap-4">
                     <h2 class="text-2xl text-ink lg:text-xl">Holidays &amp; Weekends Away</h2>
                     <a class="text-sm font-semibold text-brand lg:text-xs" href="{{ route('holidays.index') }}">View all <span aria-hidden="true">&rarr;</span></a>
@@ -112,7 +112,7 @@
             </div>
 
             @forelse ($homepage->gallery as $index => $photo)
-                <figure data-homepage-memory class="{{ $index === 0 ? 'wm-photo-feature' : '' }} h-36 self-center overflow-hidden rounded-[var(--wm-radius-md)] bg-surface-soft lg:h-28">
+                <figure data-homepage-memory class="wm-home-memory {{ $index === 0 ? 'wm-photo-feature' : '' }} self-center overflow-hidden rounded-[var(--wm-radius-md)] bg-surface-soft">
                     <a class="block size-full" href="{{ $photo['detail_url'] ?? route('gallery.index') }}"><img class="size-full object-cover transition-transform duration-300 hover:scale-[1.025]" src="{{ $photo['image_url'] }}" alt="{{ $photo['image_alt'] }}" loading="lazy" width="{{ $photo['width'] ?? '' }}" height="{{ $photo['height'] ?? '' }}" style="{{ $photo['rotation_style'] ?? '' }}"></a>
                 </figure>
             @empty
@@ -129,9 +129,9 @@
 
     @if ($homepageSections->has('join'))
     <section data-homepage-section="join" data-layout="{{ $homepageSections['join']->layout_variant }}" class="wm-home-layout-{{ $homepageSections['join']->layout_variant }} bg-surface-raised py-6 sm:py-7 lg:py-3" style="order: {{ $homepageSections['join']->sort_order }}">
-        <div class="wm-container grid gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(18rem,1fr)] lg:gap-4">
-            <div class="rounded-[var(--wm-radius-md)] bg-surface-soft p-4 sm:p-5 lg:p-3">
-                <div class="flex flex-col gap-5 md:flex-row md:flex-wrap md:items-center lg:gap-3">
+        <div class="wm-join-grid wm-container grid gap-5 lg:gap-4">
+            <div data-homepage-join-panel class="wm-join-panel rounded-[var(--wm-radius-md)] bg-surface-soft p-4 sm:p-5 lg:p-3">
+                <div class="wm-join-content flex flex-col gap-5 md:flex-row md:flex-wrap md:items-center lg:gap-3">
                     <div class="md:flex-[1_1_10rem]">
                         <p class="text-xs font-semibold uppercase tracking-[0.15em] text-brand">New here?</p>
                         <h2 class="mt-2 text-3xl lg:mt-1 lg:text-2xl">{{ $homepageSections['join']->heading ?: ($joinPage?->title ?: 'Join us!') }}</h2>
@@ -139,7 +139,7 @@
                         @if (! $configuredSectionKeys->contains('testimonial') && filled($homepage->testimonial))<blockquote class="mt-3 text-xs italic text-ink-muted lg:mt-2">{{ $homepage->testimonial }}</blockquote>@endif
                     </div>
 
-                    <div class="grid gap-4 sm:grid-cols-3 md:flex-[2_1_20rem] lg:gap-3">
+                    <div class="wm-join-benefits grid gap-4 md:flex-[2_1_20rem] lg:gap-3">
                         <p class="border-l-2 border-brand/25 pl-4 text-sm lg:pl-3 lg:text-xs"><strong class="block">Everyone welcome</strong><span class="text-ink-muted">Come as you are.</span></p>
                         <p class="border-l-2 border-brand/25 pl-4 text-sm lg:pl-3 lg:text-xs"><strong class="block">Try a walk</strong><span class="text-ink-muted">Find your pace.</span></p>
                         <p class="border-l-2 border-brand/25 pl-4 text-sm lg:pl-3 lg:text-xs"><strong class="block">Good company</strong><span class="text-ink-muted">Share the day.</span></p>
@@ -149,7 +149,7 @@
                 </div>
             </div>
 
-            <aside class="rounded-[var(--wm-radius-md)] border border-border bg-surface p-4 lg:p-3" aria-labelledby="resources-heading">
+            <aside data-homepage-member-resources class="wm-member-resources rounded-[var(--wm-radius-md)] border border-border bg-surface p-4 lg:p-3" aria-labelledby="resources-heading">
                 <h2 id="resources-heading" class="text-xl lg:text-lg">Member resources</h2>
                 <ul class="mt-2 divide-y divide-border text-xs">
                     @foreach ($homepage->memberResources as $resource)
@@ -166,9 +166,9 @@
         <div class="wm-container"><h2 class="text-3xl">{{ $homepageSections['holiday']->heading ?: 'Holidays & Weekends Away' }}</h2>
         @if(filled($homepageSections['holiday']->supporting_copy))<p class="mt-2 text-sm text-ink-muted">{{ $homepageSections['holiday']->supporting_copy }}</p>@endif
         @if($homepage->holiday === [])<p class="mt-5 text-sm text-ink-muted">No upcoming trips away.</p>@else
-        <article class="mt-5 overflow-hidden rounded-[var(--wm-radius-md)] border border-border bg-surface shadow-[var(--wm-shadow-card)] md:grid md:grid-cols-[1.3fr_1fr]">
-            <img class="h-full w-full object-cover" src="{{ $homepage->holiday['image_url'] }}" alt="{{ $homepage->holiday['image_alt'] }}" loading="lazy">
-            <div class="p-5"><h3 class="text-xl"><a href="{{ $homepage->holiday['url'] }}">{{ $homepage->holiday['title'] }}</a></h3><p class="mt-2 text-sm text-ink-muted">{{ $homepage->holiday['date'] }} · {{ $homepage->holiday['location'] }}</p><p class="mt-2 text-sm">{{ $homepage->holiday['summary'] }}</p></div>
+        <article class="mt-5 overflow-hidden rounded-[var(--wm-radius-md)] border border-border bg-surface shadow-[var(--wm-shadow-card)] md:grid {{ $homepageSections['holiday']->layout_variant === 'wide' ? 'md:grid-cols-[1.8fr_1fr]' : 'md:grid-cols-[1.3fr_1fr]' }}">
+            <img data-homepage-holiday-image class="h-full w-full object-cover" src="{{ $homepage->holiday['image_url'] }}" alt="{{ $homepage->holiday['image_alt'] }}" loading="lazy">
+            <div data-homepage-holiday-content class="p-5"><h3 class="text-xl"><a href="{{ $homepage->holiday['url'] }}">{{ $homepage->holiday['title'] }}</a></h3><p class="mt-2 text-sm text-ink-muted">{{ $homepage->holiday['date'] }} · {{ $homepage->holiday['location'] }}</p><p class="mt-2 text-sm">{{ $homepage->holiday['summary'] }}</p></div>
         </article>@endif
         <a class="mt-4 inline-flex text-sm font-semibold text-brand" href="{{ $homepageSections['holiday']->cta_url ?: route('holidays.index') }}">{{ $homepageSections['holiday']->cta_label ?: 'View all' }} <span aria-hidden="true">&rarr;</span></a></div>
     </section>
@@ -199,7 +199,7 @@
             @else
                 <div class="mt-6 grid gap-4 md:grid-cols-3">
                     @foreach ($homeNews as $article)
-                        <article class="overflow-hidden rounded-[var(--wm-radius-md)] border border-border bg-surface-raised shadow-[var(--wm-shadow-card)] {{ $homepageSections['news']->layout_variant === 'featured' && $loop->first ? 'md:col-span-2' : '' }}">
+                        <article data-homepage-news-card class="overflow-hidden rounded-[var(--wm-radius-md)] border border-border bg-surface-raised shadow-[var(--wm-shadow-card)] {{ $homepageSections['news']->layout_variant === 'featured' && $loop->first ? 'md:col-span-2' : '' }}">
                             @if ($article['image'])<img class="aspect-[16/7] w-full object-cover" src="{{ $article['image']->url }}" alt="{{ $article['image']->alt }}" width="{{ $article['image']->width }}" height="{{ $article['image']->height }}" loading="lazy">@endif
                             <div class="p-5"><p class="text-xs font-semibold uppercase tracking-wider text-brand">{{ $article['category'] }}</p><h3 class="mt-2 text-xl"><a class="hover:text-brand" href="{{ $article['url'] }}">{{ $article['title'] }}</a></h3>@if(filled($article['summary']))<p class="mt-2 text-sm text-ink-muted">{{ $article['summary'] }}</p>@endif</div>
                         </article>

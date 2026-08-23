@@ -22,5 +22,22 @@ test('homepage does not create document overflow at 200 percent text size', asyn
         scroll: document.documentElement.scrollWidth,
     }));
 
-    expect(width.scroll).toBeLessThanOrEqual(width.client);
+    const overflowing = await page.evaluate(() => Array.from(document.querySelectorAll('body *'))
+        .filter((element) => {
+            const bounds = element.getBoundingClientRect();
+
+            return bounds.right > document.documentElement.clientWidth + 1
+                || bounds.left + element.scrollWidth > document.documentElement.clientWidth + 1;
+        })
+        .slice(0, 10)
+        .map((element) => ({
+            tag: element.tagName,
+            className: element.className,
+            text: element.textContent?.trim().slice(0, 80),
+            right: element.getBoundingClientRect().right,
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+        })));
+
+    expect(width.scroll, JSON.stringify(overflowing)).toBeLessThanOrEqual(width.client);
 });
