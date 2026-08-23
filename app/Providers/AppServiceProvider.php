@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Domain\Accounts\Models\InstallationOwnership;
+use App\Domain\Communication\Contracts\NewsletterDelivery;
+use App\Domain\Communication\Services\MailNewsletterDelivery;
 use App\Domain\Content\Queries\PublicFooterSections;
 use App\Domain\Content\Queries\PublicNavigationItems;
 use App\Domain\Gallery\Contracts\ImageMetadataReader;
@@ -32,6 +34,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(RelatedWalks::class, SignalRelatedWalks::class);
         $this->app->bind(ImageMetadataReader::class, PhpExifImageMetadataReader::class);
         $this->app->bind(RasterImageTransformer::class, GdRasterImageTransformer::class);
+        $this->app->bind(NewsletterDelivery::class, MailNewsletterDelivery::class);
     }
 
     /**

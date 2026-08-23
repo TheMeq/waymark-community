@@ -10,6 +10,7 @@ use App\Domain\Accounts\Models\Favourite;
 use App\Domain\Accounts\Models\InstallationOwnership;
 use App\Domain\Accounts\Models\PersonalDataExport;
 use App\Domain\Accounts\Models\RoleCapability;
+use App\Domain\Communication\Models\PolicyConsent;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\PhotoPolicyAcceptance;
 use App\Domain\Membership\Enums\AccountStatus;
@@ -176,6 +177,12 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     public function photoPolicyAcceptances(): HasMany
     {
         return $this->hasMany(PhotoPolicyAcceptance::class);
+    }
+
+    /** @return HasMany<PolicyConsent, $this> */
+    public function policyConsents(): HasMany
+    {
+        return $this->hasMany(PolicyConsent::class);
     }
 
     /**
