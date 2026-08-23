@@ -23,6 +23,7 @@ use App\Http\Controllers\PublicHolidayIndexController;
 use App\Http\Controllers\PublicHolidayShowController;
 use App\Http\Controllers\PublicLeaderProfileController;
 use App\Http\Controllers\PublicNewsController;
+use App\Http\Controllers\PublicDocumentController;
 use App\Http\Controllers\PublicSocialAttachmentDownloadController;
 use App\Http\Controllers\PublicSocialIndexController;
 use App\Http\Controllers\PublicSocialShowController;
@@ -46,6 +47,9 @@ Route::get('/media/{media}/image/{variant}', SiteMediaStreamController::class)->
 Route::get('/new-here', NewHereController::class)->name('new-here');
 Route::get('/news', [PublicNewsController::class, 'index'])->name('news.index');
 Route::get('/news/{slug}', [PublicNewsController::class, 'show'])->name('news.show');
+Route::get('/documents', [PublicDocumentController::class, 'index'])->name('documents.index');
+Route::get('/documents/{slug}', [PublicDocumentController::class, 'show'])->name('documents.show');
+Route::get('/documents/{slug}/versions/{version}/download', [PublicDocumentController::class, 'download'])->whereNumber('version')->name('documents.download');
 Route::get('/pages/{slug}', [CmsPageController::class, 'show'])->name('cms.show');
 Route::get('/review/pages/{token}', [CmsPageController::class, 'review'])->name('cms.review');
 Route::get('/photos', [PublicGalleryController::class, 'index'])->name('gallery.index');

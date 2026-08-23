@@ -21,4 +21,5 @@ enum ModuleCapability: string
     case ManageSpecialAlbums = 'gallery.manage_albums';
     case ManageSiteMedia = 'site_media.manage';
     case ManageContent = 'content.manage';
+    case ManageGovernance = 'governance.manage';
 }
