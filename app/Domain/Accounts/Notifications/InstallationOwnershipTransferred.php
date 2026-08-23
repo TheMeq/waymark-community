@@ -2,6 +2,7 @@
 
 namespace App\Domain\Accounts\Notifications;
 
+use App\Domain\Communication\Support\TransactionalEmailCopy;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -27,10 +28,13 @@ final class InstallationOwnershipTransferred extends Notification
         $message = $this->recipientIsNewOwner
             ? 'You are now the Installation Owner for this Waymark Community installation.'
             : 'You are no longer the Installation Owner for this Waymark Community installation.';
+        $copy = app(TransactionalEmailCopy::class)->for('installation_ownership_transferred', [
+            'ownership_message' => $message,
+            'other_account_name' => $this->otherOwner->name,
+        ]);
 
         return (new MailMessage)
-            ->subject('Installation ownership changed')
-            ->line($message)
-            ->line('The other account is '.$this->otherOwner->name.'.');
+            ->subject($copy['subject'])
+            ->view('mail.transactional', ['copy' => $copy]);
     }
 }

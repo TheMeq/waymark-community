@@ -3,9 +3,9 @@
 namespace Tests\Feature\Communication;
 
 use App\Domain\Accounts\Enums\AccountRole;
-use App\Domain\Accounts\Models\CommunicationPreference;
-use App\Domain\Communication\Actions\RecordPolicyConsent;
+use App\Domain\Accounts\Notifications\AdministratorAccessChanged;
 use App\Domain\Communication\Actions\PublishPolicyVersion;
+use App\Domain\Communication\Actions\RecordPolicyConsent;
 use App\Domain\Communication\Actions\SendDueNewsletters;
 use App\Domain\Communication\Actions\SendNewsletter;
 use App\Domain\Communication\Mail\NewsletterMail;
@@ -18,8 +18,8 @@ use App\Domain\Communication\Queries\NewsletterAudience;
 use App\Models\User;
 use Database\Seeders\PolicyStarterTemplateSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
@@ -97,6 +97,26 @@ final class NewsletterPolicyTest extends TestCase
         EmailTemplate::query()->create(['template_key' => 'unsafe', 'subject' => 'Unsafe', 'intro_text' => '<script>alert(1)</script>']);
     }
 
+    public function test_selected_transactional_wording_renders_inside_the_fixed_branded_structure(): void
+    {
+        EmailTemplate::query()->create([
+            'template_key' => 'administrator_access_changed',
+            'subject' => 'Access changed for {{ account_name }}',
+            'intro_text' => '{{ account_name }} was {{ change_description }} an Administrator.',
+            'closing_text' => 'Review administrator access in Waymark Community.',
+        ]);
+        $account = User::factory()->create(['name' => 'Morgan Reed']);
+        $recipient = User::factory()->create();
+
+        $mail = (new AdministratorAccessChanged($account, 'created'))->toMail($recipient);
+
+        $this->assertSame('Access changed for Morgan Reed', $mail->subject);
+        $rendered = (string) $mail->render();
+        $this->assertStringContainsString('Morgan Reed was created as an Administrator.', $rendered);
+        $this->assertStringContainsString('Waymark Community', $rendered);
+        $this->assertStringNotContainsString('{{ account_name }}', $rendered);
+    }
+
     public function test_starter_policies_are_drafts_clearly_marked_for_group_and_legal_review(): void
     {
         $this->seed(PolicyStarterTemplateSeeder::class);
@@ -130,6 +150,7 @@ final class NewsletterPolicyTest extends TestCase
     private function newsletterPolicy(): PolicyVersion
     {
         $page = PolicyPage::query()->create(['policy_key' => 'newsletter_consent', 'title' => 'Newsletter consent', 'slug' => 'newsletter-consent', 'review_notice' => 'Review before use.']);
+
         return $page->versions()->create(['version_number' => 1, 'body' => 'I agree to group news by email.', 'publication_state' => 'published', 'published_at' => now()]);
     }
 
@@ -138,6 +159,7 @@ final class NewsletterPolicyTest extends TestCase
         $user = User::factory()->create(['role' => $role]);
         $user->communicationPreferences()->create(['category' => 'group_news', 'is_subscribed' => true, 'consented_at' => now()]);
         app(RecordPolicyConsent::class)->handle($user, $policy, 'newsletter');
+
         return $user;
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Domain\Accounts\Notifications;
 
+use App\Domain\Communication\Support\TransactionalEmailCopy;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -25,9 +26,13 @@ final class AdministratorAccessChanged extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         $description = $this->change === 'created' ? 'created as' : 'promoted to';
+        $copy = app(TransactionalEmailCopy::class)->for('administrator_access_changed', [
+            'account_name' => $this->account->name,
+            'change_description' => $description,
+        ]);
 
         return (new MailMessage)
-            ->subject('Administrator access changed')
-            ->line($this->account->name.' was '.$description.' an Administrator.');
+            ->subject($copy['subject'])
+            ->view('mail.transactional', ['copy' => $copy]);
     }
 }
