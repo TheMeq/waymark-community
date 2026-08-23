@@ -17,7 +17,7 @@ final class VisibleHomepageSections
                 'sort_order' => ($index + 1) * 10,
                 'layout_variant' => 'default',
                 'content_mode' => 'automatic',
-                'empty_behavior' => 'hide',
+                'empty_behavior' => $key === 'gallery' ? 'message' : 'hide',
             ]));
         }
 

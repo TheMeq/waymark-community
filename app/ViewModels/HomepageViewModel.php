@@ -2,6 +2,8 @@
 
 namespace App\ViewModels;
 
+use App\Domain\Operations\Models\SiteProfile;
+
 final readonly class HomepageViewModel
 {
     /**
@@ -123,6 +125,33 @@ final readonly class HomepageViewModel
                 ['label' => 'Contacts', 'url' => '/contact'],
             ],
             testimonial: $testimonial ?? '“I came along for one walk and found a whole community.”',
+        );
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $weekendWalks
+     * @param  array<string, mixed>|null  $holiday
+     * @param  array<int, array<string, mixed>>  $gallery
+     * @param  array<string, string>  $heroOverrides
+     */
+    public static function live(SiteProfile $profile, array $weekendWalks, ?array $holiday, array $gallery, ?string $testimonial, array $heroOverrides = []): self
+    {
+        $defaults = self::demo($weekendWalks, $holiday ?? [], $gallery, $testimonial);
+
+        return new self(
+            site: ['name' => $profile->group_name ?: 'Waymark Community', 'strapline' => 'A local walking community'],
+            hero: array_replace($defaults->hero, $heroOverrides),
+            benefits: $defaults->benefits,
+            weekendWalks: $weekendWalks,
+            holiday: $holiday ?? [],
+            gallery: $gallery,
+            memberResources: [
+                ['label' => 'Members area', 'url' => route('account.profile.edit')],
+                ['label' => 'Policies and documents', 'url' => route('documents.index')],
+                ['label' => 'Walk leader resources', 'url' => route('leader-hub.index')],
+                ['label' => 'Contacts', 'url' => route('contact.create')],
+            ],
+            testimonial: $testimonial ?? '',
         );
     }
 }

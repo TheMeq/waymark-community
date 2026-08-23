@@ -45,6 +45,13 @@ final class PublicCommunityPhotos
         return $this->selection($this->base()->where('is_featured', true), $limit);
     }
 
+    public function find(int $id): ?PublicCommunityPhotoPresentation
+    {
+        $photo = $this->base()->with(['event:id,title,slug', 'specialAlbum:id,title,slug'])->find($id);
+
+        return $photo instanceof CommunityPhoto ? $this->presenter->present($photo) : null;
+    }
+
     /** @param array<int, int> $excludedIds
      *  @return Collection<int, PublicCommunityPhotoPresentation> */
     public function recentExcluding(array $excludedIds, int $limit): Collection

@@ -10,7 +10,7 @@
 @section('content')
     <div class="flex flex-col">
     @if ($homepageSections->has('hero'))
-    <section class="wm-hero relative isolate overflow-hidden bg-surface-raised" style="order: {{ $homepageSections['hero']->sort_order }}">
+    <section data-homepage-section="hero" data-layout="{{ $homepageSections['hero']->layout_variant }}" class="wm-hero wm-home-layout-{{ $homepageSections['hero']->layout_variant }} relative isolate overflow-hidden bg-surface-raised" style="order: {{ $homepageSections['hero']->sort_order }}">
         <img
             class="absolute inset-0 -z-20 size-full object-cover object-[68%_center]"
             src="{{ $homepage->hero['image_url'] }}"
@@ -29,7 +29,7 @@
                 <p class="mt-4 max-w-lg text-base leading-relaxed text-ink lg:mt-2 lg:max-w-md lg:text-sm lg:leading-normal">{{ $homepage->hero['summary'] }}</p>
 
                 <div class="mt-5 flex flex-wrap gap-3 lg:mt-3">
-                    <x-public.button href="/walks">Upcoming walks <span aria-hidden="true">&rarr;</span></x-public.button>
+                    <x-public.button :href="$homepageSections['hero']->cta_url ?: route('walks.index')">{{ $homepageSections['hero']->cta_label ?: 'Upcoming walks' }} <span aria-hidden="true">&rarr;</span></x-public.button>
                     <x-public.button :href="route('new-here')" variant="secondary">Join us</x-public.button>
                 </div>
 
@@ -58,13 +58,14 @@
     @endif
 
     @if ($homepageSections->has('whats_on'))
-    <section class="bg-surface-raised py-7 sm:py-8 lg:py-5" aria-labelledby="weekend-heading" style="order: {{ $homepageSections['whats_on']->sort_order }}">
-        <div class="wm-container grid gap-10 lg:grid-cols-[minmax(0,2.45fr)_minmax(19rem,1fr)] lg:gap-6">
+    <section data-homepage-section="whats_on" data-layout="{{ $homepageSections['whats_on']->layout_variant }}" class="wm-home-layout-{{ $homepageSections['whats_on']->layout_variant }} bg-surface-raised py-7 sm:py-8 lg:py-5" aria-labelledby="weekend-heading" style="order: {{ $homepageSections['whats_on']->sort_order }}">
+        <div class="wm-container grid gap-10 {{ $homepageSections['whats_on']->layout_variant === 'walks_first' ? 'lg:grid-cols-[minmax(0,3fr)_minmax(17rem,1fr)]' : 'lg:grid-cols-[minmax(0,2.45fr)_minmax(19rem,1fr)]' }} lg:gap-6">
             <div class="min-w-0">
                 <div class="flex items-end justify-between gap-4">
                     <h2 id="weekend-heading" class="text-3xl text-ink lg:text-2xl">{{ $homepageSections['whats_on']->heading ?: 'This Weekend' }}</h2>
-                    <a class="text-sm font-semibold text-brand underline decoration-brand/30 underline-offset-4 sm:hidden" href="/walks">{{ $homepageSections['whats_on']->cta_label ?: 'View all' }}</a>
+                    <a class="text-sm font-semibold text-brand underline decoration-brand/30 underline-offset-4 sm:hidden" href="{{ $homepageSections['whats_on']->cta_url ?: route('walks.index') }}">{{ $homepageSections['whats_on']->cta_label ?: 'View all' }}</a>
                 </div>
+                @if (filled($homepageSections['whats_on']->supporting_copy))<p class="mt-2 text-sm text-ink-muted">{{ $homepageSections['whats_on']->supporting_copy }}</p>@endif
                 @if ($homepage->weekendWalks !== [])
                     <div class="wm-card-rail mt-5 grid gap-4 lg:mt-3 lg:gap-3">
                         @foreach ($homepage->weekendWalks as $walk)
@@ -76,12 +77,13 @@
                 @endif
             </div>
 
+            @if (! $configuredSectionKeys->contains('holiday'))
             <div>
                 <div class="flex flex-wrap items-end justify-between gap-4">
                     <h2 class="text-2xl text-ink lg:text-xl">Holidays &amp; Weekends Away</h2>
                     <a class="text-sm font-semibold text-brand lg:text-xs" href="/weekends">View all <span aria-hidden="true">&rarr;</span></a>
                 </div>
-                <article class="group mt-5 overflow-hidden rounded-[var(--wm-radius-md)] border border-border bg-surface-raised shadow-[var(--wm-shadow-card)] md:grid md:grid-cols-[1.55fr_1fr] lg:mt-3 lg:block">
+                @if ($homepage->holiday !== [])<article class="group mt-5 overflow-hidden rounded-[var(--wm-radius-md)] border border-border bg-surface-raised shadow-[var(--wm-shadow-card)] md:grid md:grid-cols-[1.55fr_1fr] lg:mt-3 lg:block">
                     <div class="relative overflow-hidden">
                         <img class="aspect-[16/7] w-full object-cover transition-transform duration-300 group-hover:scale-[1.025] md:h-full md:min-h-56 md:object-cover lg:aspect-[16/6] lg:min-h-0" src="{{ $homepage->holiday['image_url'] }}" alt="{{ $homepage->holiday['image_alt'] }}" loading="lazy">
                         <x-public.badge class="absolute left-4 top-4" tone="brand">{{ $homepage->holiday['duration'] }}</x-public.badge>
@@ -92,20 +94,21 @@
                         <p class="mt-2 text-xs font-medium text-ink lg:mt-1">{{ $homepage->holiday['date'] }}</p>
                         <p class="mt-2 text-xs text-ink-muted lg:mt-1">{{ $homepage->holiday['summary'] }}</p>
                     </div>
-                </article>
+                </article>@endif
             </div>
+            @endif
         </div>
     </section>
     @endif
 
-    @if ($homepageSections->has('gallery'))
-    <section class="border-y border-border bg-surface py-5 lg:py-4" aria-labelledby="gallery-heading" style="order: {{ $homepageSections['gallery']->sort_order }}">
+    @if ($homepageSections->has('gallery') && ($homepage->gallery !== [] || $homepageSections['gallery']->empty_behavior === 'message'))
+    <section data-homepage-section="gallery" data-layout="{{ $homepageSections['gallery']->layout_variant }}" class="wm-home-layout-{{ $homepageSections['gallery']->layout_variant }} border-y border-border bg-surface py-5 lg:py-4" aria-labelledby="gallery-heading" style="order: {{ $homepageSections['gallery']->sort_order }}">
         <div class="wm-container wm-photo-band grid gap-4 lg:gap-3">
             <div class="flex flex-col justify-center pb-2 lg:pb-0">
                 <p class="text-xs font-semibold uppercase tracking-[0.15em] text-brand">Our community</p>
                 <h2 id="gallery-heading" class="mt-2 text-3xl lg:mt-1 lg:text-2xl">{{ $homepageSections['gallery']->heading ?: 'Photos from our walks & holidays' }}</h2>
-                <p class="mt-2 text-xs text-ink-muted lg:mt-1">Moments worth sharing.</p>
-                <a class="mt-3 text-sm font-semibold text-brand lg:mt-2 lg:text-xs" href="/photos">View gallery <span aria-hidden="true">&rarr;</span></a>
+                <p class="mt-2 text-xs text-ink-muted lg:mt-1">{{ $homepageSections['gallery']->supporting_copy ?: 'Moments worth sharing.' }}</p>
+                <a class="mt-3 text-sm font-semibold text-brand lg:mt-2 lg:text-xs" href="{{ $homepageSections['gallery']->cta_url ?: route('gallery.index') }}">{{ $homepageSections['gallery']->cta_label ?: 'View gallery' }} <span aria-hidden="true">&rarr;</span></a>
             </div>
 
             @forelse ($homepage->gallery as $index => $photo)
@@ -125,15 +128,15 @@
     @endif
 
     @if ($homepageSections->has('join'))
-    <section class="bg-surface-raised py-6 sm:py-7 lg:py-3" style="order: {{ $homepageSections['join']->sort_order }}">
+    <section data-homepage-section="join" data-layout="{{ $homepageSections['join']->layout_variant }}" class="wm-home-layout-{{ $homepageSections['join']->layout_variant }} bg-surface-raised py-6 sm:py-7 lg:py-3" style="order: {{ $homepageSections['join']->sort_order }}">
         <div class="wm-container grid gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(18rem,1fr)] lg:gap-4">
             <div class="rounded-[var(--wm-radius-md)] bg-surface-soft p-4 sm:p-5 lg:p-3">
                 <div class="flex flex-col gap-5 md:flex-row md:flex-wrap md:items-center lg:gap-3">
                     <div class="md:flex-[1_1_10rem]">
                         <p class="text-xs font-semibold uppercase tracking-[0.15em] text-brand">New here?</p>
-                        <h2 class="mt-2 text-3xl lg:mt-1 lg:text-2xl">Join us!</h2>
-                        <p class="mt-3 text-sm text-ink-muted lg:mt-2 lg:text-xs">A friendly, volunteer-led group for people who enjoy the outdoors.</p>
-                        <blockquote class="mt-3 text-xs italic text-ink-muted lg:mt-2">{{ $homepage->testimonial }}</blockquote>
+                        <h2 class="mt-2 text-3xl lg:mt-1 lg:text-2xl">{{ $homepageSections['join']->heading ?: ($joinPage?->title ?: 'Join us!') }}</h2>
+                        <p class="mt-3 text-sm text-ink-muted lg:mt-2 lg:text-xs">{{ $homepageSections['join']->supporting_copy ?: 'A friendly, volunteer-led group for people who enjoy the outdoors.' }}</p>
+                        @if (! $configuredSectionKeys->contains('testimonial') && filled($homepage->testimonial))<blockquote class="mt-3 text-xs italic text-ink-muted lg:mt-2">{{ $homepage->testimonial }}</blockquote>@endif
                     </div>
 
                     <div class="grid gap-4 sm:grid-cols-3 md:flex-[2_1_20rem] lg:gap-3">
@@ -142,7 +145,7 @@
                         <p class="border-l-2 border-brand/25 pl-4 text-sm lg:pl-3 lg:text-xs"><strong class="block">Good company</strong><span class="text-ink-muted">Share the day.</span></p>
                     </div>
 
-                    <x-public.button class="md:flex-[0_0_auto]" :href="route('new-here')">Join the group</x-public.button>
+                    <x-public.button class="md:flex-[0_0_auto]" :href="$homepageSections['join']->cta_url ?: ($joinPage ? route('cms.show', $joinPage->slug) : route('new-here'))">{{ $homepageSections['join']->cta_label ?: 'Join the group' }}</x-public.button>
                 </div>
             </div>
 
@@ -158,8 +161,30 @@
     </section>
     @endif
 
+    @if ($homepageSections->has('holiday') && ($homepage->holiday !== [] || $homepageSections['holiday']->empty_behavior === 'message'))
+    <section data-homepage-section="holiday" data-layout="{{ $homepageSections['holiday']->layout_variant }}" class="wm-home-layout-{{ $homepageSections['holiday']->layout_variant }} bg-surface-raised py-7" style="order: {{ $homepageSections['holiday']->sort_order }}">
+        <div class="wm-container"><h2 class="text-3xl">{{ $homepageSections['holiday']->heading ?: 'Holidays & Weekends Away' }}</h2>
+        @if(filled($homepageSections['holiday']->supporting_copy))<p class="mt-2 text-sm text-ink-muted">{{ $homepageSections['holiday']->supporting_copy }}</p>@endif
+        @if($homepage->holiday === [])<p class="mt-5 text-sm text-ink-muted">No upcoming trips away.</p>@else
+        <article class="mt-5 overflow-hidden rounded-[var(--wm-radius-md)] border border-border bg-surface shadow-[var(--wm-shadow-card)] md:grid md:grid-cols-[1.3fr_1fr]">
+            <img class="h-full w-full object-cover" src="{{ $homepage->holiday['image_url'] }}" alt="{{ $homepage->holiday['image_alt'] }}" loading="lazy">
+            <div class="p-5"><h3 class="text-xl"><a href="{{ $homepage->holiday['url'] }}">{{ $homepage->holiday['title'] }}</a></h3><p class="mt-2 text-sm text-ink-muted">{{ $homepage->holiday['date'] }} · {{ $homepage->holiday['location'] }}</p><p class="mt-2 text-sm">{{ $homepage->holiday['summary'] }}</p></div>
+        </article>@endif
+        <a class="mt-4 inline-flex text-sm font-semibold text-brand" href="{{ $homepageSections['holiday']->cta_url ?: route('holidays.index') }}">{{ $homepageSections['holiday']->cta_label ?: 'View all' }} <span aria-hidden="true">&rarr;</span></a></div>
+    </section>
+    @endif
+
+    @if ($homepageSections->has('testimonial') && (filled($homepage->testimonial) || $homepageSections['testimonial']->empty_behavior === 'message'))
+    <section data-homepage-section="testimonial" data-layout="{{ $homepageSections['testimonial']->layout_variant }}" class="wm-home-layout-{{ $homepageSections['testimonial']->layout_variant }} bg-surface-soft py-7" style="order: {{ $homepageSections['testimonial']->sort_order }}">
+        <div class="wm-container"><h2 class="text-2xl">{{ $homepageSections['testimonial']->heading ?: 'From our members' }}</h2>
+        @if(filled($homepageSections['testimonial']->supporting_copy))<p class="mt-2 text-sm text-ink-muted">{{ $homepageSections['testimonial']->supporting_copy }}</p>@endif
+        @if(filled($homepage->testimonial))<blockquote class="mt-4 text-lg italic">{{ $homepage->testimonial }}</blockquote>@else<p class="mt-4 text-sm text-ink-muted">No member story is currently featured.</p>@endif
+        @if(filled($homepageSections['testimonial']->cta_label))<a class="mt-4 inline-flex text-sm font-semibold text-brand" href="{{ $homepageSections['testimonial']->cta_url ?: route('new-here') }}">{{ $homepageSections['testimonial']->cta_label }} <span aria-hidden="true">&rarr;</span></a>@endif</div>
+    </section>
+    @endif
+
     @if ($homepageSections->has('news') && ($homeNews !== [] || $homepageSections['news']->empty_behavior === 'message'))
-    <section class="border-y border-border bg-surface py-8 sm:py-10" aria-labelledby="news-heading" style="order: {{ $homepageSections['news']->sort_order }}">
+    <section data-homepage-section="news" data-layout="{{ $homepageSections['news']->layout_variant }}" class="wm-home-layout-{{ $homepageSections['news']->layout_variant }} border-y border-border bg-surface py-8 sm:py-10" aria-labelledby="news-heading" style="order: {{ $homepageSections['news']->sort_order }}">
         <div class="wm-container">
             <div class="flex flex-wrap items-end justify-between gap-4">
                 <div>

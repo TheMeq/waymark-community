@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Public;
 
+use App\Domain\Content\Models\HomepageSection;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Models\User;
@@ -50,6 +51,29 @@ final class HomepageTest extends TestCase
             ->assertSee('Members can upload photos linked to specific walks and holidays.')
             ->assertSee('Upload your photos')
             ->assertSee('href="/photos/upload"', false);
+    }
+
+    public function test_publicly_eligible_pinned_gallery_photo_is_presented_first(): void
+    {
+        Storage::fake('local');
+        $automatic = $this->galleryPhoto('Newest automatic memory', ['captured_at' => now()]);
+        $pinned = $this->galleryPhoto('Pinned older memory', ['captured_at' => now()->subYear()]);
+        HomepageSection::query()->create([
+            'section_key' => 'gallery', 'enabled' => true, 'sort_order' => 10,
+            'layout_variant' => 'default', 'content_mode' => 'pinned',
+            'pinned_type' => 'community_photo', 'pinned_id' => $pinned->id,
+            'empty_behavior' => 'hide',
+        ]);
+
+        $content = $this->get('/')->assertOk()->getContent();
+        $this->assertIsString($content);
+        $this->assertLessThan(
+            strpos($content, route('gallery.photos.image', [$automatic, 'thumbnail'])),
+            strpos($content, route('gallery.photos.image', [$pinned, 'thumbnail'])),
+        );
+
+        $pinned->update(['moderation_status' => 'removed', 'published_at' => null]);
+        $this->get('/')->assertOk()->assertDontSee(route('gallery.photos.image', [$pinned, 'thumbnail']), false);
     }
 
     public function test_homepage_uses_featured_memories_then_recent_eligible_photos_without_demo_duplicates_and_caps_at_six(): void

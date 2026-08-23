@@ -2,13 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Content\Models\HomepageSection;
+use App\Domain\Content\Models\Testimonial;
 use App\Domain\Content\Queries\HomepageNews;
+use App\Domain\Content\Queries\PublicCmsPages;
 use App\Domain\Content\Queries\VisibleHomepageSections;
 use App\Domain\Content\Queries\VisibleTestimonials;
 use App\Domain\Gallery\Queries\HomepageCommunityPhotos;
+use App\Domain\Gallery\Queries\PublicCommunityPhotos;
 use App\Domain\Holidays\Queries\PublicHolidaysQuery;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
+use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Domain\SiteMedia\SiteMediaPresenter;
 use App\Domain\Walks\Queries\PublicWalksQuery;
 use App\ViewModels\HomepageViewModel;
@@ -18,18 +23,37 @@ use Illuminate\Contracts\View\View;
 
 final class HomeController
 {
-    public function __invoke(PublicWalksQuery $walks, PublicHolidaysQuery $holidays, HomepageCommunityPhotos $photos, VisibleHomepageSections $sections, VisibleTestimonials $testimonials, HomepageNews $news, SiteMediaPresenter $mediaPresenter): View
+    public function __invoke(PublicWalksQuery $walks, PublicHolidaysQuery $holidays, HomepageCommunityPhotos $photos, PublicCommunityPhotos $publicPhotos, VisibleHomepageSections $sections, VisibleTestimonials $testimonials, PublicCmsPages $pages, HomepageNews $news, SiteMediaPresenter $mediaPresenter): View
     {
         $siteProfile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
         $homepageSections = $sections->get()->keyBy('section_key');
-        $weekendWalks = $walks->weekend()
-            ->limit(3)
-            ->get()
+        $walkEvents = $walks->weekend()->limit(3)->get();
+        $walkSection = $homepageSections->get('whats_on');
+        if ($walkSection?->content_mode === 'pinned') {
+            $pinnedWalk = $walks->upcoming()->whereKey($walkSection->pinned_id)->first();
+            if ($pinnedWalk !== null) {
+                $walkEvents = collect([$pinnedWalk])->concat($walkEvents)->unique('id')->take(3)->values();
+            }
+        }
+        $weekendWalks = $walkEvents
             ->map(fn ($event) => PublicWalkCardViewModel::fromEvent($event, $siteProfile))
             ->all();
 
-        $holiday = $holidays->upcoming()->first();
-        $gallery = $photos->take()
+        $holidaySection = $homepageSections->get('holiday');
+        $holiday = $holidaySection?->content_mode === 'pinned'
+            ? $holidays->published()->currentOrUpcoming()->whereKey($holidaySection->pinned_id)->first()
+            : null;
+        $holiday ??= $holidays->upcoming()->first();
+
+        $galleryPhotos = $photos->take();
+        $gallerySection = $homepageSections->get('gallery');
+        if ($gallerySection?->content_mode === 'pinned') {
+            $pinnedPhoto = $publicPhotos->find((int) $gallerySection->pinned_id);
+            if ($pinnedPhoto !== null) {
+                $galleryPhotos = collect([$pinnedPhoto])->concat($galleryPhotos)->unique('id')->take(6)->values();
+            }
+        }
+        $gallery = $galleryPhotos
             ->map(fn ($photo): array => [
                 'image_url' => $photo->imageUrl,
                 'image_alt' => $photo->caption ?? $photo->contextLabel ?? 'Community photo',
@@ -54,10 +78,35 @@ final class HomeController
             })->all()
             : [];
 
+        $heroSection = $homepageSections->get('hero');
+        $heroOverrides = array_filter([
+            'headline' => $heroSection?->heading,
+            'summary' => $heroSection?->supporting_copy,
+        ], fn ($value): bool => filled($value));
+        if ($heroSection?->content_mode === 'pinned') {
+            $media = SiteMedia::query()->find($heroSection->pinned_id);
+            $presentation = $media instanceof SiteMedia ? $mediaPresenter->present($media) : null;
+            if ($presentation !== null) {
+                $heroOverrides['image_url'] = $presentation->url;
+                $heroOverrides['image_alt'] = $presentation->alt;
+            }
+        }
+        $testimonialSection = $homepageSections->get('testimonial');
+        $testimonial = $testimonialSection?->content_mode === 'pinned'
+            ? Testimonial::query()->where('active', true)->find($testimonialSection->pinned_id)
+            : null;
+        $testimonial ??= $testimonials->get()->first();
+        $joinSection = $homepageSections->get('join');
+        $joinPage = $joinSection?->content_mode === 'pinned'
+            ? $pages->query()->find($joinSection->pinned_id)
+            : null;
+
         return view('home', [
-            'homepage' => HomepageViewModel::demo($weekendWalks, $holiday === null ? null : PublicHolidayCardViewModel::spotlight($holiday), $gallery, $testimonials->get()->first()?->quote),
+            'homepage' => HomepageViewModel::live($siteProfile, $weekendWalks, $holiday === null ? null : PublicHolidayCardViewModel::spotlight($holiday), $gallery, $testimonial?->quote, $heroOverrides),
             'homepageSections' => $homepageSections,
+            'configuredSectionKeys' => HomepageSection::query()->pluck('section_key'),
             'homeNews' => $homeNews,
+            'joinPage' => $joinPage,
             'theme' => BrandTheme::fromSiteProfile($siteProfile),
         ]);
     }
