@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Content\Data\SeoMetadata;
+use App\Domain\Content\Presentation\PublicSeo;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Domain\Gallery\Data\PublicCommunityPhotoPage;
@@ -47,7 +49,7 @@ final class PublicGalleryController
 
     public function album(Request $request, SpecialAlbum $album, PublicCommunityPhotos $photos): View
     {
-        return $this->view($album->title, $photos->forAlbum($album->id, $request->string('cursor')->toString()), ['label' => $album->title, 'url' => route('gallery.albums.show', $album)]);
+        return $this->view($album->title, $photos->forAlbum($album->id, $request->string('cursor')->toString()), ['label' => $album->title, 'url' => route('gallery.albums.show', $album)], seo: app(PublicSeo::class)->album($album));
     }
 
     public function show(CommunityPhoto $photo): View
@@ -101,11 +103,11 @@ final class PublicGalleryController
     }
 
     /** @param array{label:string,url:string}|null $context */
-    private function view(string $title, PublicCommunityPhotoPage $photos, ?array $context, ?Collection $contexts = null): View
+    private function view(string $title, PublicCommunityPhotoPage $photos, ?array $context, ?Collection $contexts = null, ?SeoMetadata $seo = null): View
     {
         $contexts = ($contexts ?? collect())->map(fn (array $item): array => [...$item, 'cover' => $this->presenter->present($item['cover'])])->filter(fn (array $item): bool => $item['cover'] !== null)->values();
 
-        return view('gallery.index', ['title' => $title, 'photos' => $photos, 'context' => $context, 'contexts' => $contexts, 'theme' => $this->theme(), 'site' => $this->site()]);
+        return view('gallery.index', ['title' => $title, 'photos' => $photos, 'context' => $context, 'contexts' => $contexts, 'theme' => $this->theme(), 'site' => $this->site(), 'seo' => $seo]);
     }
 
     private function theme(): BrandTheme

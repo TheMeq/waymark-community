@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Content\Models\NewsArticle;
+use App\Domain\Content\Presentation\PublicSeo;
 use App\Domain\Content\Queries\PublicNews;
 use App\Domain\Content\Support\CmsBlockPresenter;
 use App\Domain\Operations\Models\SiteProfile;
@@ -22,7 +23,9 @@ final class PublicNewsController
         /** @var NewsArticle $article */
         $article = $news->archive()->where('slug', $slug)->firstOrFail();
 
-        return view('news.show', [...$this->site(), 'article' => $article, 'blocks' => app(CmsBlockPresenter::class)->present($article->blocks), 'featuredImage' => $article->featuredMedia === null ? null : $mediaPresenter->present($article->featuredMedia)]);
+        $featuredImage = $article->featuredMedia === null ? null : $mediaPresenter->present($article->featuredMedia);
+
+        return view('news.show', [...$this->site(), 'article' => $article, 'blocks' => app(CmsBlockPresenter::class)->present($article->blocks), 'featuredImage' => $featuredImage, 'seo' => app(PublicSeo::class)->news($article, $featuredImage?->url)]);
     }
 
     private function site(): array

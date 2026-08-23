@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Content\Models\CmsPage;
 use App\Domain\Content\Models\CmsReviewLink;
+use App\Domain\Content\Presentation\PublicSeo;
 use App\Domain\Content\Queries\PublicCmsPages;
 use App\Domain\Content\Support\CmsBlockPresenter;
 use App\Domain\Operations\Models\SiteProfile;
@@ -48,6 +49,7 @@ final class CmsPageController extends Controller
             'notice' => $notice,
             'site' => ['name' => $profile->group_name ?? 'Waymark Community', 'strapline' => 'A local walking community'],
             'theme' => BrandTheme::fromSiteProfile($profile),
+            'seo' => app(PublicSeo::class)->page($page),
         ]);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Accounts\Queries\FavouriteablePublicEventsQuery;
+use App\Domain\Content\Presentation\PublicSeo;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Domain\Walks\Queries\PublicWalksQuery;
@@ -20,6 +21,8 @@ final class PublicWalkShowController
         $siteProfile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
         $event = $walks->published()->with('updates')->where('slug', $slug)->firstOrFail();
 
+        $walk = PublicWalkDetailViewModel::fromEvent($event, $siteProfile);
+
         return view('walks.show', [
             'site' => [
                 'name' => $siteProfile->group_name ?? 'Waymark Community',
@@ -27,7 +30,8 @@ final class PublicWalkShowController
             ],
             'theme' => BrandTheme::fromSiteProfile($siteProfile),
             'event' => $event,
-            'walk' => PublicWalkDetailViewModel::fromEvent($event, $siteProfile),
+            'walk' => $walk,
+            'seo' => app(PublicSeo::class)->event($event, $siteProfile, $walk['featured_image']['url'] ?? null),
             'favourite' => FavouriteControlViewModel::for($event, $request->user(), $favourites),
             'relatedWalks' => $relatedWalks->for($event)
                 ->map(fn ($related) => PublicWalkCardViewModel::fromEvent($related, $siteProfile)),

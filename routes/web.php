@@ -29,6 +29,8 @@ use App\Http\Controllers\PublicHolidayShowController;
 use App\Http\Controllers\PublicLeaderProfileController;
 use App\Http\Controllers\PublicNewsController;
 use App\Http\Controllers\PublicSearchController;
+use App\Http\Controllers\RobotsController;
+use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\PublicPolicyController;
 use App\Http\Controllers\PublicSocialAttachmentDownloadController;
 use App\Http\Controllers\PublicSocialIndexController;
@@ -53,6 +55,8 @@ Route::get('/media/{media}/image/{variant}', SiteMediaStreamController::class)->
 Route::get('/new-here', NewHereController::class)->name('new-here');
 Route::get('/news', [PublicNewsController::class, 'index'])->name('news.index');
 Route::get('/search', PublicSearchController::class)->name('search');
+Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
+Route::get('/robots.txt', RobotsController::class)->name('robots');
 Route::get('/news/{slug}', [PublicNewsController::class, 'show'])->name('news.show');
 Route::get('/policies/{slug}', PublicPolicyController::class)->name('policies.show');
 Route::get('/documents', [PublicDocumentController::class, 'index'])->name('documents.index');

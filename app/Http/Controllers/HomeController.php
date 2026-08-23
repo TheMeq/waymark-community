@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Domain\Content\Models\HomepageSection;
 use App\Domain\Content\Models\Testimonial;
+use App\Domain\Content\Presentation\PublicSeo;
 use App\Domain\Content\Queries\HomepageNews;
 use App\Domain\Content\Queries\PublicBranding;
 use App\Domain\Content\Queries\PublicCmsPages;
@@ -110,6 +111,7 @@ final class HomeController
             'homeNews' => $homeNews,
             'joinPage' => $joinPage,
             'theme' => BrandTheme::fromSiteProfile($siteProfile),
+            'seo' => app(PublicSeo::class)->home($siteProfile),
         ]);
     }
 }

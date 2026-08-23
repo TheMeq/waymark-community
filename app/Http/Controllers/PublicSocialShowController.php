@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Accounts\Queries\FavouriteablePublicEventsQuery;
+use App\Domain\Content\Presentation\PublicSeo;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Domain\Socials\Queries\PublicSocialsQuery;
@@ -21,6 +22,7 @@ final class PublicSocialShowController
         return view('socials.show', [
             'site' => ['name' => $siteProfile->group_name ?? 'Waymark Community', 'strapline' => 'A local walking community'],
             'theme' => BrandTheme::fromSiteProfile($siteProfile),
+            'seo' => app(PublicSeo::class)->event($event, $siteProfile),
             'event' => $event,
             'social' => PublicSocialDetailViewModel::fromEvent($event),
             'favourite' => FavouriteControlViewModel::for($event, $request->user(), $favourites),
