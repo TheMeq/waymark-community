@@ -27,8 +27,11 @@ test('shared-hosting builder plan uses a clean commit, locked dependencies, full
         'npm run test:tooling',
     ]);
     assert.ok(plan.build.includes('composer install --no-interaction --prefer-dist'));
-    assert.ok(plan.build.includes('php -r "copy(\'.env.example\', \'.env\');"'));
-    assert.ok(plan.build.includes('php artisan key:generate --force'));
+    assert.deepEqual(plan.verification_environment, [
+        'copy .env.example to an untracked disposable .env',
+        'generate an ephemeral APP_KEY without inheriting developer configuration',
+        'exclude .env from the release package',
+    ]);
     assert.ok(plan.build.includes('npm ci'));
     assert.ok(plan.build.includes('npm run build'));
     assert.ok(plan.package.includes('composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader'));

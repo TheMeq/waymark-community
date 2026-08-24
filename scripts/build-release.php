@@ -6,10 +6,12 @@ declare(strict_types=1);
 use Waymark\Release\GitCommitResolver;
 use Waymark\Release\ReleaseArchiveBuilder;
 use Waymark\Release\ReleaseArchiveVerifier;
+use Waymark\Release\VerificationEnvironment;
 
 require_once __DIR__.'/release/GitCommitResolver.php';
 require_once __DIR__.'/release/ReleaseArchiveBuilder.php';
 require_once __DIR__.'/release/ReleaseArchiveVerifier.php';
+require_once __DIR__.'/release/VerificationEnvironment.php';
 
 $options = getopt('', ['version:', 'commit::', 'output::', 'plan']);
 $version = is_string($options['version'] ?? null) ? trim($options['version']) : '';
@@ -29,10 +31,13 @@ $plan = [
     'source' => 'git archive '.$requestedCommit,
     'build' => [
         'composer install --no-interaction --prefer-dist',
-        'php -r "copy(\'.env.example\', \'.env\');"',
-        'php artisan key:generate --force',
         'npm ci',
         'npm run build',
+    ],
+    'verification_environment' => [
+        'copy .env.example to an untracked disposable .env',
+        'generate an ephemeral APP_KEY without inheriting developer configuration',
+        'exclude .env from the release package',
     ],
     'verification' => [
         'composer validate --strict',
@@ -79,6 +84,7 @@ try {
     extractArchive($sourceArchive, $source);
     runCommand('git init --quiet', $source);
     runCommand('git add --all', $source);
+    (new VerificationEnvironment)->prepare($source);
 
     foreach ($plan['build'] as $command) {
         runCommand($command, $source);
