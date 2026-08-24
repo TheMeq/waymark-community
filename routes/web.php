@@ -7,6 +7,7 @@ use App\Http\Controllers\AccountPrivacyController;
 use App\Http\Controllers\AccountProfileController;
 use App\Http\Controllers\AccountSecurityController;
 use App\Http\Controllers\BackupDownloadController;
+use App\Http\Controllers\BackupWorkController;
 use App\Http\Controllers\BrandingPreviewController;
 use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\CmsPageController;
@@ -115,6 +116,8 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/admin/maintenance-mode/disable', [MaintenanceModeController::class, 'disable'])->middleware('sensitive.confirmed')->name('admin.maintenance.disable');
     Route::get('/admin/system-health/backups/{backup}/download', BackupDownloadController::class)
         ->middleware('sensitive.confirmed')->name('admin.backups.download');
+    Route::post('/admin/system-health/backups/{backup}/advance', [BackupWorkController::class, 'advance'])->name('admin.backups.advance');
+    Route::post('/admin/system-health/backups/{backup}/retry', [BackupWorkController::class, 'retry'])->name('admin.backups.retry');
     Route::get('/committee-hub', CommitteeHubController::class)->name('committee-hub.index');
     Route::get('/admin/branding-preview', BrandingPreviewController::class)->name('branding.preview');
     Route::get('/admin/pages/{page}/preview', [CmsPageController::class, 'preview'])->name('cms.preview');

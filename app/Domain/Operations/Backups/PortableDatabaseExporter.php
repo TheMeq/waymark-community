@@ -15,6 +15,15 @@ final class PortableDatabaseExporter
             throw new RuntimeException('The database export file could not be created.');
         }
 
+        $connection = DB::connection();
+        $driver = $connection->getDriverName();
+        if ($driver === 'mysql') {
+            $connection->statement('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+        } elseif ($driver === 'sqlite') {
+            $connection->statement('PRAGMA read_uncommitted = 0');
+        }
+        $connection->beginTransaction();
+
         try {
             foreach ($this->tables() as $table) {
                 $columns = $this->writableColumns($table);
@@ -29,6 +38,13 @@ final class PortableDatabaseExporter
                     }
                 });
             }
+            $connection->commit();
+        } catch (\Throwable $exception) {
+            if ($connection->transactionLevel() > 0) {
+                $connection->rollBack();
+            }
+
+            throw $exception;
         } finally {
             fclose($stream);
         }

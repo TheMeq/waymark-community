@@ -6,9 +6,11 @@ use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Communication\Actions\SendDueNewsletters;
 use App\Domain\Gallery\Actions\ProcessDeferredCommunityPhotos;
 use App\Domain\Governance\Actions\SendDocumentReviewReminders;
+use App\Domain\Operations\Backups\Actions\AdvancePendingBackups;
 use App\Domain\Operations\Backups\Actions\CreateBackup;
 use App\Domain\Operations\Backups\Actions\PruneBackups;
 use App\Domain\Operations\Health\Actions\ScanMissingMedia;
+use App\Domain\Operations\Maintenance\MaintenanceManager;
 use App\Domain\Operations\Scheduling\Contracts\FallbackRunner;
 use App\Domain\Operations\Scheduling\SchedulerHeartbeat;
 use App\Domain\Operations\Updates\Actions\CheckForUpdates;
@@ -69,10 +71,16 @@ Artisan::command('waymark:scan-missing-media {--limit=500}', function (ScanMissi
 })->purpose('Queue missing media references for administrator repair');
 
 Artisan::command('waymark:create-backup', function (CreateBackup $backups, PruneBackups $retention): void {
-    $backup = $backups->handle('scheduled');
+    $backup = $backups->start('scheduled');
     $retention->handle();
-    $this->info('Backup '.$backup->id.' completed.');
-})->purpose('Create and retain a private Waymark recovery backup');
+    $this->info('Backup '.$backup->id.' queued.');
+})->purpose('Queue a private Waymark recovery backup');
+
+Artisan::command('waymark:advance-backups', function (AdvancePendingBackups $backups, PruneBackups $retention): void {
+    $handled = $backups->handle(1);
+    $retention->handle();
+    $this->info($handled.' pending backup step(s) handled.');
+})->purpose('Advance bounded backup work without a permanent worker');
 
 Artisan::command('waymark:check-for-updates', function (CheckForUpdates $updates): void {
     $result = $updates->handle('command');
@@ -83,11 +91,13 @@ Artisan::command('waymark:check-for-updates', function (CheckForUpdates $updates
 
 Schedule::command('gallery:process-deferred-photos --limit=25')
     ->everyMinute()
+    ->when(fn (): bool => ! app(MaintenanceManager::class)->active())
     ->withoutOverlapping(max(1, min(59, (int) config('gallery.deferred.schedule_lock_minutes', 5))));
 
-Schedule::command('communications:send-due-newsletters')->hourly()->withoutOverlapping();
-Schedule::command('governance:send-document-review-reminders')->dailyAt('08:00')->withoutOverlapping();
+Schedule::command('communications:send-due-newsletters')->hourly()->when(fn (): bool => ! app(MaintenanceManager::class)->active())->withoutOverlapping();
+Schedule::command('governance:send-document-review-reminders')->dailyAt('08:00')->when(fn (): bool => ! app(MaintenanceManager::class)->active())->withoutOverlapping();
 Schedule::command('waymark:scheduler-heartbeat')->everyMinute()->withoutOverlapping();
-Schedule::command('waymark:scan-missing-media --limit=500')->dailyAt('06:00')->withoutOverlapping();
+Schedule::command('waymark:scan-missing-media --limit=500')->dailyAt('06:00')->when(fn (): bool => ! app(MaintenanceManager::class)->active())->withoutOverlapping();
 Schedule::command('waymark:create-backup')->dailyAt('02:00')->withoutOverlapping();
+Schedule::command('waymark:advance-backups')->everyMinute()->withoutOverlapping();
 Schedule::command('waymark:check-for-updates')->dailyAt('07:00')->withoutOverlapping();

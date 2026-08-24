@@ -59,13 +59,34 @@ final class SystemHealth extends Page
     {
         try {
             $passphrase = trim($this->backupPassphrase);
-            app(CreateBackup::class)->handle('manual', $passphrase === '' ? null : $passphrase);
-            app(PruneBackups::class)->handle();
+            app(CreateBackup::class)->start('manual', $passphrase === '' ? null : $passphrase);
             $this->backupPassphrase = '';
-            Notification::make()->title('Backup completed')->success()->send();
+            Notification::make()->title('Backup started — use Continue backup work if cron is unavailable')->success()->send();
         } catch (\Throwable) {
             $this->backupPassphrase = '';
             Notification::make()->title('Backup failed — review system health and try again')->danger()->send();
+        }
+    }
+
+    public function continueBackup(int $backupId): void
+    {
+        try {
+            $backup = BackupRun::query()->whereIn('status', ['queued', 'running'])->findOrFail($backupId);
+            app(CreateBackup::class)->advance($backup);
+            app(PruneBackups::class)->handle();
+            Notification::make()->title($backup->fresh()->status === 'completed' ? 'Backup completed' : 'Backup work advanced')->success()->send();
+        } catch (\Throwable) {
+            Notification::make()->title('Backup step failed — the run can be retried')->danger()->send();
+        }
+    }
+
+    public function retryBackup(int $backupId): void
+    {
+        try {
+            app(CreateBackup::class)->retry(BackupRun::query()->findOrFail($backupId));
+            Notification::make()->title('Backup queued for a clean retry')->success()->send();
+        } catch (\Throwable) {
+            Notification::make()->title('Backup could not be retried')->danger()->send();
         }
     }
 

@@ -26,7 +26,11 @@
                 @forelse ($this->backups() as $backup)
                     <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
                         <span>{{ ucfirst($backup->trigger) }} — {{ ucfirst($backup->status) }} @if($backup->encrypted)(encrypted)@endif</span>
-                        @if($backup->status === 'completed')<a class="underline" href="{{ route('admin.backups.download', $backup) }}">Download</a>@endif
+                        <span class="flex gap-3">
+                            @if(in_array($backup->status, ['queued', 'running'], true))<form method="POST" action="{{ route('admin.backups.advance', $backup) }}">@csrf<button class="underline" type="submit">Continue backup work</button></form>@endif
+                            @if($backup->status === 'failed' && $backup->retryable)<form method="POST" action="{{ route('admin.backups.retry', $backup) }}">@csrf<button class="underline" type="submit">Retry</button></form>@endif
+                            @if($backup->status === 'completed')<a class="underline" href="{{ route('admin.backups.download', $backup) }}">Download</a>@endif
+                        </span>
                     </div>
                 @empty
                     <p class="text-sm text-gray-600">No backup runs have been recorded.</p>
