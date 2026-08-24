@@ -33,3 +33,15 @@ test('shared-hosting builder plan uses a clean commit, locked dependencies, full
     assert.ok(plan.excludes.includes('node_modules'));
     assert.ok(plan.excludes.includes('tests'));
 });
+
+test('builder can produce an exact prior-commit release candidate for upgrade testing', () => {
+    const commit = '0ce6c82d9f9d055052fb4697f8838de4c4df92c7';
+    const result = spawnSync('php', [
+        'scripts/build-release.php', '--version=0.9.0', `--commit=${commit}`, '--plan',
+    ], { cwd: repositoryRoot, encoding: 'utf8', env: process.env });
+
+    assert.equal(result.status, 0, result.stderr);
+    const plan = JSON.parse(result.stdout);
+    assert.equal(plan.source, `git archive ${commit}`);
+    assert.equal(plan.archive, 'waymark-community-0.9.0-shared-hosting.zip');
+});

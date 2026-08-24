@@ -28,3 +28,13 @@ PHASE10_INSTALL_DB_DRIVER=mariadb npm run test:release-install -- --archive=dist
 ```
 
 The database connection variables use the `PHASE10_INSTALL_DB_` prefix documented by the script. Each run requires its own empty test database. Node and Playwright are the external verification harness only; neither is present in or required by the installed Waymark runtime.
+
+## Production-package upgrade matrix
+
+The builder can create an exact prior-commit candidate without checking out or modifying that commit:
+
+```sh
+php scripts/build-release.php --version=0.9.0 --commit=<approved-prior-commit>
+```
+
+Set `WAYMARK_PREVIOUS_RELEASE_ARCHIVE` and `WAYMARK_CURRENT_RELEASE_ARCHIVE`, then run `tests/Integration/Operations/ProductionReleasePackageMatrixTest.php`. The matrix extracts the prior production package, migrates it, creates representative structured data and private media, stages the current production package through the same release verifier and application-file transaction as the updater, and runs the current migrations. Its controlled-failure path restores the file transaction and pre-update database, then proves that the prior runtime boots with its data and media intact. This complements—not replaces—the updater's safety-backup, fresh-request activation, and framework-independent recovery tests.

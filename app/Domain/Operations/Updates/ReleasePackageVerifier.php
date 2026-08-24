@@ -129,11 +129,26 @@ final class ReleasePackageVerifier
         }
         $first = strtolower($segments[0]);
 
+        $normalized = strtolower($path);
+        $safeRuntimePlaceholders = [
+            'bootstrap/cache/.gitignore',
+            'storage/app/private/.gitignore',
+            'storage/app/backups/.gitignore',
+            'storage/app/uploads/.gitignore',
+            'storage/framework/cache/.gitignore',
+            'storage/framework/sessions/.gitignore',
+            'storage/framework/views/.gitignore',
+            'storage/logs/.gitignore',
+        ];
+        if (in_array($normalized, $safeRuntimePlaceholders, true)) {
+            return true;
+        }
+
         return ! in_array($first, ['.git', '.env', 'storage', 'node_modules', 'tests', 'test-results'], true)
-            && strtolower($path) !== 'bootstrap/cache'
-            && ! str_starts_with(strtolower($path), 'bootstrap/cache/')
-            && strtolower($path) !== 'public/storage'
-            && ! str_starts_with(strtolower($path), 'public/storage/');
+            && $normalized !== 'bootstrap/cache'
+            && ! str_starts_with($normalized, 'bootstrap/cache/')
+            && $normalized !== 'public/storage'
+            && ! str_starts_with($normalized, 'public/storage/');
     }
 
     private function failure(): RuntimeException

@@ -9,17 +9,22 @@ use Waymark\Release\ReleaseArchiveVerifier;
 require_once __DIR__.'/release/ReleaseArchiveBuilder.php';
 require_once __DIR__.'/release/ReleaseArchiveVerifier.php';
 
-$options = getopt('', ['version:', 'output::', 'plan']);
+$options = getopt('', ['version:', 'commit::', 'output::', 'plan']);
 $version = is_string($options['version'] ?? null) ? trim($options['version']) : '';
+$requestedCommit = is_string($options['commit'] ?? null) ? trim($options['commit']) : 'HEAD';
 if (preg_match('/\A\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\z/', $version) !== 1) {
-    fwrite(STDERR, "Usage: php scripts/build-release.php --version=<semver> [--output=<directory>] [--plan]\n");
+    fwrite(STDERR, "Usage: php scripts/build-release.php --version=<semver> [--commit=<40-char-sha>] [--output=<directory>] [--plan]\n");
+    exit(1);
+}
+if ($requestedCommit !== 'HEAD' && preg_match('/\A[a-f0-9]{40}\z/', $requestedCommit) !== 1) {
+    fwrite(STDERR, "Release source commit must be HEAD or an exact 40-character SHA.\n");
     exit(1);
 }
 
 $plan = [
     'version' => $version,
     'archive' => "waymark-community-{$version}-shared-hosting.zip",
-    'source' => 'git archive HEAD',
+    'source' => 'git archive '.$requestedCommit,
     'build' => [
         'composer install --no-interaction --prefer-dist',
         'npm ci',
@@ -56,7 +61,7 @@ $status = capture('git status --porcelain', $root);
 if (trim($status) !== '') {
     fail('Release builds require a clean Git worktree.');
 }
-$commit = trim(capture('git rev-parse HEAD', $root));
+$commit = trim(capture('git rev-parse '.$requestedCommit.'^{commit}', $root));
 if (preg_match('/\A[a-f0-9]{40}\z/', $commit) !== 1) {
     fail('The exact source commit could not be resolved.');
 }
@@ -68,7 +73,7 @@ $application = $temporaryRoot.DIRECTORY_SEPARATOR.'application';
 
 try {
     mkdir($temporaryRoot, 0700, true);
-    runCommand('git archive --format=zip --output='.escapeshellarg($sourceArchive).' HEAD', $root);
+    runCommand('git archive --format=zip --output='.escapeshellarg($sourceArchive).' '.$commit, $root);
     extractArchive($sourceArchive, $source);
 
     foreach ($plan['build'] as $command) {

@@ -54,6 +54,19 @@ final class ReleasePackageVerifierTest extends TestCase
         (new ReleasePackageVerifier)->stage($package, $this->metadata($package), $this->directory.DIRECTORY_SEPARATOR.'stage');
     }
 
+    public function test_release_directory_placeholders_are_update_safe_but_runtime_storage_content_is_not(): void
+    {
+        $base = ['VERSION' => "1.2.0\n", 'artisan' => 'x', 'bootstrap/app.php' => 'x', 'public/index.php' => 'x', 'vendor/autoload.php' => 'x', 'public/build/manifest.json' => '{}'];
+        $safe = $this->package([...$base, 'bootstrap/cache/.gitignore' => '', 'storage/app/private/.gitignore' => '']);
+        $verified = (new ReleasePackageVerifier)->stage($safe, $this->metadata($safe), $this->directory.DIRECTORY_SEPARATOR.'safe-stage');
+        $this->assertContains('storage/app/private/.gitignore', $verified->files);
+        $verified->cleanup();
+
+        $unsafe = $this->package([...$base, 'storage/app/private/member-photo.jpg' => 'private']);
+        $this->expectException(RuntimeException::class);
+        (new ReleasePackageVerifier)->stage($unsafe, $this->metadata($unsafe), $this->directory.DIRECTORY_SEPARATOR.'unsafe-stage');
+    }
+
     /** @param array<string, string> $files */
     private function package(array $files): string
     {
