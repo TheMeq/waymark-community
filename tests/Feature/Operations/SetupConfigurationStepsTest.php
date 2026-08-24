@@ -101,6 +101,7 @@ final class SetupConfigurationStepsTest extends TestCase
             ->post('/setup/advanced', [
                 'backup_disk' => 'local',
                 'release_metadata_url' => 'https://updates.example.test/stable.json',
+                'release_public_key_base64' => base64_encode('public-key-fixture'),
                 'recovery_token' => 'Correct-Horse-Battery-Recovery-9!',
                 'recovery_token_confirmation' => 'Correct-Horse-Battery-Recovery-9!',
             ])->assertRedirect('/setup/install')

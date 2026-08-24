@@ -2,18 +2,13 @@
 
 ## Updates
 
-- stable channel only in v1;
-- passive admin update notice;
-- admin-friendly release notes;
-- security releases clearly flagged;
-- never auto-install;
-- compatibility preflight before action;
-- fresh backup before update, mandatory fresh backup for security release;
-- staged verified release;
-- maintenance mode;
-- migrations;
-- health check;
-- rollback on failure.
+Waymark v1 uses the stable channel only. Configure an HTTPS metadata URL and the matching base64-encoded release-signing public key during setup or with `WAYMARK_RELEASE_METADATA_URL` and `WAYMARK_RELEASE_PUBLIC_KEY_BASE64`.
+
+The feed is accepted only when its OpenSSL SHA-256 signature verifies, its channel is exactly `stable`, its version is stable SemVer, and its HTTPS package URL, SHA-256, size, requirements and release notes pass schema checks. Redirects are not followed. A failed or tampered feed produces a generic failure and no accepted update information.
+
+The scheduler checks daily at 07:00; **System → Updates** also provides a manual check. Admin notices include plain release notes, a prominent security-release flag and separate PHP/extension/MySQL-or-MariaDB/disk compatibility results. Checks never auto-install an update.
+
+An actionable update subsequently requires a fresh backup (including security releases), verified staging, maintenance mode, migrations, health checks and rollback on failure.
 
 ## Backups
 

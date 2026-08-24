@@ -16,6 +16,8 @@ return [
     ],
     'updates' => [
         'metadata_url' => env('WAYMARK_RELEASE_METADATA_URL'),
+        'public_key_base64' => env('WAYMARK_RELEASE_PUBLIC_KEY_BASE64'),
+        'state_path' => env('WAYMARK_UPDATE_STATE_PATH', storage_path('app/private/update-state.json')),
     ],
     'backups' => [
         'destination_disk' => env('WAYMARK_BACKUP_DISK', 'backups'),

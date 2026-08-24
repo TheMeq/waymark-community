@@ -112,6 +112,7 @@ final readonly class WaymarkInstaller
             'AWS_USE_PATH_STYLE_ENDPOINT' => $advanced['backup_disk'] === 's3' ? 'true' : 'false',
             'WAYMARK_RECOVERY_TOKEN_HASH' => hash('sha256', (string) $advanced['recovery_token']),
             'WAYMARK_RELEASE_METADATA_URL' => (string) ($advanced['release_metadata_url'] ?? ''),
+            'WAYMARK_RELEASE_PUBLIC_KEY_BASE64' => (string) ($advanced['release_public_key_base64'] ?? ''),
         ];
     }
 

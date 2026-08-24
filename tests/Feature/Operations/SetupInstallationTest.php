@@ -72,6 +72,7 @@ final class SetupInstallationTest extends TestCase
         $this->assertSame('backup-key', $environmentWriter->received['AWS_ACCESS_KEY_ID']);
         $this->assertSame('backup-secret', $environmentWriter->received['AWS_SECRET_ACCESS_KEY']);
         $this->assertSame(hash('sha256', 'Correct-Horse-Battery-Recovery-9!'), $environmentWriter->received['WAYMARK_RECOVERY_TOKEN_HASH']);
+        $this->assertSame(base64_encode('public-key-fixture'), $environmentWriter->received['WAYMARK_RELEASE_PUBLIC_KEY_BASE64']);
 
         $this->withSession([...$session, 'waymark.setup.current_step' => 11, 'waymark.setup.installed' => true])
             ->get('/setup/health-check')
@@ -135,6 +136,7 @@ final class SetupInstallationTest extends TestCase
                 'advanced' => [
                     'backup_disk' => 's3',
                     'release_metadata_url' => 'https://updates.example.test/stable.json',
+                    'release_public_key_base64' => base64_encode('public-key-fixture'),
                     's3_endpoint' => 'https://objects.example.test',
                     's3_bucket' => 'waymark-backups',
                     's3_access_key' => 'backup-key',

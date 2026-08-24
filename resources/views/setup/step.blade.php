@@ -137,6 +137,7 @@
                 <form method="post" action="/setup/advanced">@csrf
                     <label>Backup destination <select name="backup_disk"><option value="local">Local private storage</option><option value="s3">S3-compatible storage</option></select></label>
                     <label>Release metadata URL <input name="release_metadata_url" type="url" value="{{ old('release_metadata_url', $data['release_metadata_url'] ?? '') }}"></label>
+                    <label>Release verification public key <textarea name="release_public_key_base64" rows="3">{{ old('release_public_key_base64', $data['release_public_key_base64'] ?? '') }}</textarea></label>
                     <label>S3-compatible endpoint <input name="s3_endpoint" type="url" value="{{ old('s3_endpoint', $data['s3_endpoint'] ?? '') }}"></label>
                     <label>S3 bucket <input name="s3_bucket" value="{{ old('s3_bucket', $data['s3_bucket'] ?? '') }}"></label>
                     <label>S3 access key <input name="s3_access_key" value="{{ old('s3_access_key', $data['s3_access_key'] ?? '') }}" autocomplete="off"></label>

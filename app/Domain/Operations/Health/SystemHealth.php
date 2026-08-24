@@ -5,12 +5,13 @@ namespace App\Domain\Operations\Health;
 use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Domain\Operations\Health\Models\MissingMediaRepair;
 use App\Domain\Operations\Scheduling\SchedulerHeartbeat;
+use App\Domain\Operations\Updates\UpdateStateStore;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
 final readonly class SystemHealth
 {
-    public function __construct(private SchedulerHeartbeat $scheduler) {}
+    public function __construct(private SchedulerHeartbeat $scheduler, private UpdateStateStore $updateState) {}
 
     public function report(bool $https): SystemHealthReport
     {
@@ -79,9 +80,31 @@ final readonly class SystemHealth
 
     private function updates(): HealthCheck
     {
-        $configured = trim((string) config('waymark.updates.metadata_url')) !== '';
+        $configured = trim((string) config('waymark.updates.metadata_url')) !== ''
+            && trim((string) config('waymark.updates.public_key_base64')) !== '';
+        if (! $configured) {
+            return new HealthCheck('updates', 'Updates', 'warning', 'A signed stable release feed is not configured.');
+        }
+        $state = $this->updateState->read();
+        if ($state === null) {
+            return new HealthCheck('updates', 'Updates', 'warning', 'No signed stable release check has completed yet.');
+        }
+        if (($state['status'] ?? null) === 'failed') {
+            return new HealthCheck('updates', 'Updates', 'warning', 'The latest signed stable release check failed; no update information was accepted.');
+        }
+        if (($state['update_available'] ?? false) === true) {
+            $security = ($state['metadata']['security_release'] ?? false) === true;
+            $compatible = ($state['compatibility']['compatible'] ?? false) === true;
 
-        return new HealthCheck('updates', 'Updates', $configured ? 'healthy' : 'warning', $configured ? 'Stable release checks are configured.' : 'A stable release feed is not configured.');
+            return new HealthCheck(
+                'updates',
+                'Updates',
+                $security ? 'critical' : 'warning',
+                ($security ? 'A verified security release' : 'A verified stable release').' is available'.($compatible ? '.' : ', but this host has compatibility blockers.'),
+            );
+        }
+
+        return new HealthCheck('updates', 'Updates', 'healthy', 'No newer verified stable release is available.');
     }
 
     private function missingMedia(): HealthCheck

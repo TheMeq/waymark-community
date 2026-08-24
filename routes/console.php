@@ -11,6 +11,7 @@ use App\Domain\Operations\Backups\Actions\CreateBackup;
 use App\Domain\Operations\Backups\Actions\PruneBackups;
 use App\Domain\Operations\Scheduling\Contracts\FallbackRunner;
 use App\Domain\Operations\Scheduling\SchedulerHeartbeat;
+use App\Domain\Operations\Updates\Actions\CheckForUpdates;
 use App\Models\User;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -73,6 +74,13 @@ Artisan::command('waymark:create-backup', function (CreateBackup $backups, Prune
     $this->info('Backup '.$backup->id.' completed.');
 })->purpose('Create and retain a private Waymark recovery backup');
 
+Artisan::command('waymark:check-for-updates', function (CheckForUpdates $updates): void {
+    $result = $updates->handle('command');
+    $this->info($result->updateAvailable
+        ? 'Verified stable release '.$result->metadata->version.' is available.'
+        : 'No newer verified stable release is available.');
+})->purpose('Check the signed stable release feed without installing anything');
+
 Schedule::command('gallery:process-deferred-photos --limit=25')
     ->everyMinute()
     ->withoutOverlapping(max(1, min(59, (int) config('gallery.deferred.schedule_lock_minutes', 5))));
@@ -82,3 +90,4 @@ Schedule::command('governance:send-document-review-reminders')->dailyAt('08:00')
 Schedule::command('waymark:scheduler-heartbeat')->everyMinute()->withoutOverlapping();
 Schedule::command('waymark:scan-missing-media --limit=500')->dailyAt('06:00')->withoutOverlapping();
 Schedule::command('waymark:create-backup')->dailyAt('02:00')->withoutOverlapping();
+Schedule::command('waymark:check-for-updates')->dailyAt('07:00')->withoutOverlapping();
