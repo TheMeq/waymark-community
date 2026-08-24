@@ -7,6 +7,7 @@ use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Domain\Operations\Models\SiteProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Tests\TestCase;
 use ZipArchive;
 
@@ -67,5 +68,20 @@ final class BackupCreationTest extends TestCase
         $this->assertSame('s3-backups', $backup->storage_disk);
         Storage::disk('s3-backups')->assertExists($backup->storage_path);
         $this->assertSame(1, BackupRun::query()->where('status', 'completed')->count());
+    }
+
+    public function test_backup_is_not_marked_complete_when_restoration_configuration_is_missing(): void
+    {
+        config()->set('waymark.backups.environment_path', $this->environmentPath.'.missing');
+
+        try {
+            app(CreateBackup::class)->handle('manual');
+            $this->fail('The incomplete backup was unexpectedly accepted.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('Backup creation failed', $exception->getMessage());
+        }
+
+        $this->assertDatabaseHas('backup_runs', ['status' => 'failed']);
+        $this->assertDatabaseMissing('backup_runs', ['status' => 'completed']);
     }
 }

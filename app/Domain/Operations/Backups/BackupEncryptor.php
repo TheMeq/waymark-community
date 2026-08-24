@@ -14,6 +14,19 @@ final class BackupEncryptor
 
     private const int KEY_ITERATIONS = 200000;
 
+    public function isEncrypted(string $source): bool
+    {
+        $stream = @fopen($source, 'rb');
+        if ($stream === false) {
+            return false;
+        }
+        try {
+            return fread($stream, strlen(self::MAGIC)) === self::MAGIC;
+        } finally {
+            fclose($stream);
+        }
+    }
+
     public function encrypt(string $source, string $destination, string $passphrase): void
     {
         $input = fopen($source, 'rb');

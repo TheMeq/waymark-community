@@ -3,6 +3,7 @@
 namespace App\Domain\Operations\Backups\Actions;
 
 use App\Domain\Operations\Backups\BackupEncryptor;
+use App\Domain\Operations\Backups\BackupVerifier;
 use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Domain\Operations\Backups\PortableDatabaseExporter;
 use Illuminate\Support\Facades\Storage;
@@ -16,6 +17,7 @@ final readonly class CreateBackup
     public function __construct(
         private PortableDatabaseExporter $databaseExporter,
         private BackupEncryptor $encryptor,
+        private BackupVerifier $verifier,
     ) {}
 
     public function handle(string $trigger, ?string $encryptionPassphrase = null): BackupRun
@@ -94,6 +96,9 @@ final readonly class CreateBackup
                 $this->encryptor->encrypt($archivePath, $encryptedPath, $encryptionPassphrase);
                 $archivePath = $encryptedPath;
             }
+
+            $verified = $this->verifier->open($archivePath, $encryptionPassphrase);
+            $verified->cleanup();
 
             $filename = 'waymark-backup-'.now('UTC')->format('Ymd-His').'-'.$run->id.'.zip'.($encrypted ? '.enc' : '');
             $disk = (string) config('waymark.backups.destination_disk', 'backups');

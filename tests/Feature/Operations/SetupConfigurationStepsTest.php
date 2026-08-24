@@ -101,8 +101,12 @@ final class SetupConfigurationStepsTest extends TestCase
             ->post('/setup/advanced', [
                 'backup_disk' => 'local',
                 'release_metadata_url' => 'https://updates.example.test/stable.json',
+                'recovery_token' => 'Correct-Horse-Battery-Recovery-9!',
+                'recovery_token_confirmation' => 'Correct-Horse-Battery-Recovery-9!',
             ])->assertRedirect('/setup/install')
-            ->assertSessionHas('waymark.setup.data.advanced.backup_disk', 'local');
+            ->assertSessionHas('waymark.setup.data.advanced.backup_disk', 'local')
+            ->assertSessionHas('waymark.setup.data.advanced.recovery_token', 'Correct-Horse-Battery-Recovery-9!')
+            ->assertSessionMissing('waymark.setup.data.advanced.recovery_token_confirmation');
     }
 
     public function test_password_validation_errors_do_not_flash_first_admin_or_mail_secrets(): void
@@ -134,6 +138,21 @@ final class SetupConfigurationStepsTest extends TestCase
             ->post('/setup/advanced', ['backup_disk' => 's3'])
             ->assertRedirect('/setup/advanced')
             ->assertSessionHasErrors(['s3_endpoint', 's3_bucket', 's3_access_key', 's3_secret_key']);
+    }
+
+    public function test_recovery_token_must_be_strong_and_confirmed_without_flashing_the_secret(): void
+    {
+        $this->withSession(['waymark.setup.current_step' => 9])
+            ->post('/setup/advanced', [
+                'backup_disk' => 'local',
+                'recovery_token' => 'short',
+                'recovery_token_confirmation' => 'different-secret',
+            ])
+            ->assertRedirect('/setup/advanced')
+            ->assertSessionHasErrors('recovery_token');
+
+        $this->assertArrayNotHasKey('recovery_token', session()->getOldInput());
+        $this->assertArrayNotHasKey('recovery_token_confirmation', session()->getOldInput());
     }
 
     public function test_branding_step_previews_the_group_identity_without_changing_the_public_site(): void

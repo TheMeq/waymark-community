@@ -17,9 +17,9 @@ final class PortableDatabaseExporter
 
         try {
             foreach ($this->tables() as $table) {
-                $columns = Schema::getColumnListing($table);
+                $columns = $this->writableColumns($table);
                 $this->line($stream, ['type' => 'table', 'name' => $table, 'columns' => $columns]);
-                $query = DB::table($table);
+                $query = DB::table($table)->select($columns);
                 if ($columns !== []) {
                     $query->orderBy($columns[0]);
                 }
@@ -32,6 +32,17 @@ final class PortableDatabaseExporter
         } finally {
             fclose($stream);
         }
+    }
+
+    /** @return list<string> */
+    private function writableColumns(string $table): array
+    {
+        return array_values(array_map(
+            fn (array $column): string => (string) $column['name'],
+            array_filter(Schema::getColumns($table), fn (array $column): bool => ($column['generation'] ?? null) === null
+                && trim((string) ($column['expression'] ?? '')) === ''
+                && ! str_contains(strtolower((string) ($column['extra'] ?? '')), 'generated')),
+        ));
     }
 
     /** @return list<string> */

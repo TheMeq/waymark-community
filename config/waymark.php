@@ -22,6 +22,10 @@ return [
         'environment_path' => env('WAYMARK_ENVIRONMENT_PATH', base_path('.env')),
         'database_chunk_size' => (int) env('WAYMARK_BACKUP_DATABASE_CHUNK_SIZE', 100),
         'retention_count' => (int) env('WAYMARK_BACKUP_RETENTION_COUNT', 14),
+        'restore_environment_path' => env('WAYMARK_RESTORE_ENVIRONMENT_PATH', base_path('.env')),
+    ],
+    'recovery' => [
+        'token_hash' => env('WAYMARK_RECOVERY_TOKEN_HASH'),
     ],
     'staging' => env('WAYMARK_STAGING', env('APP_ENV') === 'staging'),
     'contact_submission_retention_days' => (int) env('WAYMARK_CONTACT_RETENTION_DAYS', 14),

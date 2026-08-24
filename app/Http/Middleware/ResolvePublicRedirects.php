@@ -19,7 +19,7 @@ final readonly class ResolvePublicRedirects
 
     public function handle(Request $request, Closure $next): Response
     {
-        if ($this->installation->installationRequired()) {
+        if ($this->installation->installationRequired() || $request->is('recovery')) {
             return $next($request);
         }
 

@@ -41,6 +41,7 @@ use App\Http\Controllers\PublicWalkGpxDownloadController;
 use App\Http\Controllers\PublicWalkIndexController;
 use App\Http\Controllers\PublicWalkShowController;
 use App\Http\Controllers\PwaController;
+use App\Http\Controllers\RecoveryController;
 use App\Http\Controllers\RobotsController;
 use App\Http\Controllers\SensitiveTwoFactorConfirmationController;
 use App\Http\Controllers\SetupController;
@@ -49,6 +50,10 @@ use App\Http\Controllers\SiteMediaStreamController;
 use App\Http\Controllers\WalkGradingGuideController;
 use App\Http\Controllers\WhatsOnCalendarController;
 use App\Http\Controllers\WhatsOnController;
+use App\Http\Middleware\CaptureCampaignParameters;
+use App\Http\Middleware\RecordAccountActivity;
+use App\Http\Middleware\RequireActiveAccount;
+use App\Http\Middleware\TriggerNonCriticalFallback;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/setup', [SetupController::class, 'show'])->name('setup');
@@ -59,6 +64,13 @@ Route::get('/setup/{step}', [SetupController::class, 'show'])
 Route::post('/setup/{step}', [SetupController::class, 'store'])
     ->whereIn('step', array_column(SetupStep::cases(), 'value'))
     ->name('setup.step.store');
+Route::get('/recovery', [RecoveryController::class, 'show'])
+    ->withoutMiddleware([CaptureCampaignParameters::class, RecordAccountActivity::class, RequireActiveAccount::class, TriggerNonCriticalFallback::class])
+    ->name('recovery.show');
+Route::post('/recovery', [RecoveryController::class, 'restore'])
+    ->middleware('throttle:recovery')
+    ->withoutMiddleware([CaptureCampaignParameters::class, RecordAccountActivity::class, RequireActiveAccount::class, TriggerNonCriticalFallback::class])
+    ->name('recovery.restore');
 Route::get('/', HomeController::class)->name('home');
 Route::get('/manifest.webmanifest', [PwaController::class, 'manifest'])->name('pwa.manifest');
 Route::get('/service-worker.js', [PwaController::class, 'serviceWorker'])->name('pwa.service-worker');

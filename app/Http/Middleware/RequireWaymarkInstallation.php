@@ -14,6 +14,7 @@ final readonly class RequireWaymarkInstallation
     public function handle(Request $request, Closure $next): Response
     {
         $setupRequest = $request->is('setup') || $request->is('setup/*');
+        $recoveryRequest = $request->is('recovery');
 
         if ($this->installation->installed()) {
             abort_if($setupRequest, Response::HTTP_NOT_FOUND);
@@ -21,7 +22,7 @@ final readonly class RequireWaymarkInstallation
             return $next($request);
         }
 
-        if ($setupRequest) {
+        if ($setupRequest || $recoveryRequest) {
             if (config('session.driver') === 'database') {
                 config()->set('session.driver', 'file');
             }

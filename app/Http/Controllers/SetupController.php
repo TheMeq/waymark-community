@@ -31,7 +31,7 @@ final class SetupController
         }
 
         $data = $progress->data($requestedStep->value);
-        unset($data['password'], $data['password_confirmation']);
+        unset($data['password'], $data['password_confirmation'], $data['s3_secret_key'], $data['recovery_token'], $data['recovery_token_confirmation']);
 
         return view('setup.step', [
             'step' => $requestedStep,

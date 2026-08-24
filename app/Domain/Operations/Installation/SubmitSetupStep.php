@@ -45,7 +45,7 @@ final readonly class SubmitSetupStep
         }
 
         $validator = Validator::make($request->all(), $this->rules($step));
-        $safeInput = $request->except(['password', 'password_confirmation', 's3_secret_key']);
+        $safeInput = $request->except(['password', 'password_confirmation', 's3_secret_key', 'recovery_token', 'recovery_token_confirmation']);
 
         if ($validator->fails()) {
             return new SetupSubmissionResult(false, $validator->errors()->toArray(), $safeInput);
@@ -66,6 +66,10 @@ final readonly class SubmitSetupStep
 
         if ($step === SetupStep::FirstAdministrator) {
             unset($validated['password_confirmation']);
+        }
+
+        if ($step === SetupStep::Advanced) {
+            unset($validated['recovery_token_confirmation']);
         }
 
         if ($step === SetupStep::Modules) {
@@ -148,6 +152,8 @@ final readonly class SubmitSetupStep
                 's3_bucket' => ['required_if:backup_disk,s3', 'nullable', 'string', 'max:255'],
                 's3_access_key' => ['required_if:backup_disk,s3', 'nullable', 'string', 'max:255'],
                 's3_secret_key' => ['required_if:backup_disk,s3', 'nullable', 'string', 'max:1024'],
+                'recovery_token' => ['required', 'confirmed', Password::min(24)->mixedCase()->numbers()->symbols()],
+                'recovery_token_confirmation' => ['required', 'string'],
             ],
             default => [],
         };

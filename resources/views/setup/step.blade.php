@@ -141,6 +141,9 @@
                     <label>S3 bucket <input name="s3_bucket" value="{{ old('s3_bucket', $data['s3_bucket'] ?? '') }}"></label>
                     <label>S3 access key <input name="s3_access_key" value="{{ old('s3_access_key', $data['s3_access_key'] ?? '') }}" autocomplete="off"></label>
                     <label>S3 secret key <input name="s3_secret_key" type="password" value="" autocomplete="new-password"></label>
+                    <label>Recovery token <input name="recovery_token" type="password" value="" autocomplete="new-password" minlength="24" required></label>
+                    <label>Confirm recovery token <input name="recovery_token_confirmation" type="password" value="" autocomplete="new-password" minlength="24" required></label>
+                    <p>Store this token in your group's password manager. It is required for standalone disaster recovery and cannot be shown again.</p>
                     <button type="submit">Continue</button>
                 </form>
             @elseif ($step === App\Domain\Operations\Installation\SetupStep::Install)

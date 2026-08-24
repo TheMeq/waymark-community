@@ -112,6 +112,7 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(12)->by('photo-report:ip:'.$request->ip()),
         ]);
         RateLimiter::for('contact', fn (Request $request) => Limit::perMinute(5)->by('contact:'.$request->ip()));
+        RateLimiter::for('recovery', fn (Request $request) => Limit::perHour(5)->by('recovery:'.$request->ip()));
         Gate::policy(InstallationOwnership::class, InstallationOwnershipPolicy::class);
         Livewire::addPersistentMiddleware([RequireSensitiveActionAssurance::class]);
         View::composer('components.public.site-header', fn ($view) => $view->with(['navigationItems' => app(PublicNavigationItems::class)->get(), 'branding' => app(PublicBranding::class)->get()]));
