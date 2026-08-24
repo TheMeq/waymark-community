@@ -1,6 +1,8 @@
 <x-filament-panels::page>
     @php($state = $this->state())
     <div class="max-w-4xl space-y-5">
+        @if (session('status'))<p class="rounded-xl border p-4">{{ session('status') }}</p>@endif
+        @error('install')<p class="rounded-xl border border-danger-300 p-4 text-danger-700">{{ $message }}</p>@enderror
         <section class="rounded-xl border p-5">
             <div class="flex flex-wrap items-center justify-between gap-4">
                 <div>
@@ -23,6 +25,16 @@
                 <p class="mt-3">{{ $state['metadata']['summary'] }}</p>
                 <ul class="mt-3 list-disc space-y-1 pl-6">@foreach ($state['metadata']['release_notes'] as $note)<li>{{ $note }}</li>@endforeach</ul>
                 <p class="mt-3 font-medium">{{ $state['update_available'] ? 'A newer verified release is available.' : 'No newer stable release is available.' }}</p>
+                @if ($state['update_available'] && $state['compatibility']['compatible'])
+                    <form method="post" action="{{ route('admin.updates.install') }}" class="mt-5 rounded-lg border border-danger-300 p-4">
+                        @csrf
+                        <p>This always creates a fresh backup, stages the verified package, enters maintenance mode, applies migrations and health checks, and rolls back on failure.</p>
+                        <label class="mt-3 block font-medium" for="update-confirmation">Type UPDATE WAYMARK</label>
+                        <input id="update-confirmation" name="confirmation" autocomplete="off" class="mt-2 block min-h-11 w-full rounded-lg border px-3" required>
+                        @error('confirmation')<p class="text-sm text-danger-600">{{ $message }}</p>@enderror
+                        <x-filament::button class="mt-3" color="danger" type="submit">Install verified update</x-filament::button>
+                    </form>
+                @endif
             </section>
             <section class="rounded-xl border p-5">
                 <h2 class="text-lg font-semibold">Host compatibility</h2>
@@ -32,6 +44,10 @@
                     @endforeach
                 </div>
             </section>
+        @elseif (($state['status'] ?? null) === 'installed')
+            <section class="rounded-xl border p-5"><h2 class="font-semibold">Update installed</h2><p class="mt-2">{{ $state['message'] }}</p></section>
+        @elseif (($state['status'] ?? null) === 'update_failed')
+            <section class="rounded-xl border border-danger-300 p-5"><h2 class="font-semibold">Update failed</h2><p class="mt-2">{{ $state['message'] }}</p></section>
         @else
             <section class="rounded-xl border p-5"><p>No verified stable release check has completed yet.</p></section>
         @endif

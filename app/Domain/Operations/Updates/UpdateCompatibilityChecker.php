@@ -10,6 +10,7 @@ final class UpdateCompatibilityChecker
         $missingExtensions = array_values(array_diff($requirements['extensions'], array_map('strtolower', $environment->extensions)));
         $databaseMinimum = $requirements['database'][$environment->databaseFamily] ?? null;
         $databaseLabel = $environment->databaseFamily === 'mariadb' ? 'MariaDB' : ($environment->databaseFamily === 'mysql' ? 'MySQL' : ucfirst($environment->databaseFamily));
+        $requiredDisk = max($requirements['disk_free_bytes'], $metadata->packageSizeBytes * 3);
 
         return new UpdateCompatibilityReport([
             [
@@ -35,8 +36,8 @@ final class UpdateCompatibilityChecker
             ],
             [
                 'key' => 'disk', 'label' => 'Disk space',
-                'status' => $environment->diskFreeBytes >= $requirements['disk_free_bytes'] ? 'pass' : 'blocker',
-                'message' => $environment->diskFreeBytes >= $requirements['disk_free_bytes']
+                'status' => $environment->diskFreeBytes >= $requiredDisk ? 'pass' : 'blocker',
+                'message' => $environment->diskFreeBytes >= $requiredDisk
                     ? 'Enough disk space is available for staging and rollback.'
                     : 'More free disk space is required before this release can be staged safely.',
             ],

@@ -42,8 +42,12 @@ use App\Domain\Operations\Scheduling\Contracts\FallbackWorkload;
 use App\Domain\Operations\Scheduling\RunFallbackWork;
 use App\Domain\Operations\Scheduling\SchedulerHeartbeat;
 use App\Domain\Operations\Scheduling\WaymarkFallbackWorkload;
+use App\Domain\Operations\Updates\Contracts\ReleasePackageDownloader;
 use App\Domain\Operations\Updates\Contracts\UpdateEnvironmentProbe;
+use App\Domain\Operations\Updates\Contracts\UpdateRuntime;
+use App\Domain\Operations\Updates\NativeReleasePackageDownloader;
 use App\Domain\Operations\Updates\NativeUpdateEnvironment;
+use App\Domain\Operations\Updates\NativeUpdateRuntime;
 use App\Domain\Walks\RelatedContent\RelatedWalks;
 use App\Domain\Walks\RelatedContent\SignalRelatedWalks;
 use App\Http\Middleware\RequireSensitiveActionAssurance;
@@ -95,6 +99,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(NewsletterDelivery::class, MailNewsletterDelivery::class);
         $this->app->bind(PublicFormChallenge::class, TurnstilePublicFormChallenge::class);
         $this->app->bind(UpdateEnvironmentProbe::class, NativeUpdateEnvironment::class);
+        $this->app->bind(ReleasePackageDownloader::class, NativeReleasePackageDownloader::class);
+        $this->app->bind(UpdateRuntime::class, NativeUpdateRuntime::class);
     }
 
     /**

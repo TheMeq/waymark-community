@@ -10,6 +10,10 @@ The scheduler checks daily at 07:00; **System → Updates** also provides a manu
 
 An actionable update subsequently requires a fresh backup (including security releases), verified staging, maintenance mode, migrations, health checks and rollback on failure.
 
+Update packages use a signed-feed SHA-256 plus an internal `release-manifest.json`. Every application file is size/checksum verified and staged before maintenance. Packages must contain `VERSION`, the application entry points, production Composer autoload files and compiled frontend manifest; they cannot target `.env`, `storage`, caches, tests, Node modules or other private/runtime paths. The updater snapshots every affected application file, creates an unconditional full Waymark backup, applies files, runs migrations and optimisation, then checks the database, storage and activated `VERSION`.
+
+If activation is interrupted or fails, affected files and the full backup are restored. Maintenance remains active after failure so an administrator can review System health or use `/recovery`; Waymark never silently reopens a partially updated installation.
+
 ## Backups
 
 Administrators can create and download a backup from **System health**. The scheduler creates one daily at 02:00 when cron is configured. `WAYMARK_BACKUP_RETENTION_COUNT` controls how many completed archives are retained (14 by default).

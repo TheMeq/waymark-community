@@ -92,6 +92,14 @@ final readonly class SystemHealth
         if (($state['status'] ?? null) === 'failed') {
             return new HealthCheck('updates', 'Updates', 'warning', 'The latest signed stable release check failed; no update information was accepted.');
         }
+        if (($state['status'] ?? null) === 'update_failed') {
+            $complete = ($state['rollback_complete'] ?? false) === true;
+
+            return new HealthCheck('updates', 'Updates', $complete ? 'warning' : 'critical', (string) ($state['message'] ?? 'The latest update attempt failed.'));
+        }
+        if (($state['status'] ?? null) === 'installed') {
+            return new HealthCheck('updates', 'Updates', 'healthy', (string) ($state['message'] ?? 'The verified stable release was installed successfully.'));
+        }
         if (($state['update_available'] ?? false) === true) {
             $security = ($state['metadata']['security_release'] ?? false) === true;
             $compatible = ($state['compatibility']['compatible'] ?? false) === true;

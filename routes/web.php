@@ -51,6 +51,7 @@ use App\Http\Controllers\SiteMediaStreamController;
 use App\Http\Controllers\WalkGradingGuideController;
 use App\Http\Controllers\WhatsOnCalendarController;
 use App\Http\Controllers\WhatsOnController;
+use App\Http\Controllers\UpdateInstallationController;
 use App\Http\Middleware\CaptureCampaignParameters;
 use App\Http\Middleware\RecordAccountActivity;
 use App\Http\Middleware\RequireActiveAccount;
@@ -106,6 +107,7 @@ Route::get('/leaders/{slug}', PublicLeaderProfileController::class)->name('leade
 Route::get('/photos/{photo}/report', [CommunityPhotoReportController::class, 'create'])->whereNumber('photo')->name('community-photos.reports.create');
 Route::post('/photos/{photo?}/report', CommunityPhotoReportController::class)->whereNumber('photo')->middleware('throttle:photo-report')->name('community-photos.reports.store');
 Route::middleware('auth')->group(function (): void {
+    Route::post('/admin/update-centre/install', UpdateInstallationController::class)->middleware('sensitive.confirmed')->name('admin.updates.install');
     Route::post('/admin/maintenance-mode/enable', [MaintenanceModeController::class, 'enable'])->middleware('sensitive.confirmed')->name('admin.maintenance.enable');
     Route::post('/admin/maintenance-mode/disable', [MaintenanceModeController::class, 'disable'])->middleware('sensitive.confirmed')->name('admin.maintenance.disable');
     Route::get('/admin/system-health/backups/{backup}/download', BackupDownloadController::class)

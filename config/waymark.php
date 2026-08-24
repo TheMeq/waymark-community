@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'version' => env('WAYMARK_VERSION', 'development'),
+    'version' => env('WAYMARK_VERSION', is_file(base_path('VERSION')) ? trim((string) file_get_contents(base_path('VERSION'))) : 'development'),
     'installation' => [
         'installed' => env('WAYMARK_INSTALLED'),
         'lock_path' => env('WAYMARK_INSTALLATION_LOCK', storage_path('app/private/installed.lock')),
@@ -18,6 +18,8 @@ return [
         'metadata_url' => env('WAYMARK_RELEASE_METADATA_URL'),
         'public_key_base64' => env('WAYMARK_RELEASE_PUBLIC_KEY_BASE64'),
         'state_path' => env('WAYMARK_UPDATE_STATE_PATH', storage_path('app/private/update-state.json')),
+        'application_root' => env('WAYMARK_APPLICATION_ROOT', base_path()),
+        'staging_root' => env('WAYMARK_UPDATE_STAGING_ROOT', storage_path('framework/update-staging')),
     ],
     'backups' => [
         'destination_disk' => env('WAYMARK_BACKUP_DISK', 'backups'),
