@@ -9,6 +9,24 @@ final class ReleasePackageVerifier
 {
     private const array REQUIRED_FILES = ['VERSION', 'artisan', 'bootstrap/app.php', 'public/index.php', 'vendor/autoload.php', 'public/build/manifest.json'];
 
+    private const array SAFE_RUNTIME_FILES = [
+        'bootstrap/cache/.gitignore',
+        'bootstrap/cache/packages.php',
+        'bootstrap/cache/services.php',
+        'storage/app/.gitignore',
+        'storage/app/backups/.gitignore',
+        'storage/app/private/.gitignore',
+        'storage/app/public/.gitignore',
+        'storage/app/uploads/.gitignore',
+        'storage/framework/.gitignore',
+        'storage/framework/cache/.gitignore',
+        'storage/framework/cache/data/.gitignore',
+        'storage/framework/sessions/.gitignore',
+        'storage/framework/testing/.gitignore',
+        'storage/framework/views/.gitignore',
+        'storage/logs/.gitignore',
+    ];
+
     public function stage(string $source, ReleaseMetadata $metadata, string $destination): VerifiedReleasePackage
     {
         if (! is_file($source) || filesize($source) !== $metadata->packageSizeBytes
@@ -130,17 +148,7 @@ final class ReleasePackageVerifier
         $first = strtolower($segments[0]);
 
         $normalized = strtolower($path);
-        $safeRuntimePlaceholders = [
-            'bootstrap/cache/.gitignore',
-            'storage/app/private/.gitignore',
-            'storage/app/backups/.gitignore',
-            'storage/app/uploads/.gitignore',
-            'storage/framework/cache/.gitignore',
-            'storage/framework/sessions/.gitignore',
-            'storage/framework/views/.gitignore',
-            'storage/logs/.gitignore',
-        ];
-        if (in_array($normalized, $safeRuntimePlaceholders, true)) {
+        if (in_array($normalized, self::SAFE_RUNTIME_FILES, true)) {
             return true;
         }
 

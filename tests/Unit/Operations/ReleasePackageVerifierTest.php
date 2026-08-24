@@ -57,9 +57,24 @@ final class ReleasePackageVerifierTest extends TestCase
     public function test_release_directory_placeholders_are_update_safe_but_runtime_storage_content_is_not(): void
     {
         $base = ['VERSION' => "1.2.0\n", 'artisan' => 'x', 'bootstrap/app.php' => 'x', 'public/index.php' => 'x', 'vendor/autoload.php' => 'x', 'public/build/manifest.json' => '{}'];
-        $safe = $this->package([...$base, 'bootstrap/cache/.gitignore' => '', 'storage/app/private/.gitignore' => '']);
+        $safe = $this->package([...$base,
+            'bootstrap/cache/.gitignore' => '',
+            'bootstrap/cache/packages.php' => '<?php return [];',
+            'bootstrap/cache/services.php' => '<?php return [];',
+            'storage/app/.gitignore' => '',
+            'storage/app/private/.gitignore' => '',
+            'storage/app/public/.gitignore' => '',
+            'storage/framework/.gitignore' => '',
+            'storage/framework/cache/.gitignore' => '',
+            'storage/framework/cache/data/.gitignore' => '',
+            'storage/framework/sessions/.gitignore' => '',
+            'storage/framework/testing/.gitignore' => '',
+            'storage/framework/views/.gitignore' => '',
+            'storage/logs/.gitignore' => '',
+        ]);
         $verified = (new ReleasePackageVerifier)->stage($safe, $this->metadata($safe), $this->directory.DIRECTORY_SEPARATOR.'safe-stage');
         $this->assertContains('storage/app/private/.gitignore', $verified->files);
+        $this->assertContains('bootstrap/cache/packages.php', $verified->files);
         $verified->cleanup();
 
         $unsafe = $this->package([...$base, 'storage/app/private/member-photo.jpg' => 'private']);

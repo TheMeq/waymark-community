@@ -149,7 +149,12 @@ final class ProductionReleasePackageMatrixTest extends TestCase
     /** @return array<string, string> */
     private function phpEnvironment(): array
     {
-        $environment = [];
+        $environment = [
+            'APP_ENV' => 'production',
+            'DB_CONNECTION' => 'sqlite',
+            'DB_DATABASE' => $this->root.'/database/database.sqlite',
+            'WAYMARK_INSTALLED' => 'true',
+        ];
         $scan = getenv('PHP_INI_SCAN_DIR');
         if (is_string($scan)) {
             $environment['PHP_INI_SCAN_DIR'] = $scan;
