@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { resolve } from 'node:path';
+import test from 'node:test';
+
+const repositoryRoot = resolve(import.meta.dirname, '../..');
+
+test('shared-hosting builder plan uses a clean commit, locked dependencies, full tests and production-only packaging', () => {
+    const result = spawnSync('php', ['scripts/build-release.php', '--version=1.0.0', '--plan'], {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        env: process.env,
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const plan = JSON.parse(result.stdout);
+    assert.equal(plan.version, '1.0.0');
+    assert.equal(plan.archive, 'waymark-community-1.0.0-shared-hosting.zip');
+    assert.equal(plan.source, 'git archive HEAD');
+    assert.deepEqual(plan.verification, [
+        'composer validate --strict',
+        'composer prohibits php 8.3',
+        'composer verify:repository',
+        'php artisan test',
+        'npm run test:pwa',
+        'npm run test:tooling',
+    ]);
+    assert.ok(plan.build.includes('composer install --no-interaction --prefer-dist'));
+    assert.ok(plan.build.includes('npm ci'));
+    assert.ok(plan.build.includes('npm run build'));
+    assert.ok(plan.package.includes('composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader'));
+    assert.ok(plan.excludes.includes('.env'));
+    assert.ok(plan.excludes.includes('node_modules'));
+    assert.ok(plan.excludes.includes('tests'));
+});

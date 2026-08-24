@@ -1,0 +1,49 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://waymark.community/schemas/release-manifest-v1.json",
+    "title": "Waymark Community release manifest",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["format", "version", "build", "requirements", "database", "files", "deletes"],
+    "properties": {
+        "format": { "const": 1 },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$" },
+        "build": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["commit", "built_at"],
+            "properties": {
+                "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+                "built_at": { "type": "string", "format": "date-time" }
+            }
+        },
+        "requirements": {
+            "type": "object",
+            "required": ["minimum_php", "extensions", "database"],
+            "properties": {
+                "minimum_php": { "type": "string" },
+                "extensions": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+                "database": { "type": "object" }
+            }
+        },
+        "database": {
+            "type": "object",
+            "required": ["latest_migration"],
+            "properties": { "latest_migration": { "type": "string" } }
+        },
+        "files": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["path", "sha256", "size_bytes"],
+                "properties": {
+                    "path": { "type": "string" },
+                    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                    "size_bytes": { "type": "integer", "minimum": 0 }
+                }
+            }
+        },
+        "deletes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+    }
+}
