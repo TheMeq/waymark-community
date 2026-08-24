@@ -23,6 +23,27 @@ final class ReleaseArchiveVerifier
         'vendor/composer/installed.json',
     ];
 
+    private const array STORAGE_PLACEHOLDERS = [
+        'storage/app/.gitignore',
+        'storage/app/backups/.gitignore',
+        'storage/app/private/.gitignore',
+        'storage/app/public/.gitignore',
+        'storage/app/uploads/.gitignore',
+        'storage/framework/.gitignore',
+        'storage/framework/cache/.gitignore',
+        'storage/framework/cache/data/.gitignore',
+        'storage/framework/sessions/.gitignore',
+        'storage/framework/testing/.gitignore',
+        'storage/framework/views/.gitignore',
+        'storage/logs/.gitignore',
+    ];
+
+    private const array BOOTSTRAP_CACHE_FILES = [
+        'bootstrap/cache/.gitignore',
+        'bootstrap/cache/packages.php',
+        'bootstrap/cache/services.php',
+    ];
+
     /** @return array{version: string, commit: string, minimum_php: string, latest_migration: string, file_count: int, size_bytes: int, sha256: string} */
     public function verify(string $archivePath): array
     {
@@ -211,20 +232,11 @@ final class ReleaseArchiveVerifier
             return false;
         }
         $normalized = strtolower($path);
-        $storagePlaceholders = [
-            'storage/app/private/.gitignore',
-            'storage/app/backups/.gitignore',
-            'storage/app/uploads/.gitignore',
-            'storage/framework/cache/.gitignore',
-            'storage/framework/sessions/.gitignore',
-            'storage/framework/views/.gitignore',
-            'storage/logs/.gitignore',
-        ];
 
         return ($normalized === '.env.example' || preg_match('/\A\.env(?:\.|\z)/', $normalized) !== 1)
             && preg_match('#(^|/)(\.git|node_modules|tests|test-results|playwright-report|coverage)(/|$)#', $normalized) !== 1
-            && (! str_starts_with($normalized, 'storage/') || in_array($normalized, $storagePlaceholders, true))
-            && ($normalized === 'bootstrap/cache/.gitignore' || ! str_starts_with($normalized, 'bootstrap/cache/'))
+            && (! str_starts_with($normalized, 'storage/') || in_array($normalized, self::STORAGE_PLACEHOLDERS, true))
+            && (! str_starts_with($normalized, 'bootstrap/cache/') || in_array($normalized, self::BOOTSTRAP_CACHE_FILES, true))
             && preg_match('#\Adatabase/.+\.sqlite(?:3)?$#', $normalized) !== 1
             && preg_match('#\Avendor/(phpunit|laravel/pint|mockery|fakerphp)/#', $normalized) !== 1
             && ! in_array($normalized, ['phpunit.xml', 'playwright.config.ts', 'playwright.installer.config.ts', 'package.json', 'package-lock.json', 'vite.config.js'], true);

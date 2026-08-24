@@ -21,12 +21,22 @@ final class ReleaseArchiveVerifierTest extends TestCase
         $this->directory = sys_get_temp_dir().'/waymark-release-verifier-'.bin2hex(random_bytes(8));
         foreach ([
             'bootstrap/cache/.gitignore',
+            'bootstrap/cache/packages.php',
+            'bootstrap/cache/services.php',
             'bootstrap/app.php',
             'database/migrations/2026_08_24_130000_release.php',
             'public/build/manifest.json',
             'public/index.php',
+            'storage/app/.gitignore',
             'storage/app/private/.gitignore',
+            'storage/app/public/.gitignore',
+            'storage/framework/.gitignore',
             'storage/framework/cache/.gitignore',
+            'storage/framework/cache/data/.gitignore',
+            'storage/framework/sessions/.gitignore',
+            'storage/framework/testing/.gitignore',
+            'storage/framework/views/.gitignore',
+            'storage/logs/.gitignore',
             'vendor/autoload.php',
             'vendor/composer/installed.json',
         ] as $path) {
@@ -58,7 +68,7 @@ final class ReleaseArchiveVerifierTest extends TestCase
         $this->assertSame(str_repeat('b', 40), $result['commit']);
         $this->assertSame('8.3.0', $result['minimum_php']);
         $this->assertSame('2026_08_24_130000', $result['latest_migration']);
-        $this->assertSame(12, $result['file_count']);
+        $this->assertSame(22, $result['file_count']);
         $this->assertSame(hash_file('sha256', $archive), $result['sha256']);
     }
 
