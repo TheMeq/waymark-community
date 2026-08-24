@@ -19,3 +19,12 @@ php scripts/verify-release.php dist/waymark-community-1.0.0-shared-hosting.zip
 ```
 
 The artifact includes production `vendor/`, compiled `public/build/` assets, installer and migrations, `.env.example`, and writable-directory placeholders. It excludes Git metadata, secrets, Node modules, tests, reports, runtime uploads/media, backups, logs, caches, sessions, generated views, local databases, and design/developer reference material.
+
+Release clean-install smoke tests take the verified ZIP as their only application source. They do not run Composer or npm in the extracted application and cover the web installer, homepage, administrator login, and a real site-media upload:
+
+```sh
+PHASE10_INSTALL_DB_DRIVER=mysql npm run test:release-install -- --archive=dist/waymark-community-1.0.0-shared-hosting.zip
+PHASE10_INSTALL_DB_DRIVER=mariadb npm run test:release-install -- --archive=dist/waymark-community-1.0.0-shared-hosting.zip
+```
+
+The database connection variables use the `PHASE10_INSTALL_DB_` prefix documented by the script. Each run requires its own empty test database. Node and Playwright are the external verification harness only; neither is present in or required by the installed Waymark runtime.
