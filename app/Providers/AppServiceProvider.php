@@ -35,6 +35,7 @@ use App\Domain\Operations\Installation\EnvironmentFileWriter;
 use App\Domain\Operations\Installation\InstallationState;
 use App\Domain\Operations\Installation\PdoDatabaseConnectionTester;
 use App\Domain\Operations\Installation\SymfonyMailConnectionTester;
+use App\Domain\Operations\Maintenance\MaintenanceManager;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Scheduling\Contracts\FallbackRunner;
 use App\Domain\Operations\Scheduling\Contracts\FallbackWorkload;
@@ -46,6 +47,7 @@ use App\Domain\Walks\RelatedContent\SignalRelatedWalks;
 use App\Http\Middleware\RequireSensitiveActionAssurance;
 use App\Policies\InstallationOwnershipPolicy;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
@@ -97,6 +99,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        EncryptCookies::except([MaintenanceManager::BYPASS_COOKIE]);
         foreach ([CmsPage::class, NewsArticle::class, Event::class, SpecialAlbum::class, Document::class] as $model) {
             $model::observe(PublicSlugRedirectObserver::class);
         }

@@ -4,6 +4,7 @@ namespace Tests\Feature\Operations;
 
 use App\Domain\Operations\Backups\Actions\CreateBackup;
 use App\Domain\Operations\Backups\Actions\RestoreBackup;
+use App\Domain\Operations\Maintenance\MaintenanceManager;
 use App\Domain\Operations\Models\SiteProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -51,6 +52,7 @@ final class BackupRestoreTest extends TestCase
         Storage::disk('local')->assertExists('community-photos/original.jpg');
         Storage::disk('local')->assertMissing('community-photos/new.jpg');
         $this->assertSame("APP_KEY=base64:original-key\n", file_get_contents($this->environmentPath));
+        $this->assertFalse(app(MaintenanceManager::class)->active());
     }
 
     public function test_restore_refuses_inexact_destructive_confirmation(): void

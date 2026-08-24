@@ -27,6 +27,9 @@ return [
     'recovery' => [
         'token_hash' => env('WAYMARK_RECOVERY_TOKEN_HASH'),
     ],
+    'maintenance' => [
+        'state_path' => env('WAYMARK_MAINTENANCE_STATE_PATH', storage_path('framework/waymark-maintenance.json')),
+    ],
     'staging' => env('WAYMARK_STAGING', env('APP_ENV') === 'staging'),
     'contact_submission_retention_days' => (int) env('WAYMARK_CONTACT_RETENTION_DAYS', 14),
     'public_cache_seconds' => (int) env('WAYMARK_PUBLIC_CACHE_SECONDS', 300),

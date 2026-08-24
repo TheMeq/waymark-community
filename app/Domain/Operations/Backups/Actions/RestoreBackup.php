@@ -6,6 +6,7 @@ use App\Domain\Operations\Backups\BackupVerifier;
 use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Domain\Operations\Backups\PortableDatabaseImporter;
 use App\Domain\Operations\Backups\VerifiedBackup;
+use App\Domain\Operations\Maintenance\MaintenanceManager;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -18,6 +19,7 @@ final readonly class RestoreBackup
     public function __construct(
         private BackupVerifier $verifier,
         private PortableDatabaseImporter $databaseImporter,
+        private MaintenanceManager $maintenance,
     ) {}
 
     public function fromRun(BackupRun $backup, string $confirmation, ?string $passphrase = null): void
@@ -65,9 +67,11 @@ final readonly class RestoreBackup
 
         try {
             $this->extract($verified, $stagingDirectory);
-            $this->databaseImporter->restore($stagingDirectory.DIRECTORY_SEPARATOR.'database.jsonl');
-            $this->restorePrivateFiles($verified, $stagingDirectory);
-            $this->restoreEnvironment($stagingDirectory);
+            $this->maintenance->run(function () use ($verified, $stagingDirectory): void {
+                $this->databaseImporter->restore($stagingDirectory.DIRECTORY_SEPARATOR.'database.jsonl');
+                $this->restorePrivateFiles($verified, $stagingDirectory);
+                $this->restoreEnvironment($stagingDirectory);
+            }, 'Waymark is restoring a verified backup.');
         } finally {
             $verified->cleanup();
             $this->cleanDirectory($stagingDirectory);

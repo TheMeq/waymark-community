@@ -22,6 +22,7 @@ use App\Http\Controllers\LeaderHubController;
 use App\Http\Controllers\LeaderHubDocumentDownloadController;
 use App\Http\Controllers\LeaderHubDuplicateWalkController;
 use App\Http\Controllers\LeaderProfileSettingsController;
+use App\Http\Controllers\MaintenanceModeController;
 use App\Http\Controllers\NewHereController;
 use App\Http\Controllers\PublicCommitteeController;
 use App\Http\Controllers\PublicDocumentController;
@@ -105,6 +106,8 @@ Route::get('/leaders/{slug}', PublicLeaderProfileController::class)->name('leade
 Route::get('/photos/{photo}/report', [CommunityPhotoReportController::class, 'create'])->whereNumber('photo')->name('community-photos.reports.create');
 Route::post('/photos/{photo?}/report', CommunityPhotoReportController::class)->whereNumber('photo')->middleware('throttle:photo-report')->name('community-photos.reports.store');
 Route::middleware('auth')->group(function (): void {
+    Route::post('/admin/maintenance-mode/enable', [MaintenanceModeController::class, 'enable'])->middleware('sensitive.confirmed')->name('admin.maintenance.enable');
+    Route::post('/admin/maintenance-mode/disable', [MaintenanceModeController::class, 'disable'])->middleware('sensitive.confirmed')->name('admin.maintenance.disable');
     Route::get('/admin/system-health/backups/{backup}/download', BackupDownloadController::class)
         ->middleware('sensitive.confirmed')->name('admin.backups.download');
     Route::get('/committee-hub', CommitteeHubController::class)->name('committee-hub.index');

@@ -34,3 +34,9 @@ Normal guided restore is available at **System → Restore backup** after fresh 
 If normal administration is broken, open `/recovery`, upload a Waymark backup, supply its encryption passphrase when applicable, provide the recovery token established during setup, and type the same destructive confirmation. Keep that token in the group's password manager: only its SHA-256 hash is stored in `WAYMARK_RECOVERY_TOKEN_HASH`, so Waymark cannot display or recover it later.
 
 Restore replaces the current database, private media/documents and restoration configuration. Keep an additional off-host copy of the current state before beginning.
+
+## Maintenance mode
+
+Administrators with fresh sensitive-action confirmation can configure the group-branded maintenance message, an optional expected return time, and an optional HTTPS contact/status link under **System → Maintenance mode**. The enabling browser receives a private signed, HTTP-only bypass cookie so an authorised administrator can check the application while visitors receive a `503 Service Unavailable` response. Recovery and the lightweight health endpoint remain reachable.
+
+Restore and update orchestration enter this same filesystem-backed maintenance boundary automatically. Successful operations reopen the site; a failed destructive operation deliberately leaves maintenance active for investigation and recovery.
