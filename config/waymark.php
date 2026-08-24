@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'version' => env('WAYMARK_VERSION', 'development'),
     'installation' => [
         'installed' => env('WAYMARK_INSTALLED'),
         'lock_path' => env('WAYMARK_INSTALLATION_LOCK', storage_path('app/private/installed.lock')),
@@ -12,6 +13,9 @@ return [
         'fallback_state_path' => env('WAYMARK_FALLBACK_STATE_PATH', storage_path('app/private/fallback-last-run.json')),
         'fallback_cooldown_minutes' => (int) env('WAYMARK_FALLBACK_COOLDOWN_MINUTES', 5),
         'request_fallback_enabled' => (bool) env('WAYMARK_REQUEST_FALLBACK', env('APP_ENV') === 'production'),
+    ],
+    'updates' => [
+        'metadata_url' => env('WAYMARK_RELEASE_METADATA_URL'),
     ],
     'staging' => env('WAYMARK_STAGING', env('APP_ENV') === 'staging'),
     'contact_submission_retention_days' => (int) env('WAYMARK_CONTACT_RETENTION_DAYS', 14),

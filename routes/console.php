@@ -6,6 +6,7 @@ use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Communication\Actions\SendDueNewsletters;
 use App\Domain\Gallery\Actions\ProcessDeferredCommunityPhotos;
 use App\Domain\Governance\Actions\SendDocumentReviewReminders;
+use App\Domain\Operations\Health\Actions\ScanMissingMedia;
 use App\Domain\Operations\Scheduling\Contracts\FallbackRunner;
 use App\Domain\Operations\Scheduling\SchedulerHeartbeat;
 use App\Models\User;
@@ -59,6 +60,11 @@ Artisan::command('waymark:run-fallback', function (FallbackRunner $fallback): vo
         : 'Fallback work was not needed. Manual fallback does not provide scheduled guarantees.');
 })->purpose('Run bounded non-critical work when cron is unavailable');
 
+Artisan::command('waymark:scan-missing-media {--limit=500}', function (ScanMissingMedia $scanner): void {
+    $result = $scanner->handle((int) $this->option('limit'));
+    $this->info($result->checked.' file reference(s) checked; '.$result->missing.' missing.');
+})->purpose('Queue missing media references for administrator repair');
+
 Schedule::command('gallery:process-deferred-photos --limit=25')
     ->everyMinute()
     ->withoutOverlapping(max(1, min(59, (int) config('gallery.deferred.schedule_lock_minutes', 5))));
@@ -66,3 +72,4 @@ Schedule::command('gallery:process-deferred-photos --limit=25')
 Schedule::command('communications:send-due-newsletters')->hourly()->withoutOverlapping();
 Schedule::command('governance:send-document-review-reminders')->dailyAt('08:00')->withoutOverlapping();
 Schedule::command('waymark:scheduler-heartbeat')->everyMinute()->withoutOverlapping();
+Schedule::command('waymark:scan-missing-media --limit=500')->dailyAt('06:00')->withoutOverlapping();

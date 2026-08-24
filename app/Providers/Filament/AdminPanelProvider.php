@@ -3,6 +3,8 @@
 namespace App\Providers\Filament;
 
 use App\Domain\Operations\Environment\StagingMode;
+use App\Domain\Operations\Health\SystemHealth as HealthService;
+use App\Filament\Pages\SystemHealth as SystemHealthPage;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -37,6 +39,12 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::BODY_START,
                 fn () => app(StagingMode::class)->active() ? view('admin.staging-banner') : '',
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_START,
+                fn () => SystemHealthPage::canAccess() && app(HealthService::class)->report(request()->secure())->serious()
+                    ? view('admin.health-alert')
+                    : '',
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
