@@ -3,9 +3,11 @@
 
 declare(strict_types=1);
 
+use Waymark\Release\GitCommitResolver;
 use Waymark\Release\ReleaseArchiveBuilder;
 use Waymark\Release\ReleaseArchiveVerifier;
 
+require_once __DIR__.'/release/GitCommitResolver.php';
 require_once __DIR__.'/release/ReleaseArchiveBuilder.php';
 require_once __DIR__.'/release/ReleaseArchiveVerifier.php';
 
@@ -62,10 +64,7 @@ $status = capture('git status --porcelain', $root);
 if (trim($status) !== '') {
     fail('Release builds require a clean Git worktree.');
 }
-$commit = trim(capture('git rev-parse '.$requestedCommit.'^{commit}', $root));
-if (preg_match('/\A[a-f0-9]{40}\z/', $commit) !== 1) {
-    fail('The exact source commit could not be resolved.');
-}
+$commit = (new GitCommitResolver)->resolve($root, $requestedCommit);
 
 $temporaryRoot = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'waymark-release-'.bin2hex(random_bytes(8));
 $sourceArchive = $temporaryRoot.DIRECTORY_SEPARATOR.'source.zip';
