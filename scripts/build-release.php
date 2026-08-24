@@ -6,11 +6,13 @@ declare(strict_types=1);
 use Waymark\Release\GitCommitResolver;
 use Waymark\Release\ReleaseArchiveBuilder;
 use Waymark\Release\ReleaseArchiveVerifier;
+use Waymark\Release\RuntimePathFilter;
 use Waymark\Release\VerificationEnvironment;
 
 require_once __DIR__.'/release/GitCommitResolver.php';
 require_once __DIR__.'/release/ReleaseArchiveBuilder.php';
 require_once __DIR__.'/release/ReleaseArchiveVerifier.php';
+require_once __DIR__.'/release/RuntimePathFilter.php';
 require_once __DIR__.'/release/VerificationEnvironment.php';
 
 $options = getopt('', ['version:', 'commit::', 'output::', 'plan']);
@@ -212,6 +214,7 @@ function excludedSourcePath(string $path): bool
     $normalized = strtolower($path);
 
     return preg_match('#\A(\.git|\.github|node_modules|vendor|tests|scripts|test-results|playwright-report|coverage|dist|releases)(/|\z)#', $normalized) === 1
+        || RuntimePathFilter::excludes($path)
         || ($normalized !== '.env.example' && preg_match('/\A\.env(?:\.|\z)/', $normalized) === 1)
         || (str_starts_with($normalized, 'docs/') && ! str_starts_with($normalized, 'docs/deployment/'))
         || in_array($normalized, [

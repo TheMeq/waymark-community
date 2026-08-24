@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Waymark\Release;
 
+require_once __DIR__.'/RuntimePathFilter.php';
+
 use FilesystemIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -114,11 +116,10 @@ final class ReleaseArchiveBuilder
     private function forbidden(string $path): bool
     {
         $normalized = strtolower($path);
-        $placeholder = str_ends_with($normalized, '/.gitignore');
 
         return ($normalized !== '.env.example' && preg_match('/\A\.env(?:\.|\z)/', $normalized) === 1)
             || preg_match('#(^|/)(\.git|node_modules|tests|test-results|playwright-report|coverage)(/|$)#', $normalized) === 1
-            || (! $placeholder && preg_match('#\Astorage/(app/(backups|uploads|private)|framework/(cache|sessions|views)|logs)/#', $normalized) === 1)
+            || RuntimePathFilter::excludes($path)
             || preg_match('#\Adatabase/.+\.sqlite(?:3)?$#', $normalized) === 1
             || in_array($normalized, ['phpunit.xml', 'playwright.config.ts', 'playwright.installer.config.ts', 'release-manifest.json'], true);
     }
