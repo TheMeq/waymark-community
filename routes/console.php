@@ -6,6 +6,8 @@ use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Communication\Actions\SendDueNewsletters;
 use App\Domain\Gallery\Actions\ProcessDeferredCommunityPhotos;
 use App\Domain\Governance\Actions\SendDocumentReviewReminders;
+use App\Domain\Operations\Scheduling\Contracts\FallbackRunner;
+use App\Domain\Operations\Scheduling\SchedulerHeartbeat;
 use App\Models\User;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -45,9 +47,22 @@ Artisan::command('governance:send-document-review-reminders', function (SendDocu
     $this->info((string) $reminders->handle().' document review reminder(s) sent.');
 })->purpose('Send selected document review reminders without a permanent worker');
 
+Artisan::command('waymark:scheduler-heartbeat', function (SchedulerHeartbeat $heartbeat): void {
+    $heartbeat->recordCronRun();
+    $this->info('Waymark scheduler heartbeat recorded.');
+})->purpose('Record that the shared-hosting cron scheduler is running');
+
+Artisan::command('waymark:run-fallback', function (FallbackRunner $fallback): void {
+    $result = $fallback->handle('manual');
+    $this->info($result->ran
+        ? 'Bounded non-critical fallback work ran. This does not provide scheduled guarantees.'
+        : 'Fallback work was not needed. Manual fallback does not provide scheduled guarantees.');
+})->purpose('Run bounded non-critical work when cron is unavailable');
+
 Schedule::command('gallery:process-deferred-photos --limit=25')
     ->everyMinute()
     ->withoutOverlapping(max(1, min(59, (int) config('gallery.deferred.schedule_lock_minutes', 5))));
 
 Schedule::command('communications:send-due-newsletters')->hourly()->withoutOverlapping();
 Schedule::command('governance:send-document-review-reminders')->dailyAt('08:00')->withoutOverlapping();
+Schedule::command('waymark:scheduler-heartbeat')->everyMinute()->withoutOverlapping();

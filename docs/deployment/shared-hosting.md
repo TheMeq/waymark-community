@@ -55,6 +55,12 @@ If the host cannot configure an environment variable, edit only the deployed `pu
 
 Before installation can finish, the setup wizard checks that the detected document root does not contain the application or `.env`, and that production debug output is disabled. Treat a warning that the configured and detected public paths differ as a prompt to verify the split layout in the file manager.
 
+## Scheduler and cron
+
+Cron is strongly preferred. Configure the hosting control panel to run the release package's PHP executable and `artisan schedule:run` once per minute from the private application root. The scheduler writes a private heartbeat so Waymark can distinguish a working cron entry from one that has never run or has become stale.
+
+When cron is unavailable, Waymark may run at most one deferred-photo job and one personal-data-export job from a throttled safe request or the manual `waymark:run-fallback` command. This keeps non-critical work moving on a limited host, but it does not make newsletters or reminders timely and it does not claim that work will happen when nobody visits the site. Scheduled communications retain their explicit manual commands until cron is configured.
+
 ## Release artifact
 
 Normal administrators install a prebuilt Shared Hosting Release ZIP with production PHP dependencies and compiled frontend assets already present.

@@ -36,6 +36,11 @@ use App\Domain\Operations\Installation\InstallationState;
 use App\Domain\Operations\Installation\PdoDatabaseConnectionTester;
 use App\Domain\Operations\Installation\SymfonyMailConnectionTester;
 use App\Domain\Operations\Models\SiteProfile;
+use App\Domain\Operations\Scheduling\Contracts\FallbackRunner;
+use App\Domain\Operations\Scheduling\Contracts\FallbackWorkload;
+use App\Domain\Operations\Scheduling\RunFallbackWork;
+use App\Domain\Operations\Scheduling\SchedulerHeartbeat;
+use App\Domain\Operations\Scheduling\WaymarkFallbackWorkload;
 use App\Domain\Walks\RelatedContent\RelatedWalks;
 use App\Domain\Walks\RelatedContent\SignalRelatedWalks;
 use App\Http\Middleware\RequireSensitiveActionAssurance;
@@ -69,6 +74,17 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(DatabaseConnectionTester::class, PdoDatabaseConnectionTester::class);
         $this->app->bind(MailConnectionTester::class, SymfonyMailConnectionTester::class);
         $this->app->bind(EnvironmentWriter::class, EnvironmentFileWriter::class);
+        $this->app->bind(FallbackWorkload::class, WaymarkFallbackWorkload::class);
+        $this->app->singleton(SchedulerHeartbeat::class, fn (): SchedulerHeartbeat => new SchedulerHeartbeat(
+            (string) config('waymark.scheduler.heartbeat_path'),
+            (int) config('waymark.scheduler.stale_after_minutes'),
+        ));
+        $this->app->singleton(FallbackRunner::class, fn (): FallbackRunner => new RunFallbackWork(
+            app(SchedulerHeartbeat::class),
+            app(FallbackWorkload::class),
+            (string) config('waymark.scheduler.fallback_state_path'),
+            (int) config('waymark.scheduler.fallback_cooldown_minutes'),
+        ));
         $this->app->bind(RelatedWalks::class, SignalRelatedWalks::class);
         $this->app->bind(ImageMetadataReader::class, PhpExifImageMetadataReader::class);
         $this->app->bind(RasterImageTransformer::class, GdRasterImageTransformer::class);

@@ -7,6 +7,7 @@ use App\Http\Middleware\RequireSensitiveActionAssurance;
 use App\Http\Middleware\RequireSensitivePasswordConfirmation;
 use App\Http\Middleware\RequireWaymarkInstallation;
 use App\Http\Middleware\ResolvePublicRedirects;
+use App\Http\Middleware\TriggerNonCriticalFallback;
 use App\Http\Responses\PublicNotFoundResponse;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
@@ -23,7 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend([RequireWaymarkInstallation::class, ResolvePublicRedirects::class]);
-        $middleware->web(append: [CaptureCampaignParameters::class, RecordAccountActivity::class, RequireActiveAccount::class]);
+        $middleware->web(append: [CaptureCampaignParameters::class, RecordAccountActivity::class, RequireActiveAccount::class, TriggerNonCriticalFallback::class]);
         $middleware->alias([
             'sensitive.confirmed' => RequireSensitiveActionAssurance::class,
             'sensitive.password-confirmed' => RequireSensitivePasswordConfirmation::class,
