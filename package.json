@@ -9,6 +9,7 @@
         "test:tooling": "node --test tests/tooling/*.test.mjs",
         "test:performance": "node scripts/check-performance-budgets.mjs",
         "test:e2e": "playwright test --pass-with-no-tests",
+        "test:e2e:release": "playwright test --config=playwright.release.config.ts",
         "test:e2e:installer": "playwright test --config=playwright.installer.config.ts",
         "test:clean-install": "node tests/tooling/phase9-clean-install.mjs",
         "test:release-install": "node tests/tooling/phase10-release-clean-install.mjs"
