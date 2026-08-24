@@ -6,10 +6,13 @@ use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Domain\Operations\Maintenance\MaintenanceManager;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Updates\Actions\ApplyUpdate;
+use App\Domain\Operations\Updates\Actions\FinalizeUpdate;
 use App\Domain\Operations\Updates\Contracts\ReleasePackageDownloader;
 use App\Domain\Operations\Updates\Contracts\UpdateEnvironmentProbe;
 use App\Domain\Operations\Updates\Contracts\UpdateRuntime;
 use App\Domain\Operations\Updates\UpdateEnvironment;
+use App\Domain\Operations\Updates\UpdateRuntimeBoundary;
+use App\Domain\Operations\Updates\UpdateStateStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -91,18 +94,37 @@ final class UpdateOrchestrationTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_verified_compatible_update_always_backs_up_then_applies_and_reopens(): void
+    public function test_verified_compatible_update_stops_after_file_activation_for_a_fresh_runtime_request(): void
     {
         SiteProfile::query()->create(['group_name' => 'Update Test Group']);
+        $runtime = new class implements UpdateRuntime
+        {
+            public bool $called = false;
+
+            public function activate(string $version, string $applicationRoot): void
+            {
+                $this->called = true;
+            }
+        };
+        $this->app->instance(UpdateRuntime::class, $runtime);
 
         $result = app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
 
         $this->assertSame('1.2.0', $result->version);
+        $this->assertNotSame('', $result->activationToken);
+        $this->assertFalse($runtime->called, 'The old in-memory runtime must not activate the new release.');
         $this->assertSame('new-marker', file_get_contents($this->applicationRoot.DIRECTORY_SEPARATOR.'app-marker.txt'));
         $this->assertSame('new-feature', file_get_contents($this->applicationRoot.DIRECTORY_SEPARATOR.'new'.DIRECTORY_SEPARATOR.'feature.php'));
         $this->assertFileDoesNotExist($this->applicationRoot.DIRECTORY_SEPARATOR.'obsolete.txt');
         $this->assertDatabaseHas('backup_runs', ['trigger' => 'pre-update', 'status' => 'completed']);
-        $this->assertFalse(app(MaintenanceManager::class)->active());
+        $this->assertTrue(app(MaintenanceManager::class)->active());
+
+        $state = app(UpdateStateStore::class)->read();
+        $this->assertSame('pending_activation', $state['status']);
+        $this->assertSame(hash('sha256', $result->activationToken), $state['activation_token_hash']);
+        $this->assertDirectoryExists($state['operation_directory']);
+        $this->assertDirectoryExists($state['rollback_directory']);
+        $this->assertSame(BackupRun::query()->where('trigger', 'pre-update')->sole()->id, $state['backup_id']);
     }
 
     public function test_controlled_migration_failure_rolls_back_files_database_and_keeps_maintenance_active(): void
@@ -118,8 +140,12 @@ final class UpdateOrchestrationTest extends TestCase
             }
         });
 
+        $pending = app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+        $state = app(UpdateStateStore::class)->read();
+        $this->app->forgetInstance(UpdateRuntimeBoundary::class);
+
         try {
-            app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+            app(FinalizeUpdate::class)->handle($pending->activationToken);
             $this->fail('The controlled update failure unexpectedly succeeded.');
         } catch (RuntimeException $exception) {
             $this->assertStringContainsString('rolled back', $exception->getMessage());
@@ -132,6 +158,8 @@ final class UpdateOrchestrationTest extends TestCase
         Storage::disk('local')->assertExists('documents/policy.pdf');
         $this->assertTrue(app(MaintenanceManager::class)->active());
         $this->assertSame(0, BackupRun::query()->where('status', 'completed')->count(), 'Database restore returns to the pre-backup audit state.');
+        $this->assertDirectoryExists($state['rollback_directory']);
+        $this->assertSame('update_failed', app(UpdateStateStore::class)->read()['status']);
     }
 
     public function test_inexact_confirmation_stops_before_download_or_backup(): void
@@ -210,14 +238,62 @@ final class UpdateOrchestrationTest extends TestCase
             }
         });
 
+        $pending = app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+        $this->app->forgetInstance(UpdateRuntimeBoundary::class);
+
         try {
-            app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+            app(FinalizeUpdate::class)->handle($pending->activationToken);
             $this->fail('The failed health check unexpectedly reopened the site.');
         } catch (RuntimeException $exception) {
             $this->assertStringContainsString('rolled back', $exception->getMessage());
         }
 
         $this->assertSame('old-marker', file_get_contents($this->applicationRoot.DIRECTORY_SEPARATOR.'app-marker.txt'));
+        $this->assertTrue(app(MaintenanceManager::class)->active());
+    }
+
+    public function test_fresh_runtime_activation_marks_installed_cleans_rollback_and_reopens(): void
+    {
+        SiteProfile::query()->create(['group_name' => 'Before Activation']);
+        $runtime = new class implements UpdateRuntime
+        {
+            public bool $called = false;
+
+            public function activate(string $version, string $applicationRoot): void
+            {
+                $this->called = true;
+                SiteProfile::query()->update(['group_name' => 'Activated '.$version]);
+            }
+        };
+        $this->app->instance(UpdateRuntime::class, $runtime);
+        $pending = app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+        $pendingState = app(UpdateStateStore::class)->read();
+        $this->app->forgetInstance(UpdateRuntimeBoundary::class);
+
+        $result = app(FinalizeUpdate::class)->handle($pending->activationToken);
+
+        $this->assertTrue($runtime->called);
+        $this->assertSame('1.2.0', $result->version);
+        $this->assertSame('Activated 1.2.0', SiteProfile::query()->sole()->group_name);
+        $this->assertSame('installed', app(UpdateStateStore::class)->read()['status']);
+        $this->assertDirectoryDoesNotExist($pendingState['operation_directory']);
+        $this->assertFalse(app(MaintenanceManager::class)->active());
+    }
+
+    public function test_activation_refuses_the_runtime_that_started_the_update_without_consuming_pending_state(): void
+    {
+        SiteProfile::query()->create(['group_name' => 'Runtime Boundary']);
+        $pending = app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+
+        try {
+            app(FinalizeUpdate::class)->handle($pending->activationToken);
+            $this->fail('The initiating runtime unexpectedly activated its own replacement.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('fresh PHP request', $exception->getMessage());
+        }
+
+        $this->assertSame('pending_activation', app(UpdateStateStore::class)->read()['status']);
+        $this->assertSame('new-marker', file_get_contents($this->applicationRoot.DIRECTORY_SEPARATOR.'app-marker.txt'));
         $this->assertTrue(app(MaintenanceManager::class)->active());
     }
 

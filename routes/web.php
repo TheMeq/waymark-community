@@ -48,6 +48,7 @@ use App\Http\Controllers\SensitiveTwoFactorConfirmationController;
 use App\Http\Controllers\SetupController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\SiteMediaStreamController;
+use App\Http\Controllers\UpdateActivationController;
 use App\Http\Controllers\UpdateInstallationController;
 use App\Http\Controllers\WalkGradingGuideController;
 use App\Http\Controllers\WhatsOnCalendarController;
@@ -73,6 +74,8 @@ Route::post('/recovery', [RecoveryController::class, 'restore'])
     ->middleware('throttle:recovery')
     ->withoutMiddleware([CaptureCampaignParameters::class, RecordAccountActivity::class, RequireActiveAccount::class, TriggerNonCriticalFallback::class])
     ->name('recovery.restore');
+Route::get('/updates/activate', [UpdateActivationController::class, 'show'])->name('updates.activate.show');
+Route::post('/updates/activate', [UpdateActivationController::class, 'store'])->middleware('throttle:recovery')->name('updates.activate.store');
 Route::get('/', HomeController::class)->name('home');
 Route::get('/manifest.webmanifest', [PwaController::class, 'manifest'])->name('pwa.manifest');
 Route::get('/service-worker.js', [PwaController::class, 'serviceWorker'])->name('pwa.service-worker');

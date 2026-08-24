@@ -10,12 +10,22 @@ final class PreparedApplicationUpdate
     public function __construct(
         private readonly string $applicationRoot,
         private readonly string $rollbackDirectory,
-        private readonly VerifiedReleasePackage $release,
+        private readonly ?VerifiedReleasePackage $release,
         private readonly array $records,
     ) {}
 
+    /** @param list<array{path: string, existed: bool, permissions: int|null}> $records */
+    public static function resumeRollback(string $applicationRoot, string $rollbackDirectory, array $records): self
+    {
+        return new self($applicationRoot, $rollbackDirectory, null, $records);
+    }
+
     public function apply(): void
     {
+        if (! $this->release instanceof VerifiedReleasePackage) {
+            throw new RuntimeException('A rollback-only update transaction cannot apply release files.');
+        }
+
         foreach ($this->release->files as $path) {
             $source = $this->release->applicationPath($path);
             $target = $this->target($path);
@@ -80,6 +90,12 @@ final class PreparedApplicationUpdate
             $item->isDir() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
         }
         @rmdir($this->rollbackDirectory);
+    }
+
+    /** @return list<array{path: string, existed: bool, permissions: int|null}> */
+    public function rollbackRecords(): array
+    {
+        return $this->records;
     }
 
     private function target(string $path): string

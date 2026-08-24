@@ -15,6 +15,19 @@ final class UpdateStateStore
         return is_array($state) && ($state['format'] ?? null) === 1 ? $state : null;
     }
 
+    /** @return array<string, mixed>|null */
+    public function authorisedPending(string $token): ?array
+    {
+        $state = $this->read();
+        if (! is_array($state) || ($state['status'] ?? null) !== 'pending_activation'
+            || ! is_string($state['activation_token_hash'] ?? null)
+            || ! hash_equals($state['activation_token_hash'], hash('sha256', $token))) {
+            return null;
+        }
+
+        return $state;
+    }
+
     /** @param array<string, mixed> $state */
     public function write(array $state): void
     {

@@ -9,8 +9,8 @@ use App\Domain\Operations\Maintenance\MaintenanceManager;
 use App\Domain\Operations\Updates\ApplicationFileTransaction;
 use App\Domain\Operations\Updates\AppliedUpdate;
 use App\Domain\Operations\Updates\Contracts\ReleasePackageDownloader;
-use App\Domain\Operations\Updates\Contracts\UpdateRuntime;
 use App\Domain\Operations\Updates\ReleasePackageVerifier;
+use App\Domain\Operations\Updates\UpdateRuntimeBoundary;
 use App\Domain\Operations\Updates\UpdateStateStore;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -27,10 +27,10 @@ final readonly class ApplyUpdate
         private CreateBackup $backups,
         private ApplicationFileTransaction $files,
         private MaintenanceManager $maintenance,
-        private UpdateRuntime $runtime,
         private RestoreBackup $restore,
         private UpdateStateStore $state,
         private DestructiveOperationLock $operations,
+        private UpdateRuntimeBoundary $runtimeBoundary,
     ) {}
 
     public function handle(string $confirmation): AppliedUpdate
@@ -61,6 +61,7 @@ final readonly class ApplyUpdate
 
         $release = null;
         $transaction = null;
+        $pendingActivation = false;
         try {
             $packagePath = $operationDirectory.DIRECTORY_SEPARATOR.'release.zip';
             $this->downloader->download($check->metadata->packageUrl, $packagePath);
@@ -71,10 +72,27 @@ final readonly class ApplyUpdate
             $transaction = $this->files->prepare($release, $applicationRoot, $operationDirectory.DIRECTORY_SEPARATOR.'file-rollback');
 
             try {
-                $this->maintenance->run(function () use ($transaction, $check, $applicationRoot): void {
-                    $transaction->apply();
-                    $this->runtime->activate($check->metadata->version, $applicationRoot);
-                }, 'Waymark is applying a verified update.');
+                $maintenanceWasActive = $this->maintenance->active();
+                if (! $maintenanceWasActive) {
+                    $this->maintenance->enable('Waymark is applying a verified update.');
+                }
+                $transaction->apply();
+                $activationToken = bin2hex(random_bytes(32));
+                $this->state->write([
+                    'status' => 'pending_activation',
+                    'checked_at' => now('UTC')->toIso8601String(),
+                    'pending_version' => $check->metadata->version,
+                    'activation_token_hash' => hash('sha256', $activationToken),
+                    'application_root' => $applicationRoot,
+                    'operation_directory' => $operationDirectory,
+                    'rollback_directory' => $operationDirectory.DIRECTORY_SEPARATOR.'file-rollback',
+                    'rollback_records' => $transaction->rollbackRecords(),
+                    'backup_id' => $backup->id,
+                    'maintenance_was_active' => $maintenanceWasActive,
+                    'initiating_runtime_id' => $this->runtimeBoundary->id,
+                    'message' => 'The verified release files are active and awaiting fresh-runtime activation.',
+                ]);
+                $pendingActivation = true;
             } catch (Throwable $activationFailure) {
                 $rollbackComplete = true;
                 try {
@@ -97,18 +115,13 @@ final readonly class ApplyUpdate
                     : 'The update failed and automatic rollback was incomplete. Maintenance mode remains active; use disaster recovery.', previous: $activationFailure);
             }
 
-            $this->state->write([
-                'status' => 'installed',
-                'checked_at' => now('UTC')->toIso8601String(),
-                'installed_version' => $check->metadata->version,
-                'message' => 'The verified stable release was installed successfully.',
-            ]);
-
-            return new AppliedUpdate($check->metadata->version);
+            return new AppliedUpdate($check->metadata->version, $activationToken);
         } finally {
-            $transaction?->cleanup();
-            $release?->cleanup();
-            $this->cleanDirectory($operationDirectory);
+            if (! $pendingActivation) {
+                $transaction?->cleanup();
+                $release?->cleanup();
+                $this->cleanDirectory($operationDirectory);
+            }
         }
     }
 

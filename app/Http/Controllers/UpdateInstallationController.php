@@ -30,7 +30,7 @@ final readonly class UpdateInstallationController
         try {
             $result = $this->updates->handle($validated['confirmation']);
 
-            return redirect('/admin/update-centre')->with('status', 'Waymark Community '.$result->version.' was installed successfully.');
+            return redirect('/updates/activate?token='.rawurlencode($result->activationToken));
         } catch (Throwable $exception) {
             report($exception);
 
