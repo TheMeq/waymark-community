@@ -4,7 +4,7 @@ Waymark Community starts from Laravel 13 on PHP 8.3 or newer. PHP 8.3 is the min
 
 Composer resolves dependencies against `config.platform.php` set to `8.3.0`. This keeps `composer.lock` installable on the minimum supported runtime even when `composer update` is run from a PHP 8.4 or newer development machine. Do not remove or raise this platform target without an approved runtime-baseline change. After any dependency update, run `composer validate --strict`, `composer prohibits php 8.3.0 --locked`, and a clean `composer install` plus the backend suite under an actual PHP 8.3 CLI.
 
-The initial Phase 1 lockfiles resolve the approved major versions to:
+The v1 lockfiles resolve the approved major versions to:
 
 | Dependency | Locked version | Purpose |
 | --- | ---: | --- |
@@ -17,4 +17,4 @@ The initial Phase 1 lockfiles resolve the approved major versions to:
 
 Filament plugins are intentionally excluded from the foundation. Filament's design system is confined to admin routes and must not define the public frontend.
 
-`composer.lock` and `package-lock.json` are authoritative for exact transitive versions. Composer, Node.js, npm, frontend source packages, and developer test tools are required to build and verify source, but the future shared-hosting release archive must contain production Composer dependencies and compiled assets so none of those tools are required on the destination host.
+`composer.lock` and `package-lock.json` are authoritative for exact transitive versions. Composer, Node.js, npm, frontend source packages, and developer test tools are required to build and verify source. The generated Shared Hosting Release ZIP contains production Composer dependencies and compiled assets, so none of those tools are required on the destination host.

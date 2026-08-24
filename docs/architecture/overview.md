@@ -25,12 +25,12 @@ Laravel application
 
 Use domain-oriented organisation where complexity warrants it without forcing ceremonial DDD. Core business behaviour must be reusable independently from a specific HTTP controller so a future API can call the same operations.
 
-Suggested major boundaries:
+Established v1 boundaries:
 
-- Events
-- Gallery
-- Membership/Identity
-- Content
+- Accounts and Membership
+- Communication and Content
+- Events, Walks, Socials and Holidays
+- Gallery and SiteMedia
 - Governance
 - Operations
 

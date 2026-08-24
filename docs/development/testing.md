@@ -25,7 +25,7 @@ The release-level manual accessibility pass is documented in [`accessibility-acc
 
 Public transfer and rendering budgets are defined in [`performance-budgets.md`](performance-budgets.md) and enforced with `npm run test:performance`.
 
-## Phase 1 commands
+## Core commands
 
 From the repository root:
 
@@ -39,7 +39,7 @@ npm run test:e2e
 
 `composer test` runs the backend feature, unit, and architecture suites. `composer verify:repository` checks the required foundation files, forbidden tracked runtime/generated paths, and ignore rules. The repository verifier can also be run directly as `./scripts/verify-repository.sh` on Unix-like systems or `./scripts/Verify-Repository.ps1` in PowerShell.
 
-`npm run test:e2e` is intentionally allowed to pass with no browser tests during Phase 1. Browser journeys and visual baselines are added only in their approved phases. Playwright and its browsers remain developer/release dependencies and are not installed on production hosts.
+`npm run test:e2e` runs the full Chromium responsive/browser suite. Release verification also runs `npm run test:e2e:release`, `npm run test:e2e:staging`, `npm run test:e2e:installer`, `npm run test:pwa`, `npm run test:tooling`, `npm run test:performance`, and ZIP-only install/upgrade commands documented in the release guides. Playwright and its browsers remain developer/release dependencies and are not installed on production hosts.
 
 ## Database matrix
 

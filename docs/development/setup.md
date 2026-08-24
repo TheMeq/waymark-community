@@ -1,14 +1,14 @@
 # Developer Setup
 
-These steps reproduce the Phase 1 developer environment from a clean source clone. They install developer/release tooling only; production shared-hosting releases will contain compiled assets and production Composer dependencies.
+These steps reproduce the v1 developer environment from a clean source clone. They install developer/release tooling only; production Shared Hosting Release ZIPs contain compiled assets and production Composer dependencies.
 
 ## Prerequisites
 
 - Git 2.x.
 - PHP 8.3 or 8.4 with `ctype`, `curl`, `dom`, `exif`, `fileinfo`, `filter`, `gd`, `hash`, `intl`, `json`, `mbstring`, `openssl`, `pdo`, `pdo_mysql`, `session`, `tokenizer`, `xml`, and `zip` enabled. SQLite extensions are useful for the default fast test suite.
 - Composer 2.x.
-- Node.js 24.x and npm 11.x for the locked Phase 1 frontend toolchain.
-- MySQL or MariaDB for MySQL-compatible development and matrix checks. CI covers MySQL 8.4 and MariaDB 11.4; the Phase 1 local gate was also exercised on MariaDB 12.3.
+- Node.js 24.x and npm 11.x for the locked frontend/release toolchain.
+- MySQL 8.4 and MariaDB 11.4 for the official database matrix.
 
 Production hosts do not require Git, Composer, Node.js, npm, SQLite, Playwright, or developer tests.
 
@@ -96,9 +96,9 @@ npm run test:e2e
 php artisan serve
 ```
 
-The default backend suite uses in-memory SQLite for fast feedback. CI and the documented process-environment override in `testing.md` exercise the same suite against MySQL/MariaDB. `npm run test:e2e` has no browser journeys in Phase 1 and succeeds without installing browser binaries; later approved phases add browser and visual tests.
+The default backend suite uses in-memory SQLite for fast feedback. CI and the documented process-environment override in `testing.md` exercise the same suite against MySQL/MariaDB. Install Playwright's Chromium, Firefox and WebKit engines before running the full browser/release matrices.
 
-Open the local URL printed by Artisan. The public root remains the Laravel scaffold placeholder until the approved Phase 2 visual implementation. Filament's admin panel is at `/admin` and is available only to explicitly authorised, active users.
+Open the local URL printed by Artisan. Complete `/setup` against a disposable local database or seed the documented browser fixtures for deterministic development content. Filament's admin panel is at `/admin` and is available only to explicitly authorised, active users.
 
 ## Windows PHP note
 

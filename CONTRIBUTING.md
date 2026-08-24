@@ -1,17 +1,33 @@
-# Contributing — Waymark Community
+# Contributing to Waymark Community
 
-This project is specification-led. Before proposing code changes, read `AGENTS.md`, the design specification, and relevant architecture/design documents.
+Read `AGENTS.md`, the approved specification, master roadmap and relevant phase/review instruction before changing code. A review correction supplied at an acceptance gate is already approved; keep it bounded and implement it directly.
 
-## Expectations
+## Changes
 
-- Keep scope aligned with the approved v1 specification.
-- Record out-of-scope ideas in the backlog rather than quietly expanding implementation.
-- Keep repository structure predictable.
-- Add or update automated tests for behaviour changes.
-- Maintain WCAG 2.2 AA intent and shared-host compatibility.
-- Preserve public visual fidelity to the approved design system.
-- Never commit secrets, runtime user data, or generated release artifacts.
+- Keep scope within approved v1. Put optional future ideas in `docs/backlog/`.
+- Use test-driven development for behaviour: first prove the missing behaviour, then make the smallest complete change.
+- Keep controllers thin, domain logic out of Blade and public presentation independent from Filament.
+- Preserve PHP 8.3, MySQL/MariaDB, shared-hosting, accessibility and approved visual contracts.
+- Make focused commits with one reviewable responsibility. Do not mix formatting, dependency upgrades or unrelated cleanup.
+- Never commit secrets, real member data/media, runtime state, dependencies, generated reports or release archives.
 
-## Change size
+## Before committing
 
-Prefer small, reviewable changes with one clear responsibility. Large feature branches should be decomposed according to the implementation plan.
+Run the narrow tests first, format changed PHP with Pint, and check `git diff --check`. For a release-affecting change also run:
+
+```shell
+composer validate --strict
+composer prohibits php 8.3.0 --locked
+composer test
+composer verify:repository
+npm ci
+npm run build
+npm run test:pwa
+npm run test:tooling
+```
+
+Run the relevant Playwright, database and package matrices described in `docs/development/testing.md`. Never update a visual baseline until the rendering has been inspected against the approved concept.
+
+## Review and commits
+
+Use imperative commit subjects and keep generated evidence out of Git unless it is an approved visual baseline. Summarise changed behaviour, tests and deliberate deviations. Stop at every specified acceptance gate; do not merge, tag, publish or begin a later phase without its independent approval.

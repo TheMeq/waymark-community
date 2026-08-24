@@ -11,6 +11,18 @@ Shared hosting is an official target, not a fallback.
 - SMTP or PHP mail fallback;
 - optional cron.
 
+PHP must provide `ctype`, `curl`, `dom`, `exif`, `fileinfo`, `filter`, `gd`, `hash`, `intl`, `json`, `mbstring`, `openssl`, `pdo`, `pdo_mysql`, `session`, `tokenizer`, `xml` and `zip`.
+
+## Install from the release ZIP
+
+1. Verify the downloaded ZIP against its adjacent SHA-256 and retain both files.
+2. Extract the ZIP and move the contents of `application/` into the private application directory; do not deploy from a source checkout.
+3. Choose one of the document-root layouts below, make `storage/` and `bootstrap/cache/` writable, and create an empty MySQL/MariaDB database with a least-privilege account.
+4. Visit `/setup`. The installer checks PHP/extensions, paths, sensitive-file exposure, database and mail, writes the private environment, runs migrations and creates the installation owner.
+5. Remove or protect the downloaded archive, sign in, confirm setup is locked, configure cron, and complete homepage/admin/media/email/System-health smoke checks.
+
+Never copy an existing `.env` between hosts. Use new secrets and database credentials, and keep the recovery token in the group's password manager.
+
 ## Not required on destination
 
 - Node.js

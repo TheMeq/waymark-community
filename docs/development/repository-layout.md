@@ -2,17 +2,23 @@
 
 Repository organisation is part of maintainability.
 
-The implementation plan will scaffold Laravel and lock exact paths, but the intended direction is:
+The v1 repository uses this conventional Laravel/domain layout:
 
 ```text
 app/
   Domain/
+    Accounts/
+    Communication/
+    Content/
     Events/
     Gallery/
-    Membership/
-    Content/
     Governance/
+    Holidays/
+    Membership/
     Operations/
+    SiteMedia/
+    Socials/
+    Walks/
   Http/
   Providers/
   Support/
@@ -35,7 +41,7 @@ scripts/
 ## Rules
 
 - Prefer conventional Laravel locations unless a real domain boundary improves discoverability.
-- Product-domain code belongs under `App\Domain\<Domain>` using one of the approved roots: `Events`, `Gallery`, `Membership`, `Content`, `Governance`, or `Operations`.
+- Product-domain code belongs under an established `App\Domain\<Domain>` root; do not create a new top-level boundary for a single class.
 - HTTP controllers, requests, and middleware remain under `App\Http` and coordinate delivery rather than owning domain rules.
 - Narrowly defined cross-cutting application code may use `App\Support`; it is not a general-purpose dumping ground.
 - Do not create top-level folders casually.
