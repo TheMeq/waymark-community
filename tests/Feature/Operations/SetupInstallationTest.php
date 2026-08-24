@@ -72,6 +72,7 @@ final class SetupInstallationTest extends TestCase
         $this->assertSame('waymark-backups', $environmentWriter->received['AWS_BUCKET']);
         $this->assertSame('backup-key', $environmentWriter->received['AWS_ACCESS_KEY_ID']);
         $this->assertSame('backup-secret', $environmentWriter->received['AWS_SECRET_ACCESS_KEY']);
+        $this->assertSame('waymark-community-session', $environmentWriter->received['SESSION_COOKIE']);
         $this->assertSame(hash('sha256', 'Correct-Horse-Battery-Recovery-9!'), $environmentWriter->received['WAYMARK_RECOVERY_TOKEN_HASH']);
         $this->assertSame(base64_encode('public-key-fixture'), $environmentWriter->received['WAYMARK_RELEASE_PUBLIC_KEY_BASE64']);
 

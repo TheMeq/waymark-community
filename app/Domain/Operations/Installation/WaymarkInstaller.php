@@ -99,6 +99,7 @@ final readonly class WaymarkInstaller
             'DB_USERNAME' => (string) $database['username'],
             'DB_PASSWORD' => (string) $database['password'],
             'SESSION_DRIVER' => 'file',
+            'SESSION_COOKIE' => 'waymark-community-session',
             'CACHE_STORE' => 'file',
             'QUEUE_CONNECTION' => 'database',
             'MAIL_MAILER' => 'smtp',
