@@ -3,6 +3,7 @@
 namespace Tests\Feature\Quality;
 
 use App\Domain\Accounts\Enums\AccountRole;
+use App\Domain\Operations\Environment\StagingEnvironmentGuard;
 use App\Domain\Operations\Models\AnalyticsSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -63,5 +64,28 @@ final class StagingSafeguardsTest extends TestCase
         $this->get('/sitemap.xml')->assertOk();
         $this->get('/robots.txt')->assertOk()->assertSee('Sitemap: '.url('/sitemap.xml'));
         $this->actingAs($administrator)->get('/admin')->assertOk()->assertDontSee('data-waymark-staging-banner', false);
+    }
+
+    public function test_staging_forces_external_email_into_the_local_log_trap(): void
+    {
+        config()->set('waymark.staging', true);
+        config()->set('mail.default', 'smtp');
+
+        app(StagingEnvironmentGuard::class)->apply();
+
+        $this->assertSame('log', config('mail.default'));
+    }
+
+    public function test_staging_preserves_an_explicit_array_mail_trap_and_production_mail(): void
+    {
+        config()->set('waymark.staging', true);
+        config()->set('mail.default', 'array');
+        app(StagingEnvironmentGuard::class)->apply();
+        $this->assertSame('array', config('mail.default'));
+
+        config()->set('waymark.staging', false);
+        config()->set('mail.default', 'smtp');
+        app(StagingEnvironmentGuard::class)->apply();
+        $this->assertSame('smtp', config('mail.default'));
     }
 }

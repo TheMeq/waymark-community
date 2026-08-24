@@ -31,6 +31,7 @@ use App\Domain\Operations\Backups\Contracts\BackupCapacityProbe;
 use App\Domain\Operations\Backups\Contracts\RestoreHealthProbe;
 use App\Domain\Operations\Backups\NativeBackupCapacityProbe;
 use App\Domain\Operations\Backups\NativeRestoreHealthProbe;
+use App\Domain\Operations\Environment\StagingEnvironmentGuard;
 use App\Domain\Operations\Environment\StagingMode;
 use App\Domain\Operations\Installation\Contracts\DatabaseConnectionTester;
 use App\Domain\Operations\Installation\Contracts\EnvironmentWriter;
@@ -116,6 +117,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        app(StagingEnvironmentGuard::class)->apply();
         EncryptCookies::except([MaintenanceManager::BYPASS_COOKIE]);
         foreach ([CmsPage::class, NewsArticle::class, Event::class, SpecialAlbum::class, Document::class] as $model) {
             $model::observe(PublicSlugRedirectObserver::class);
