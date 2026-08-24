@@ -37,7 +37,7 @@ $plan = [
         'composer prohibits php 8.3',
         'composer verify:repository',
         'composer audit:v1',
-        'php artisan test',
+        'php -d memory_limit=512M vendor/bin/phpunit',
         'npm run test:pwa',
         'npm run test:tooling',
     ],
