@@ -24,7 +24,7 @@ test('public photo reporting form is usable at every review viewport', async ({ 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
     await page.getByLabel('Reason').selectOption('privacy');
-    await page.getByLabel('Details').fill('Please review this photo.');
+    await page.getByLabel('Details').fill(`Please review this photo (${testInfo.project.name}).`);
     const [response] = await Promise.all([
         page.waitForResponse((candidate) => candidate.request().method() === 'POST' && new URL(candidate.url()).pathname === '/photos/22/report'),
         page.waitForNavigation({ waitUntil: 'load' }),

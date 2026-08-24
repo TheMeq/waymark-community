@@ -3,6 +3,13 @@ import { waitForPageImages } from './support/images';
 
 test('homepage matches the approved responsive visual foundation', async ({ page }, testInfo) => {
     await page.goto('/');
+    const essentialConsent = page.getByRole('button', { name: 'Use essential only' });
+    if (testInfo.project.name !== 'desktop' && await essentialConsent.isVisible()) {
+        await Promise.all([
+            page.waitForNavigation({ waitUntil: 'load' }),
+            essentialConsent.click(),
+        ]);
+    }
     await waitForPageImages(page);
 
     await expect(page).toHaveScreenshot(`homepage-${testInfo.project.name}.png`, {
