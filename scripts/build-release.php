@@ -34,6 +34,7 @@ $plan = [
         'composer validate --strict',
         'composer prohibits php 8.3',
         'composer verify:repository',
+        'composer audit:v1',
         'php artisan test',
         'npm run test:pwa',
         'npm run test:tooling',
@@ -80,6 +81,9 @@ try {
         runCommand($command, $source);
     }
     foreach ($plan['verification'] as $command) {
+        if ($command === 'composer audit:v1' && ! is_file($source.DIRECTORY_SEPARATOR.'scripts'.DIRECTORY_SEPARATOR.'audit-v1-scope.php')) {
+            continue;
+        }
         runCommand($command, $source);
     }
 

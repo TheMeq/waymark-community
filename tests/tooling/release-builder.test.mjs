@@ -21,6 +21,7 @@ test('shared-hosting builder plan uses a clean commit, locked dependencies, full
         'composer validate --strict',
         'composer prohibits php 8.3',
         'composer verify:repository',
+        'composer audit:v1',
         'php artisan test',
         'npm run test:pwa',
         'npm run test:tooling',
