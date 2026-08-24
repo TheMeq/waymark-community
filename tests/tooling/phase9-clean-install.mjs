@@ -37,13 +37,13 @@ if (existsSync(resolve(applicationRoot, '.git')) || existsSync(resolve(applicati
     throw new Error('The release-like tree must start without .git or .env.');
 }
 
-execFileSync('composer', ['install', '--no-interaction', '--prefer-dist'], {
+execFileSync(command('composer'), ['install', '--no-interaction', '--prefer-dist'], {
     cwd: applicationRoot,
     env: process.env,
     stdio: 'inherit',
 });
-execFileSync('npm', ['ci'], { cwd: applicationRoot, env: process.env, stdio: 'inherit' });
-execFileSync('npm', ['run', 'build'], { cwd: applicationRoot, env: process.env, stdio: 'inherit' });
+execFileSync(command('npm'), ['ci'], { cwd: applicationRoot, env: process.env, stdio: 'inherit' });
+execFileSync(command('npm'), ['run', 'build'], { cwd: applicationRoot, env: process.env, stdio: 'inherit' });
 rmSync(resolve(applicationRoot, 'node_modules'), { recursive: true, force: true });
 
 if (existsSync(resolve(applicationRoot, '.env'))) {
@@ -194,6 +194,10 @@ function createSmtpFixture() {
             }
         });
     });
+}
+
+function command(name) {
+    return process.platform === 'win32' ? `${name}.cmd` : name;
 }
 
 async function waitForHttp(url, process, output) {
