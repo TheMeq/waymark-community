@@ -8,7 +8,9 @@
         "test:pwa": "node --test tests/js/service-worker.test.mjs",
         "test:tooling": "node --test tests/tooling/*.test.mjs",
         "test:performance": "node scripts/check-performance-budgets.mjs",
-        "test:e2e": "playwright test --pass-with-no-tests"
+        "test:e2e": "playwright test --pass-with-no-tests",
+        "test:e2e:installer": "playwright test --config=playwright.installer.config.ts",
+        "test:clean-install": "node tests/tooling/phase9-clean-install.mjs"
     },
     "devDependencies": {
         "@axe-core/playwright": "^4.13.0",

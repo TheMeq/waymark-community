@@ -9,7 +9,7 @@
             :root { color-scheme: light; font-family: system-ui, sans-serif; color: #252a24; background: #f5f4ef; }
             * { box-sizing: border-box; }
             body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 1.5rem; }
-            main { width: min(100%, 48rem); padding: clamp(2rem, 6vw, 4rem); border: 1px solid #d9ddd4; border-radius: 1.5rem; background: #fff; box-shadow: 0 1rem 3rem rgb(37 42 36 / 8%); }
+            main { min-width: 0; width: min(100%, 48rem); padding: clamp(2rem, 6vw, 4rem); overflow-wrap: anywhere; border: 1px solid #d9ddd4; border-radius: 1.5rem; background: #fff; box-shadow: 0 1rem 3rem rgb(37 42 36 / 8%); }
             .product { margin: 0; color: #526b3f; font-weight: 750; }
             .progress { margin: 2rem 0 .5rem; color: #677064; font-size: .875rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
             h1 { margin: 0; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1; letter-spacing: -.04em; }
