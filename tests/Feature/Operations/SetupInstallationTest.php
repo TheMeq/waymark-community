@@ -10,6 +10,7 @@ use App\Domain\Operations\Installation\InstallationState;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 final class SetupInstallationTest extends TestCase
@@ -108,6 +109,19 @@ final class SetupInstallationTest extends TestCase
         $this->assertDatabaseCount('site_profiles', 0);
         $this->assertDatabaseCount('users', 0);
         $this->assertFileDoesNotExist($this->markerPath);
+    }
+
+    public function test_install_does_not_use_the_pre_environment_database_cache_configuration(): void
+    {
+        Schema::drop('cache');
+        config()->set('cache.default', 'database');
+
+        $this->withSession($this->completeSetupSession())
+            ->post('/setup/install')
+            ->assertRedirect('/setup/health-check');
+
+        $this->assertDatabaseCount('site_profiles', 1);
+        $this->assertSame('array', config('cache.default'));
     }
 
     public function test_install_cannot_run_with_missing_setup_sections(): void

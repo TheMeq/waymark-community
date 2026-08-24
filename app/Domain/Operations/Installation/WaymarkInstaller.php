@@ -30,6 +30,10 @@ final readonly class WaymarkInstaller
         }
 
         try {
+            // Configuration written during this request is loaded on the next
+            // request. Keep installation side effects independent of any
+            // pre-install database-backed cache configuration.
+            config()->set('cache.default', 'array');
             $this->configureDatabase($data['database']);
             Artisan::call('migrate', ['--force' => true, '--no-interaction' => true]);
 
