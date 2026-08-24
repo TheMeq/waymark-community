@@ -71,6 +71,11 @@ final class SetupController
         }
 
         if ($requestedStep === SetupStep::Install) {
+            if ($this->submitStep->preflight($request)->blocked()) {
+                return redirect($requestedStep->path())
+                    ->withErrors(['hosting' => 'Resolve the blocking server and hosting security checks before installing.']);
+            }
+
             $setupData = $progress->allData();
             $requiredSections = ['database', 'group-details', 'branding', 'first-administrator', 'mail', 'modules', 'advanced'];
 

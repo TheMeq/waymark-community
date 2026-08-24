@@ -16,11 +16,16 @@ final readonly class SubmitSetupStep
         private NativeServerEnvironment $serverEnvironment,
         private DatabaseConnectionTester $databaseConnection,
         private MailConnectionTester $mailConnection,
+        private SharedHostingSecurity $sharedHostingSecurity,
+        private NativeSharedHostingEnvironment $sharedHostingEnvironment,
     ) {}
 
     public function preflight(Request $request): PreflightReport
     {
-        return $this->serverPreflight->inspect($this->serverEnvironment->capture($request));
+        $server = $this->serverPreflight->inspect($this->serverEnvironment->capture($request));
+        $hosting = $this->sharedHostingSecurity->inspect($this->sharedHostingEnvironment->capture($request));
+
+        return new PreflightReport([...$server->checks, ...$hosting->checks]);
     }
 
     public function handle(SetupStep $step, Request $request, SetupProgress $progress): SetupSubmissionResult
