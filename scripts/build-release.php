@@ -29,6 +29,8 @@ $plan = [
     'source' => 'git archive '.$requestedCommit,
     'build' => [
         'composer install --no-interaction --prefer-dist',
+        'php -r "copy(\'.env.example\', \'.env\');"',
+        'php artisan key:generate --force',
         'npm ci',
         'npm run build',
     ],
@@ -204,6 +206,7 @@ function excludedSourcePath(string $path): bool
     $normalized = strtolower($path);
 
     return preg_match('#\A(\.git|\.github|node_modules|vendor|tests|scripts|test-results|playwright-report|coverage|dist|releases)(/|\z)#', $normalized) === 1
+        || ($normalized !== '.env.example' && preg_match('/\A\.env(?:\.|\z)/', $normalized) === 1)
         || (str_starts_with($normalized, 'docs/') && ! str_starts_with($normalized, 'docs/deployment/'))
         || in_array($normalized, [
             '.gitattributes', '.gitignore', 'agents.md', 'start-here-for-codex.md', 'phpunit.xml',
