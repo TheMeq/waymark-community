@@ -57,6 +57,7 @@ test('exact-commit workspace supplies repository verification metadata without p
 
     assert.match(source, /git init --quiet/);
     assert.match(source, /git add --all/);
+    assert.match(source, /git -c user\.name=Waymark -c user\.email=release@waymark\.invalid commit --quiet/);
     assert.match(source, /\\\.git\|\\\.github/);
     assert.match(source, /normalized !== '\.env\.example'/);
     assert.match(source, /RuntimePathFilter::excludes\(\$path\)/);

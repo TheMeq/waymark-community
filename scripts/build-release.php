@@ -86,6 +86,7 @@ try {
     extractArchive($sourceArchive, $source);
     runCommand('git init --quiet', $source);
     runCommand('git add --all', $source);
+    runCommand('git -c user.name=Waymark -c user.email=release@waymark.invalid commit --quiet -m "Exact release source"', $source);
     (new VerificationEnvironment)->prepare($source);
 
     foreach ($plan['build'] as $command) {
