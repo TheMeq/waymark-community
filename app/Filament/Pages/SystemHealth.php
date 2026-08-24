@@ -3,6 +3,9 @@
 namespace App\Filament\Pages;
 
 use App\Domain\Accounts\Enums\ModuleCapability;
+use App\Domain\Operations\Backups\Actions\CreateBackup;
+use App\Domain\Operations\Backups\Actions\PruneBackups;
+use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Domain\Operations\Health\Actions\RecheckMissingMedia;
 use App\Domain\Operations\Health\Actions\ScanMissingMedia;
 use App\Domain\Operations\Health\Models\MissingMediaRepair;
@@ -22,6 +25,8 @@ final class SystemHealth extends Page
     protected static ?string $navigationLabel = 'System health';
 
     protected string $view = 'filament.pages.system-health';
+
+    public string $backupPassphrase = '';
 
     public static function getSlug(?Panel $panel = null): string
     {
@@ -43,6 +48,25 @@ final class SystemHealth extends Page
     public function repairs(): array
     {
         return MissingMediaRepair::query()->where('status', 'queued')->oldest('detected_at')->limit(100)->get()->all();
+    }
+
+    public function backups(): array
+    {
+        return BackupRun::query()->latest('id')->limit(20)->get()->all();
+    }
+
+    public function createBackup(): void
+    {
+        try {
+            $passphrase = trim($this->backupPassphrase);
+            app(CreateBackup::class)->handle('manual', $passphrase === '' ? null : $passphrase);
+            app(PruneBackups::class)->handle();
+            $this->backupPassphrase = '';
+            Notification::make()->title('Backup completed')->success()->send();
+        } catch (\Throwable) {
+            $this->backupPassphrase = '';
+            Notification::make()->title('Backup failed — review system health and try again')->danger()->send();
+        }
     }
 
     public function scanMedia(): void

@@ -2,6 +2,7 @@
 
 namespace App\Domain\Operations\Health;
 
+use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Domain\Operations\Health\Models\MissingMediaRepair;
 use App\Domain\Operations\Scheduling\SchedulerHeartbeat;
 use Illuminate\Support\Facades\DB;
@@ -71,9 +72,9 @@ final readonly class SystemHealth
 
     private function backups(): HealthCheck
     {
-        $backups = glob(storage_path('app/backups/*.zip')) ?: [];
+        $backups = BackupRun::query()->where('status', 'completed')->count();
 
-        return new HealthCheck('backups', 'Backups', $backups === [] ? 'warning' : 'healthy', $backups === [] ? 'No completed local backup was found.' : 'A completed local backup is available.');
+        return new HealthCheck('backups', 'Backups', $backups === 0 ? 'warning' : 'healthy', $backups === 0 ? 'No completed backup was found.' : 'A completed backup is available.');
     }
 
     private function updates(): HealthCheck

@@ -128,6 +128,14 @@ final class SetupConfigurationStepsTest extends TestCase
         $this->assertArrayNotHasKey('password', session()->getOldInput());
     }
 
+    public function test_s3_backup_destination_requires_complete_connection_details(): void
+    {
+        $this->withSession(['waymark.setup.current_step' => 9])
+            ->post('/setup/advanced', ['backup_disk' => 's3'])
+            ->assertRedirect('/setup/advanced')
+            ->assertSessionHasErrors(['s3_endpoint', 's3_bucket', 's3_access_key', 's3_secret_key']);
+    }
+
     public function test_branding_step_previews_the_group_identity_without_changing_the_public_site(): void
     {
         $this->withSession([

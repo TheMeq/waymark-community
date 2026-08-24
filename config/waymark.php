@@ -17,6 +17,12 @@ return [
     'updates' => [
         'metadata_url' => env('WAYMARK_RELEASE_METADATA_URL'),
     ],
+    'backups' => [
+        'destination_disk' => env('WAYMARK_BACKUP_DISK', 'backups'),
+        'environment_path' => env('WAYMARK_ENVIRONMENT_PATH', base_path('.env')),
+        'database_chunk_size' => (int) env('WAYMARK_BACKUP_DATABASE_CHUNK_SIZE', 100),
+        'retention_count' => (int) env('WAYMARK_BACKUP_RETENTION_COUNT', 14),
+    ],
     'staging' => env('WAYMARK_STAGING', env('APP_ENV') === 'staging'),
     'contact_submission_retention_days' => (int) env('WAYMARK_CONTACT_RETENTION_DAYS', 14),
     'public_cache_seconds' => (int) env('WAYMARK_PUBLIC_CACHE_SECONDS', 300),

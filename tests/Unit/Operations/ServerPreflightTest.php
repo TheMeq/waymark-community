@@ -33,6 +33,7 @@ final class ServerPreflightTest extends TestCase
         $this->assertTrue($report->blocked());
         $this->assertStringContainsString('PHP 8.3 or newer', $report->check('php')->remediation);
         $this->assertStringContainsString('enable', strtolower($report->check('extensions')->remediation));
+        $this->assertStringContainsString('zip', $report->check('extensions')->message);
         $this->assertStringContainsString('storage', $report->check('writable-directories')->message);
         $this->assertStringContainsString('GD or Imagick', $report->check('image-library')->remediation);
     }
@@ -70,7 +71,7 @@ final class ServerPreflightTest extends TestCase
     ): ServerEnvironment {
         return new ServerEnvironment(
             phpVersion: $phpVersion,
-            extensions: $extensions ?? ['ctype', 'curl', 'dom', 'exif', 'fileinfo', 'filter', 'gd', 'hash', 'mbstring', 'openssl', 'pdo', 'session', 'tokenizer', 'xml'],
+            extensions: $extensions ?? ['ctype', 'curl', 'dom', 'exif', 'fileinfo', 'filter', 'gd', 'hash', 'mbstring', 'openssl', 'pdo', 'session', 'tokenizer', 'xml', 'zip'],
             writableDirectories: $writableDirectories ?? ['storage' => true, 'bootstrap/cache' => true],
             uploadLimitBytes: $uploadLimitBytes,
             postLimitBytes: $uploadLimitBytes,

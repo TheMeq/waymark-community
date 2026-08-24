@@ -144,10 +144,10 @@ final readonly class SubmitSetupStep
             SetupStep::Advanced => [
                 'backup_disk' => ['required', Rule::in(['local', 's3'])],
                 'release_metadata_url' => ['nullable', 'url:http,https', 'max:2048'],
-                's3_endpoint' => ['nullable', 'url:http,https', 'max:2048'],
-                's3_bucket' => ['nullable', 'string', 'max:255'],
-                's3_access_key' => ['nullable', 'string', 'max:255'],
-                's3_secret_key' => ['nullable', 'string', 'max:1024'],
+                's3_endpoint' => ['required_if:backup_disk,s3', 'nullable', 'url:http,https', 'max:2048'],
+                's3_bucket' => ['required_if:backup_disk,s3', 'nullable', 'string', 'max:255'],
+                's3_access_key' => ['required_if:backup_disk,s3', 'nullable', 'string', 'max:255'],
+                's3_secret_key' => ['required_if:backup_disk,s3', 'nullable', 'string', 'max:1024'],
             ],
             default => [],
         };

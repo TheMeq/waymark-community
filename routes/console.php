@@ -7,6 +7,8 @@ use App\Domain\Communication\Actions\SendDueNewsletters;
 use App\Domain\Gallery\Actions\ProcessDeferredCommunityPhotos;
 use App\Domain\Governance\Actions\SendDocumentReviewReminders;
 use App\Domain\Operations\Health\Actions\ScanMissingMedia;
+use App\Domain\Operations\Backups\Actions\CreateBackup;
+use App\Domain\Operations\Backups\Actions\PruneBackups;
 use App\Domain\Operations\Scheduling\Contracts\FallbackRunner;
 use App\Domain\Operations\Scheduling\SchedulerHeartbeat;
 use App\Models\User;
@@ -65,6 +67,12 @@ Artisan::command('waymark:scan-missing-media {--limit=500}', function (ScanMissi
     $this->info($result->checked.' file reference(s) checked; '.$result->missing.' missing.');
 })->purpose('Queue missing media references for administrator repair');
 
+Artisan::command('waymark:create-backup', function (CreateBackup $backups, PruneBackups $retention): void {
+    $backup = $backups->handle('scheduled');
+    $retention->handle();
+    $this->info('Backup '.$backup->id.' completed.');
+})->purpose('Create and retain a private Waymark recovery backup');
+
 Schedule::command('gallery:process-deferred-photos --limit=25')
     ->everyMinute()
     ->withoutOverlapping(max(1, min(59, (int) config('gallery.deferred.schedule_lock_minutes', 5))));
@@ -73,3 +81,4 @@ Schedule::command('communications:send-due-newsletters')->hourly()->withoutOverl
 Schedule::command('governance:send-document-review-reminders')->dailyAt('08:00')->withoutOverlapping();
 Schedule::command('waymark:scheduler-heartbeat')->everyMinute()->withoutOverlapping();
 Schedule::command('waymark:scan-missing-media --limit=500')->dailyAt('06:00')->withoutOverlapping();
+Schedule::command('waymark:create-backup')->dailyAt('02:00')->withoutOverlapping();

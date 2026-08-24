@@ -65,6 +65,12 @@ final class SetupInstallationTest extends TestCase
         $this->assertSame(AccountRole::Administrator, $administrator->role);
         $this->assertNotNull($administrator->email_verified_at);
         $this->assertSame($administrator->id, InstallationOwnership::query()->sole()->owner_user_id);
+        $environmentWriter = app(EnvironmentWriter::class);
+        $this->assertSame('s3', $environmentWriter->received['WAYMARK_BACKUP_DISK']);
+        $this->assertSame('https://objects.example.test', $environmentWriter->received['AWS_ENDPOINT']);
+        $this->assertSame('waymark-backups', $environmentWriter->received['AWS_BUCKET']);
+        $this->assertSame('backup-key', $environmentWriter->received['AWS_ACCESS_KEY_ID']);
+        $this->assertSame('backup-secret', $environmentWriter->received['AWS_SECRET_ACCESS_KEY']);
 
         $this->withSession([...$session, 'waymark.setup.current_step' => 11, 'waymark.setup.installed' => true])
             ->get('/setup/health-check')
@@ -125,7 +131,14 @@ final class SetupInstallationTest extends TestCase
                 'first-administrator' => ['name' => 'Alex Morgan', 'email' => 'alex@example.test', 'password' => 'Correct-Horse-Battery-9'],
                 'mail' => ['host' => 'smtp.example.test', 'port' => 587, 'encryption' => 'tls', 'username' => 'mailer@example.test', 'password' => 'smtp-secret', 'from_address' => 'hello@example.test', 'test_address' => 'alex@example.test'],
                 'modules' => ['enabled' => ['walks', 'socials', 'gallery']],
-                'advanced' => ['backup_disk' => 'local', 'release_metadata_url' => 'https://updates.example.test/stable.json'],
+                'advanced' => [
+                    'backup_disk' => 's3',
+                    'release_metadata_url' => 'https://updates.example.test/stable.json',
+                    's3_endpoint' => 'https://objects.example.test',
+                    's3_bucket' => 'waymark-backups',
+                    's3_access_key' => 'backup-key',
+                    's3_secret_key' => 'backup-secret',
+                ],
             ],
         ];
     }

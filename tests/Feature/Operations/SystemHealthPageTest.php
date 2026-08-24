@@ -31,6 +31,7 @@ final class SystemHealthPageTest extends TestCase
             ->assertSee('HTTPS')
             ->assertSee('Updates')
             ->assertSee('Missing media')
+            ->assertSee('Create backup')
             ->assertDontSee('laravel.log')
             ->assertDontSee('Stack trace');
     }

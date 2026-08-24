@@ -5,7 +5,7 @@ namespace App\Domain\Operations\Installation;
 final class ServerPreflight
 {
     private const array REQUIRED_EXTENSIONS = [
-        'ctype', 'curl', 'dom', 'exif', 'fileinfo', 'filter', 'gd', 'hash', 'mbstring', 'openssl', 'pdo', 'session', 'tokenizer', 'xml',
+        'ctype', 'curl', 'dom', 'exif', 'fileinfo', 'filter', 'gd', 'hash', 'mbstring', 'openssl', 'pdo', 'session', 'tokenizer', 'xml', 'zip',
     ];
 
     public function inspect(ServerEnvironment $environment): PreflightReport
