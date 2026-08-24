@@ -46,3 +46,11 @@ test('builder can produce an exact prior-commit release candidate for upgrade te
     assert.equal(plan.source, `git archive ${commit}`);
     assert.equal(plan.archive, 'waymark-community-0.9.0-shared-hosting.zip');
 });
+
+test('exact-commit workspace supplies repository verification metadata without packaging it', async () => {
+    const source = await import('node:fs/promises').then(({ readFile }) => readFile(resolve(repositoryRoot, 'scripts/build-release.php'), 'utf8'));
+
+    assert.match(source, /git init --quiet/);
+    assert.match(source, /git add --all/);
+    assert.match(source, /\\\.git\|\\\.github/);
+});

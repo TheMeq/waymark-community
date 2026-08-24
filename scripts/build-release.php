@@ -75,6 +75,8 @@ try {
     mkdir($temporaryRoot, 0700, true);
     runCommand('git archive --format=zip --output='.escapeshellarg($sourceArchive).' '.$commit, $root);
     extractArchive($sourceArchive, $source);
+    runCommand('git init --quiet', $source);
+    runCommand('git add --all', $source);
 
     foreach ($plan['build'] as $command) {
         runCommand($command, $source);
@@ -201,7 +203,7 @@ function excludedSourcePath(string $path): bool
 {
     $normalized = strtolower($path);
 
-    return preg_match('#\A(\.github|node_modules|vendor|tests|scripts|test-results|playwright-report|coverage|dist|releases)(/|\z)#', $normalized) === 1
+    return preg_match('#\A(\.git|\.github|node_modules|vendor|tests|scripts|test-results|playwright-report|coverage|dist|releases)(/|\z)#', $normalized) === 1
         || (str_starts_with($normalized, 'docs/') && ! str_starts_with($normalized, 'docs/deployment/'))
         || in_array($normalized, [
             '.gitattributes', '.gitignore', 'agents.md', 'start-here-for-codex.md', 'phpunit.xml',
