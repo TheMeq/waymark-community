@@ -28,10 +28,10 @@ final class SharedHostingSecurityTest extends TestCase
     public function test_application_or_environment_under_document_root_is_blocked_conservatively(): void
     {
         $report = (new SharedHostingSecurity)->inspect(new SharedHostingEnvironment(
-            documentRoot: '/home/account/public_html',
-            applicationRoot: '/home/account/public_html/waymark',
-            publicPath: '/home/account/public_html/waymark/public',
-            environmentPath: '/home/account/public_html/waymark/.env',
+            documentRoot: '/srv/hosting/public_html',
+            applicationRoot: '/srv/hosting/public_html/waymark',
+            publicPath: '/srv/hosting/public_html/waymark/public',
+            environmentPath: '/srv/hosting/public_html/waymark/.env',
             production: true,
             debug: false,
         ));

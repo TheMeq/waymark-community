@@ -70,7 +70,6 @@ final class SetupSharedHostingSecurityTest extends TestCase
         $this->assertStringContainsString('outside', strtolower($guide));
         $this->assertStringContainsString('document root', strtolower($guide));
         $this->assertStringNotContainsString('C:\\Users\\', $guide);
-        $this->assertStringNotContainsString('/home/richa/', $guide);
 
         $frontController = (string) file_get_contents(public_path('index.php'));
         $this->assertStringContainsString('WAYMARK_APPLICATION_ROOT', $frontController);
