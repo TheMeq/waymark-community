@@ -51,8 +51,7 @@ test('the environment-aware robots route is authoritative through the public doc
 
     const port = await availablePort();
     const database = resolve('test-results/playwright-browser.sqlite');
-    const phpExtensionScanDir = process.env.PHP_INI_SCAN_DIR
-        ?? (process.platform === 'win32' ? 'C:\\Users\\richa\\AppData\\Local\\Temp\\waymark-php-ext' : undefined);
+    const phpExtensionScanDir = process.env.PHP_INI_SCAN_DIR;
     const server = spawn('php', ['artisan', 'serve', '--no-reload', '--host=127.0.0.1', `--port=${port}`], {
         cwd: process.cwd(),
         env: {
@@ -63,7 +62,7 @@ test('the environment-aware robots route is authoritative through the public doc
             DB_DATABASE: database,
             CACHE_STORE: 'array',
             SESSION_DRIVER: 'array',
-            ...(phpExtensionScanDir ? { PHP_INI_SCAN_DIR: phpExtensionScanDir } : {}),
+            ...(phpExtensionScanDir === undefined ? {} : { PHP_INI_SCAN_DIR: phpExtensionScanDir }),
         },
         stdio: 'ignore',
     });

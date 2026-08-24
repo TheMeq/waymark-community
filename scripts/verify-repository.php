@@ -68,6 +68,29 @@ if ($gitExitCode !== 0) {
     $errors[] = 'Unable to inspect tracked files with git ls-files.';
 }
 
+$portableSourceExtensions = [
+    'css',
+    'env',
+    'ini',
+    'js',
+    'json',
+    'mjs',
+    'php',
+    'ps1',
+    'scss',
+    'sh',
+    'toml',
+    'ts',
+    'xml',
+    'yaml',
+    'yml',
+];
+$developerProfilePatterns = [
+    '#(?<![A-Za-z0-9_.-])[A-Za-z]:[\\\\/]+Users[\\\\/]+[A-Za-z0-9][A-Za-z0-9._-]*[\\\\/]+#i',
+    '#(?<![A-Za-z0-9_.-])/Users/[A-Za-z0-9][A-Za-z0-9._-]*/#',
+    '#(?<![A-Za-z0-9_.-])/home/[A-Za-z0-9][A-Za-z0-9._-]*/#',
+];
+
 foreach ($tracked as $path) {
     $normalized = str_replace('\\', '/', trim($path));
     $isPlaceholder = str_ends_with($normalized, '/.gitignore');
@@ -85,6 +108,25 @@ foreach ($tracked as $path) {
         || preg_match('#\.(zip|sha256)$#', $normalized)
     ) {
         $errors[] = "Forbidden runtime, generated, or release path is tracked: {$normalized}";
+    }
+
+    $extension = strtolower((string) pathinfo($normalized, PATHINFO_EXTENSION));
+
+    if (! in_array($extension, $portableSourceExtensions, true)) {
+        continue;
+    }
+
+    $contents = file_get_contents($root.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $normalized));
+
+    if ($contents === false || str_contains($contents, "\0")) {
+        continue;
+    }
+
+    foreach ($developerProfilePatterns as $pattern) {
+        if (preg_match($pattern, $contents) === 1) {
+            $errors[] = "Developer-local absolute path is tracked: {$normalized}";
+            break;
+        }
     }
 }
 

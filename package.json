@@ -6,6 +6,7 @@
         "build": "vite build",
         "dev": "vite",
         "test:pwa": "node --test tests/js/service-worker.test.mjs",
+        "test:tooling": "node --test tests/tooling/*.test.mjs",
         "test:performance": "node scripts/check-performance-budgets.mjs",
         "test:e2e": "playwright test --pass-with-no-tests"
     },

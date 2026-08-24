@@ -6,6 +6,9 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:8000';
 const reuseDedicatedServer = process.env.PLAYWRIGHT_REUSE_DEDICATED_SERVER === '1'
     && baseURL === 'http://127.0.0.1:8000'
     && process.env.PLAYWRIGHT_DEDICATED_TEST_DATABASE === browserDatabase;
+const phpIniScanEnvironment = process.env.PHP_INI_SCAN_DIR === undefined
+    ? {}
+    : { PHP_INI_SCAN_DIR: process.env.PHP_INI_SCAN_DIR };
 
 export default defineConfig({
     testDir: './tests/browser',
@@ -47,7 +50,7 @@ export default defineConfig({
         command: 'node tests/browser/prepare-browser-db.mjs && php artisan serve --host=127.0.0.1 --port=8000',
         env: {
             APP_ENV: 'browser-testing',
-            PHP_INI_SCAN_DIR: 'C:\\Users\\richa\\AppData\\Local\\Temp\\waymark-php-ext',
+            ...phpIniScanEnvironment,
             DB_CONNECTION: 'sqlite',
             DB_DATABASE: browserDatabase,
             CACHE_STORE: 'array',
