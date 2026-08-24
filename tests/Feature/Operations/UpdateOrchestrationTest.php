@@ -2,17 +2,23 @@
 
 namespace Tests\Feature\Operations;
 
+use App\Domain\Accounts\Enums\AccountRole;
+use App\Domain\Accounts\Security\SensitiveActionAssurance;
+use App\Domain\Operations\Backups\Actions\CreateBackup;
 use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Domain\Operations\Maintenance\MaintenanceManager;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Updates\Actions\ApplyUpdate;
 use App\Domain\Operations\Updates\Actions\FinalizeUpdate;
+use App\Domain\Operations\Updates\AppliedUpdate;
 use App\Domain\Operations\Updates\Contracts\ReleasePackageDownloader;
 use App\Domain\Operations\Updates\Contracts\UpdateEnvironmentProbe;
 use App\Domain\Operations\Updates\Contracts\UpdateRuntime;
+use App\Domain\Operations\Updates\PendingUpdateRollback;
 use App\Domain\Operations\Updates\UpdateEnvironment;
 use App\Domain\Operations\Updates\UpdateRuntimeBoundary;
 use App\Domain\Operations\Updates\UpdateStateStore;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -111,8 +117,27 @@ final class UpdateOrchestrationTest extends TestCase
         $result = app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
 
         $this->assertSame('1.2.0', $result->version);
-        $this->assertNotSame('', $result->activationToken);
+        $this->assertSame('', $result->activationToken);
         $this->assertFalse($runtime->called, 'The old in-memory runtime must not activate the new release.');
+        $this->assertSame('old-marker', file_get_contents($this->applicationRoot.DIRECTORY_SEPARATOR.'app-marker.txt'));
+        $this->assertFileExists($this->applicationRoot.DIRECTORY_SEPARATOR.'obsolete.txt');
+        $this->assertSame('waiting_for_safety_backup', app(UpdateStateStore::class)->read()['status']);
+        $safety = BackupRun::query()->where('trigger', 'pre-update')->sole();
+        $this->assertSame('queued', $safety->status);
+
+        app(CreateBackup::class)->advance($safety, 1);
+        $this->assertSame('old-marker', file_get_contents($this->applicationRoot.DIRECTORY_SEPARATOR.'app-marker.txt'));
+        $this->assertSame('waiting_for_safety_backup', app(UpdateStateStore::class)->read()['status']);
+        try {
+            app(ApplyUpdate::class)->continue();
+            $this->fail('The update activated files before its safety backup completed.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('still running', $exception->getMessage());
+        }
+
+        $result = $this->completeSafetyBackupAndContinue();
+
+        $this->assertNotSame('', $result->activationToken);
         $this->assertSame('new-marker', file_get_contents($this->applicationRoot.DIRECTORY_SEPARATOR.'app-marker.txt'));
         $this->assertSame('new-feature', file_get_contents($this->applicationRoot.DIRECTORY_SEPARATOR.'new'.DIRECTORY_SEPARATOR.'feature.php'));
         $this->assertFileDoesNotExist($this->applicationRoot.DIRECTORY_SEPARATOR.'obsolete.txt');
@@ -127,7 +152,36 @@ final class UpdateOrchestrationTest extends TestCase
         $this->assertSame(BackupRun::query()->where('trigger', 'pre-update')->sole()->id, $state['backup_id']);
     }
 
-    public function test_controlled_migration_failure_rolls_back_files_database_and_keeps_maintenance_active(): void
+    public function test_http_update_transition_keeps_activation_authority_out_of_urls(): void
+    {
+        SiteProfile::query()->create(['group_name' => 'HTTP Update Group']);
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator]);
+        $this->actingAs($administrator)->withSession([
+            'auth.password_confirmed_at' => now()->unix(),
+            SensitiveActionAssurance::PASSWORD_CONFIRMED_USER_ID => $administrator->id,
+        ]);
+
+        $start = $this->post('/admin/update-centre/install', ['confirmation' => 'UPDATE WAYMARK']);
+        $start->assertRedirect('/admin/update-centre');
+        $this->assertStringNotContainsString('token=', (string) $start->headers->get('Location'));
+        $this->assertSame('waiting_for_safety_backup', app(UpdateStateStore::class)->read()['status']);
+
+        $this->completeSafetyBackup();
+        $transition = $this->post('/admin/update-centre/continue');
+        $transition->assertRedirect('/updates/activate');
+        $this->assertSame('/updates/activate', parse_url((string) $transition->headers->get('Location'), PHP_URL_PATH));
+        $token = (string) session('waymark.update_activation_token');
+        $this->assertNotSame('', $token);
+        $this->assertStringNotContainsString($token, (string) $transition->headers->get('Location'));
+
+        $this->get('/updates/activate')
+            ->assertSuccessful()
+            ->assertHeader('Referrer-Policy', 'no-referrer')
+            ->assertSee($token, false)
+            ->assertDontSee('/updates/activate?token=', false);
+    }
+
+    public function test_controlled_migration_failure_defers_database_rollback_to_a_fresh_old_runtime(): void
     {
         $profile = SiteProfile::query()->create(['group_name' => 'Before Failed Update']);
         Storage::disk('local')->put('documents/policy.pdf', 'before-update-document');
@@ -140,26 +194,31 @@ final class UpdateOrchestrationTest extends TestCase
             }
         });
 
-        $pending = app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+        app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+        $pending = $this->completeSafetyBackupAndContinue();
         $state = app(UpdateStateStore::class)->read();
         $this->app->forgetInstance(UpdateRuntimeBoundary::class);
 
+        $rollbackToken = null;
         try {
             app(FinalizeUpdate::class)->handle($pending->activationToken);
             $this->fail('The controlled update failure unexpectedly succeeded.');
-        } catch (RuntimeException $exception) {
-            $this->assertStringContainsString('rolled back', $exception->getMessage());
+        } catch (PendingUpdateRollback $exception) {
+            $rollbackToken = $exception->rollbackToken;
+            $this->assertStringContainsString('old runtime', $exception->getMessage());
         }
 
         $this->assertSame('old-marker', file_get_contents($this->applicationRoot.DIRECTORY_SEPARATOR.'app-marker.txt'));
         $this->assertSame('remove-me', file_get_contents($this->applicationRoot.DIRECTORY_SEPARATOR.'obsolete.txt'));
         $this->assertDirectoryDoesNotExist($this->applicationRoot.DIRECTORY_SEPARATOR.'new');
-        $this->assertSame('Before Failed Update', SiteProfile::query()->sole()->group_name);
-        Storage::disk('local')->assertExists('documents/policy.pdf');
+        $this->assertSame('Partially Migrated', SiteProfile::query()->sole()->group_name);
         $this->assertTrue(app(MaintenanceManager::class)->active());
-        $this->assertSame(0, BackupRun::query()->where('status', 'completed')->count(), 'Database restore returns to the pre-backup audit state.');
         $this->assertDirectoryExists($state['rollback_directory']);
-        $this->assertSame('update_failed', app(UpdateStateStore::class)->read()['status']);
+        $this->assertSame('pending_rollback', app(UpdateStateStore::class)->read()['status']);
+        $this->assertFalse(app(UpdateStateStore::class)->read()['rollback_complete']);
+
+        $this->assertNotSame('', $rollbackToken);
+        $this->assertDatabaseHas('backup_runs', ['trigger' => 'pre-update', 'status' => 'completed']);
     }
 
     public function test_inexact_confirmation_stops_before_download_or_backup(): void
@@ -198,11 +257,19 @@ final class UpdateOrchestrationTest extends TestCase
     {
         config()->set('waymark.backups.environment_path', $this->environmentPath.'.missing');
 
+        app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+        $backup = BackupRun::query()->where('trigger', 'pre-update')->sole();
         try {
-            app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
-            $this->fail('The update unexpectedly ignored backup failure.');
+            app(CreateBackup::class)->advance($backup);
+            $this->fail('The safety backup unexpectedly completed.');
         } catch (RuntimeException $exception) {
             $this->assertStringContainsString('Backup creation failed', $exception->getMessage());
+        }
+        try {
+            app(ApplyUpdate::class)->continue();
+            $this->fail('The update continued after its safety backup failed.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('Retry it', $exception->getMessage());
         }
 
         $this->assertDatabaseHas('backup_runs', ['trigger' => 'pre-update', 'status' => 'failed']);
@@ -215,8 +282,9 @@ final class UpdateOrchestrationTest extends TestCase
         unlink($this->applicationRoot.DIRECTORY_SEPARATOR.'app-marker.txt');
         mkdir($this->applicationRoot.DIRECTORY_SEPARATOR.'app-marker.txt');
 
+        app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
         try {
-            app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+            $this->completeSafetyBackupAndContinue();
             $this->fail('The update unexpectedly ignored a file path conflict.');
         } catch (RuntimeException $exception) {
             $this->assertStringContainsString('conflicts', $exception->getMessage());
@@ -238,18 +306,20 @@ final class UpdateOrchestrationTest extends TestCase
             }
         });
 
-        $pending = app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+        app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+        $pending = $this->completeSafetyBackupAndContinue();
         $this->app->forgetInstance(UpdateRuntimeBoundary::class);
 
         try {
             app(FinalizeUpdate::class)->handle($pending->activationToken);
             $this->fail('The failed health check unexpectedly reopened the site.');
-        } catch (RuntimeException $exception) {
-            $this->assertStringContainsString('rolled back', $exception->getMessage());
+        } catch (PendingUpdateRollback $exception) {
+            $this->assertStringContainsString('old runtime', $exception->getMessage());
         }
 
         $this->assertSame('old-marker', file_get_contents($this->applicationRoot.DIRECTORY_SEPARATOR.'app-marker.txt'));
         $this->assertTrue(app(MaintenanceManager::class)->active());
+        $this->assertSame('pending_rollback', app(UpdateStateStore::class)->read()['status']);
     }
 
     public function test_fresh_runtime_activation_marks_installed_cleans_rollback_and_reopens(): void
@@ -266,7 +336,8 @@ final class UpdateOrchestrationTest extends TestCase
             }
         };
         $this->app->instance(UpdateRuntime::class, $runtime);
-        $pending = app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+        app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+        $pending = $this->completeSafetyBackupAndContinue();
         $pendingState = app(UpdateStateStore::class)->read();
         $this->app->forgetInstance(UpdateRuntimeBoundary::class);
 
@@ -283,7 +354,8 @@ final class UpdateOrchestrationTest extends TestCase
     public function test_activation_refuses_the_runtime_that_started_the_update_without_consuming_pending_state(): void
     {
         SiteProfile::query()->create(['group_name' => 'Runtime Boundary']);
-        $pending = app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+        app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+        $pending = $this->completeSafetyBackupAndContinue();
 
         try {
             app(FinalizeUpdate::class)->handle($pending->activationToken);
@@ -295,6 +367,23 @@ final class UpdateOrchestrationTest extends TestCase
         $this->assertSame('pending_activation', app(UpdateStateStore::class)->read()['status']);
         $this->assertSame('new-marker', file_get_contents($this->applicationRoot.DIRECTORY_SEPARATOR.'app-marker.txt'));
         $this->assertTrue(app(MaintenanceManager::class)->active());
+    }
+
+    private function completeSafetyBackupAndContinue(): AppliedUpdate
+    {
+        $this->completeSafetyBackup();
+
+        return app(ApplyUpdate::class)->continue();
+    }
+
+    private function completeSafetyBackup(): void
+    {
+        $state = app(UpdateStateStore::class)->read();
+        $backup = BackupRun::query()->findOrFail($state['backup_id']);
+        while (in_array($backup->status, ['queued', 'running'], true)) {
+            $backup = app(CreateBackup::class)->advance($backup, 500);
+        }
+        $this->assertSame('completed', $backup->status);
     }
 
     /** @return array<string, mixed> */

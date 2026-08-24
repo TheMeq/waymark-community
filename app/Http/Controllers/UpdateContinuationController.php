@@ -7,11 +7,9 @@ use App\Domain\Operations\Updates\Actions\ApplyUpdate;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 use Throwable;
 
-final readonly class UpdateInstallationController
+final readonly class UpdateContinuationController
 {
     public function __construct(private ApplyUpdate $updates) {}
 
@@ -19,21 +17,9 @@ final readonly class UpdateInstallationController
     {
         $user = $request->user();
         abort_unless($user instanceof User && $user->hasCapability(ModuleCapability::ManageAccounts), 403);
-        $validator = Validator::make($request->all(), [
-            'confirmation' => ['required', Rule::in([ApplyUpdate::CONFIRMATION])],
-        ]);
-        if ($validator->fails()) {
-            return redirect('/admin/update-centre')->withErrors($validator);
-        }
-        $validated = $validator->validated();
 
         try {
-            $result = $this->updates->handle($validated['confirmation']);
-
-            if ($result->activationToken === '') {
-                return redirect('/admin/update-centre')->with('status', 'The verified update is staged. Complete its bounded safety backup before continuing.');
-            }
-
+            $result = $this->updates->continue();
             $request->session()->put('waymark.update_activation_token', $result->activationToken);
 
             return redirect('/updates/activate')->withHeaders(['Referrer-Policy' => 'no-referrer']);
@@ -41,7 +27,7 @@ final readonly class UpdateInstallationController
             report($exception);
 
             return redirect('/admin/update-centre')->withErrors([
-                'install' => 'The update was not applied. Review the compatibility, maintenance and recovery status before trying again.',
+                'install' => 'The update is still waiting for a completed verified safety backup, or continuation failed safely.',
             ]);
         }
     }

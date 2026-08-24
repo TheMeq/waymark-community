@@ -7,7 +7,8 @@ final class WaymarkEmergencyUpdateRollback
     public static function restore(string $statePath, string $token): void
     {
         $state = is_file($statePath) ? json_decode((string) file_get_contents($statePath), true) : null;
-        if (! is_array($state) || ($state['format'] ?? null) !== 1 || ($state['status'] ?? null) !== 'pending_activation'
+        $status = is_array($state) ? ($state['status'] ?? null) : null;
+        if (! is_array($state) || ($state['format'] ?? null) !== 1 || ! in_array($status, ['pending_activation', 'pending_rollback'], true)
             || ! is_string($state['activation_token_hash'] ?? null)
             || ! hash_equals($state['activation_token_hash'], hash('sha256', $token))) {
             throw new RuntimeException('Emergency update rollback could not be authorised.');
@@ -45,8 +46,9 @@ final class WaymarkEmergencyUpdateRollback
             }
         }
 
-        $state['status'] = 'boot_rollback_completed';
+        $state['status'] = $status === 'pending_activation' ? 'boot_rollback_completed' : 'pending_rollback';
         $state['boot_rollback_completed_at'] = gmdate('c');
+        $state['emergency_application_files_restored'] = true;
         $state['message'] = 'The previous application files were restored. Maintenance remains active; use Waymark recovery to verify the installation.';
         $encoded = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         $temporaryState = $statePath.'.tmp';

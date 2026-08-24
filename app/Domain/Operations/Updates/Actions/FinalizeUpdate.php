@@ -2,12 +2,11 @@
 
 namespace App\Domain\Operations\Updates\Actions;
 
-use App\Domain\Operations\Backups\Actions\RestoreBackup;
-use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Domain\Operations\Locks\DestructiveOperationLock;
 use App\Domain\Operations\Maintenance\MaintenanceManager;
 use App\Domain\Operations\Updates\AppliedUpdate;
 use App\Domain\Operations\Updates\Contracts\UpdateRuntime;
+use App\Domain\Operations\Updates\PendingUpdateRollback;
 use App\Domain\Operations\Updates\PreparedApplicationUpdate;
 use App\Domain\Operations\Updates\UpdateRuntimeBoundary;
 use App\Domain\Operations\Updates\UpdateStateStore;
@@ -19,7 +18,6 @@ final readonly class FinalizeUpdate
     public function __construct(
         private UpdateRuntime $runtime,
         private UpdateStateStore $state,
-        private RestoreBackup $restore,
         private MaintenanceManager $maintenance,
         private DestructiveOperationLock $operations,
         private UpdateRuntimeBoundary $runtimeBoundary,
@@ -42,8 +40,6 @@ final readonly class FinalizeUpdate
             $pending['rollback_directory'],
             $pending['rollback_records'],
         );
-        $backup = BackupRun::query()->findOrFail($pending['backup_id']);
-
         try {
             $this->runtime->activate($version, $pending['application_root']);
             $this->state->write([
@@ -65,37 +61,37 @@ final readonly class FinalizeUpdate
 
             return new AppliedUpdate($version);
         } catch (Throwable $activationFailure) {
-            $rollbackComplete = true;
+            $filesRestored = true;
             try {
                 $transaction->rollback();
             } catch (Throwable $fileRollbackFailure) {
                 report($fileRollbackFailure);
-                $rollbackComplete = false;
+                $filesRestored = false;
             }
-            try {
-                $this->restore->fromRun($backup, RestoreBackup::CONFIRMATION, null, false);
-            } catch (Throwable $backupRollbackFailure) {
-                report($backupRollbackFailure);
-                $rollbackComplete = false;
-            }
+            $rollbackToken = bin2hex(random_bytes(32));
             try {
                 $this->state->write([
                     ...$pending,
-                    'status' => 'update_failed',
+                    'status' => $filesRestored ? 'pending_rollback' : 'rollback_failed',
                     'failed_at' => now('UTC')->toIso8601String(),
-                    'rollback_complete' => $rollbackComplete,
-                    'message' => $rollbackComplete
-                        ? 'Fresh-runtime activation failed and was rolled back. Maintenance mode remains active for review.'
-                        : 'Fresh-runtime activation failed and automatic rollback was incomplete. Use disaster recovery.',
+                    'failed_runtime_id' => $this->runtimeBoundary->id,
+                    'rollback_token_hash' => hash('sha256', $rollbackToken),
+                    'application_files_restored' => $filesRestored,
+                    'rollback_complete' => false,
+                    'message' => $filesRestored
+                        ? 'Fresh-runtime activation failed. Old application files are restored and await fresh old-runtime database rollback.'
+                        : 'Fresh-runtime activation failed and old application files could not be restored. Use emergency recovery.',
                 ]);
             } catch (Throwable $stateFailure) {
                 report($stateFailure);
             }
             report($activationFailure);
 
-            throw new RuntimeException($rollbackComplete
-                ? 'The update failed under the fresh release runtime and was rolled back. Maintenance mode remains active for review.'
-                : 'The update failed under the fresh release runtime and automatic rollback was incomplete. Maintenance mode remains active; use disaster recovery.', previous: $activationFailure);
+            if ($filesRestored) {
+                throw new PendingUpdateRollback($rollbackToken);
+            }
+
+            throw new RuntimeException('The update failed under the fresh release runtime and old application files could not be restored. Maintenance mode remains active; use emergency recovery.', previous: $activationFailure);
         }
     }
 

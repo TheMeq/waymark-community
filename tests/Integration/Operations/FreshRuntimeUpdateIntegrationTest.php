@@ -36,7 +36,8 @@ final class FreshRuntimeUpdateIntegrationTest extends TestCase
         $this->assertFileExists($this->root.'/storage/update/file-rollback/vendor/composer/autoload_classmap.php');
         $this->assertFileExists($this->root.'/storage/framework/maintenance.json');
 
-        $activation = $this->request($baseUrl.'/activate?token='.urlencode($pending['token']));
+        $this->assertSame(403, $this->request($baseUrl.'/activate?token='.urlencode($pending['token']))['status']);
+        $activation = $this->request($baseUrl.'/activate', 'POST', http_build_query(['token' => $pending['token']]));
         $this->assertSame(200, $activation['status']);
         $activated = json_decode($activation['body'], true, flags: JSON_THROW_ON_ERROR);
         $this->assertTrue($activated['new_class_loaded']);
@@ -54,14 +55,29 @@ final class FreshRuntimeUpdateIntegrationTest extends TestCase
         $baseUrl = $this->startFixture();
         $pending = json_decode($this->request($baseUrl.'/begin?mode=migration_failure')['body'], true, flags: JSON_THROW_ON_ERROR);
 
-        $activation = $this->request($baseUrl.'/activate?token='.urlencode($pending['token']));
+        $activation = $this->request($baseUrl.'/activate', 'POST', http_build_query(['token' => $pending['token']]));
 
-        $this->assertSame(500, $activation['status']);
+        $this->assertSame(409, $activation['status']);
+        $rollback = json_decode($activation['body'], true, flags: JSON_THROW_ON_ERROR);
         $this->assertSame("1.0.0\n", file_get_contents($this->root.'/VERSION'));
-        $this->assertSame('old-schema', file_get_contents($this->root.'/storage/database.txt'));
+        $this->assertSame('v2-incompatible-schema', file_get_contents($this->root.'/storage/database.txt'));
         $this->assertFileExists($this->root.'/storage/framework/maintenance.json');
         $this->assertDirectoryExists($this->root.'/storage/update/file-rollback');
+        $this->assertSame('pending_rollback', $this->state()['status']);
+        $this->assertFalse($this->state()['rollback_complete']);
+
+        $completed = $this->request($baseUrl.'/rollback', 'POST', http_build_query(['token' => $rollback['rollback_token']]));
+
+        $this->assertSame(200, $completed['status']);
+        $result = json_decode($completed['body'], true, flags: JSON_THROW_ON_ERROR);
+        $this->assertTrue($result['old_class_loaded']);
+        $this->assertFalse($result['new_class_loaded']);
+        $this->assertSame('old-schema', file_get_contents($this->root.'/storage/database.txt'));
         $this->assertSame('update_failed', $this->state()['status']);
+        $this->assertTrue($this->state()['rollback_complete']);
+        $this->assertSame('1.0.0', $this->state()['health_runtime_version']);
+        $this->assertFileExists($this->root.'/storage/framework/maintenance.json');
+        $this->assertDirectoryExists($this->root.'/storage/update/file-rollback');
     }
 
     public function test_boot_failure_leaves_pending_state_for_framework_independent_recovery(): void
@@ -69,7 +85,7 @@ final class FreshRuntimeUpdateIntegrationTest extends TestCase
         $baseUrl = $this->startFixture();
         $pending = json_decode($this->request($baseUrl.'/begin?mode=boot_failure')['body'], true, flags: JSON_THROW_ON_ERROR);
 
-        $activation = $this->request($baseUrl.'/activate?token='.urlencode($pending['token']));
+        $activation = $this->request($baseUrl.'/activate', 'POST', http_build_query(['token' => $pending['token']]));
         $this->assertSame(500, $activation['status']);
         $this->assertSame('pending_activation', $this->state()['status']);
         $this->assertDirectoryExists($this->root.'/storage/update/file-rollback');
@@ -209,6 +225,7 @@ $restoreFiles = static function (array $state) use ($root): void {
 };
 
 header('Content-Type: application/json');
+header('Referrer-Policy: no-referrer');
 if ($path === '/status') {
     echo json_encode(['version' => trim((string) file_get_contents($root.'/VERSION'))]);
     return;
@@ -259,8 +276,8 @@ if ($path === '/begin') {
 
 if ($path === '/activate') {
     $state = is_file($statePath) ? json_decode((string) file_get_contents($statePath), true) : null;
-    $token = is_string($_GET['token'] ?? null) ? $_GET['token'] : '';
-    if (! is_array($state) || $state['status'] !== 'pending_activation'
+    $token = is_string($_POST['token'] ?? null) ? $_POST['token'] : '';
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST' || ! is_array($state) || $state['status'] !== 'pending_activation'
         || ! hash_equals($state['activation_token_hash'], hash('sha256', $token))
         || hash_equals($state['initiating_runtime_id'], $requestId)) {
         http_response_code(403);
@@ -271,7 +288,7 @@ if ($path === '/activate') {
         if (! class_exists('Fixture\\NewPackage')) {
             throw new RuntimeException('new class map unavailable');
         }
-        file_put_contents($root.'/storage/database.txt', 'new-schema');
+        file_put_contents($root.'/storage/database.txt', $state['mode'] === 'migration_failure' ? 'v2-incompatible-schema' : 'new-schema');
         if ($state['mode'] === 'migration_failure') {
             throw new RuntimeException('controlled migration failure');
         }
@@ -289,11 +306,44 @@ if ($path === '/activate') {
         ]);
     } catch (Throwable $failure) {
         $restoreFiles($state);
-        copy($root.'/storage/update/database.txt', $root.'/storage/database.txt');
-        $writeState([...$state, 'status' => 'update_failed', 'failure' => $failure->getMessage()]);
-        http_response_code(500);
-        echo json_encode(['error' => 'rolled back']);
+        $rollbackToken = bin2hex(random_bytes(32));
+        $writeState([
+            ...$state,
+            'status' => 'pending_rollback',
+            'failed_runtime_id' => $requestId,
+            'rollback_token_hash' => hash('sha256', $rollbackToken),
+            'rollback_complete' => false,
+            'failure' => $failure->getMessage(),
+        ]);
+        http_response_code(409);
+        echo json_encode(['error' => 'old runtime rollback required', 'rollback_token' => $rollbackToken]);
     }
+    return;
+}
+
+if ($path === '/rollback') {
+    $state = is_file($statePath) ? json_decode((string) file_get_contents($statePath), true) : null;
+    $token = is_string($_POST['token'] ?? null) ? $_POST['token'] : '';
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST' || ! is_array($state) || $state['status'] !== 'pending_rollback'
+        || ! hash_equals($state['rollback_token_hash'], hash('sha256', $token))
+        || hash_equals($state['failed_runtime_id'], $requestId)) {
+        http_response_code(403);
+        echo json_encode(['error' => 'rollback rejected']);
+        return;
+    }
+    copy($root.'/storage/update/database.txt', $root.'/storage/database.txt');
+    $writeState([
+        ...$state,
+        'status' => 'update_failed',
+        'rollback_complete' => true,
+        'rollback_runtime_id' => $requestId,
+        'health_runtime_version' => trim((string) file_get_contents($root.'/VERSION')),
+    ]);
+    echo json_encode([
+        'old_class_loaded' => class_exists('Fixture\\OldPackage'),
+        'new_class_loaded' => class_exists('Fixture\\NewPackage'),
+        'rollback_request_id' => $requestId,
+    ]);
     return;
 }
 

@@ -14,7 +14,7 @@ final readonly class ServeWaymarkMaintenance
     public function handle(Request $request, Closure $next): Response
     {
         $state = $this->maintenance->state();
-        if ($state === null || $request->is('setup') || $request->is('setup/*') || $request->is('recovery') || $request->is('updates/activate') || $request->is('up') || $request->is('admin/system-health*')
+        if ($state === null || $request->is('setup') || $request->is('setup/*') || $request->is('recovery') || $request->is('updates/activate') || $request->is('updates/rollback') || $request->is('up') || $request->is('admin/system-health*') || $request->is('admin/update-centre*')
             || $this->maintenance->validBypass($request->cookie(MaintenanceManager::BYPASS_COOKIE))) {
             return $next($request);
         }

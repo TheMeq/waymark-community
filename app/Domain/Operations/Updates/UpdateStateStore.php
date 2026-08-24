@@ -28,6 +28,19 @@ final class UpdateStateStore
         return $state;
     }
 
+    /** @return array<string, mixed>|null */
+    public function authorisedRollback(string $token): ?array
+    {
+        $state = $this->read();
+        if (! is_array($state) || ($state['status'] ?? null) !== 'pending_rollback'
+            || ! is_string($state['rollback_token_hash'] ?? null)
+            || ! hash_equals($state['rollback_token_hash'], hash('sha256', $token))) {
+            return null;
+        }
+
+        return $state;
+    }
+
     /** @param array<string, mixed> $state */
     public function write(array $state): void
     {

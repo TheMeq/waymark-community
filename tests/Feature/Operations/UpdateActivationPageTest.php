@@ -34,14 +34,23 @@ final class UpdateActivationPageTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_pending_activation_page_is_reachable_during_maintenance_only_with_its_token(): void
+    public function test_pending_activation_uses_session_authority_without_putting_the_secret_in_the_url(): void
     {
-        $this->get('/updates/activate?token=wrong')->assertNotFound();
+        $this->get('/updates/activate')->assertNotFound();
+        $this->get('/updates/activate?token=fresh-request-token')->assertNotFound();
 
-        $this->get('/updates/activate?token=fresh-request-token')
+        $this->withSession(['waymark.update_activation_token' => 'fresh-request-token'])
+            ->get('/updates/activate')
             ->assertSuccessful()
+            ->assertHeader('Referrer-Policy', 'no-referrer')
             ->assertSee('Finish updating to Waymark Community 1.2.0')
             ->assertSee('fresh-request-token', false)
+            ->assertDontSee('/updates/activate?token=', false)
             ->assertSee('Complete update');
+    }
+
+    public function test_activation_post_requires_the_authorised_session_state(): void
+    {
+        $this->post('/updates/activate', ['token' => 'fresh-request-token'])->assertNotFound();
     }
 }

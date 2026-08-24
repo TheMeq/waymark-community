@@ -50,7 +50,9 @@ use App\Http\Controllers\SetupController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\SiteMediaStreamController;
 use App\Http\Controllers\UpdateActivationController;
+use App\Http\Controllers\UpdateContinuationController;
 use App\Http\Controllers\UpdateInstallationController;
+use App\Http\Controllers\UpdateRollbackController;
 use App\Http\Controllers\WalkGradingGuideController;
 use App\Http\Controllers\WhatsOnCalendarController;
 use App\Http\Controllers\WhatsOnController;
@@ -77,6 +79,7 @@ Route::post('/recovery', [RecoveryController::class, 'restore'])
     ->name('recovery.restore');
 Route::get('/updates/activate', [UpdateActivationController::class, 'show'])->name('updates.activate.show');
 Route::post('/updates/activate', [UpdateActivationController::class, 'store'])->middleware('throttle:recovery')->name('updates.activate.store');
+Route::post('/updates/rollback', UpdateRollbackController::class)->middleware('throttle:recovery')->name('updates.rollback.store');
 Route::get('/', HomeController::class)->name('home');
 Route::get('/manifest.webmanifest', [PwaController::class, 'manifest'])->name('pwa.manifest');
 Route::get('/service-worker.js', [PwaController::class, 'serviceWorker'])->name('pwa.service-worker');
@@ -112,6 +115,7 @@ Route::get('/photos/{photo}/report', [CommunityPhotoReportController::class, 'cr
 Route::post('/photos/{photo?}/report', CommunityPhotoReportController::class)->whereNumber('photo')->middleware('throttle:photo-report')->name('community-photos.reports.store');
 Route::middleware('auth')->group(function (): void {
     Route::post('/admin/update-centre/install', UpdateInstallationController::class)->middleware('sensitive.confirmed')->name('admin.updates.install');
+    Route::post('/admin/update-centre/continue', UpdateContinuationController::class)->middleware('sensitive.confirmed')->name('admin.updates.continue');
     Route::post('/admin/maintenance-mode/enable', [MaintenanceModeController::class, 'enable'])->middleware('sensitive.confirmed')->name('admin.maintenance.enable');
     Route::post('/admin/maintenance-mode/disable', [MaintenanceModeController::class, 'disable'])->middleware('sensitive.confirmed')->name('admin.maintenance.disable');
     Route::get('/admin/system-health/backups/{backup}/download', BackupDownloadController::class)

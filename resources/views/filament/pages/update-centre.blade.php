@@ -14,7 +14,16 @@
             <p class="mt-3 text-sm text-gray-600">Waymark checks and reports verified releases. It never installs an update automatically.</p>
         </section>
 
-        @if (($state['status'] ?? null) === 'failed')
+        @if (($state['status'] ?? null) === 'waiting_for_safety_backup')
+            <section class="rounded-xl border p-5">
+                <h2 class="font-semibold">Safety backup in progress</h2>
+                <p class="mt-2">The verified release remains staged and no application files have been activated. Advance the safety backup in System health, then continue.</p>
+                <div class="mt-4 flex gap-3">
+                    <a class="underline" href="/admin/system-health">System health</a>
+                    <form method="post" action="{{ route('admin.updates.continue') }}">@csrf<x-filament::button type="submit">Continue update</x-filament::button></form>
+                </div>
+            </section>
+        @elseif (($state['status'] ?? null) === 'failed')
             <section class="rounded-xl border p-5"><h2 class="font-semibold">Check failed</h2><p class="mt-2">{{ $state['message'] }}</p></section>
         @elseif (($state['status'] ?? null) === 'checked')
             <section class="rounded-xl border p-5">

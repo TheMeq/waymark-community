@@ -58,7 +58,8 @@ final class BackupRestoreTest extends TestCase
         Storage::disk('local')->put('community-photos/new.jpg', 'new-image');
         file_put_contents($this->environmentPath, "APP_KEY=base64:changed-key\nAPP_URL=https://target.example\nDB_HOST=target-db\nFILESYSTEM_DISK=local\n");
 
-        app(RestoreBackup::class)->fromRun($backup, 'RESTORE WAYMARK', 'portable passphrase');
+        $safety = app(CreateBackup::class)->handle('pre-restore');
+        app(RestoreBackup::class)->fromRunWithSafetyBackup($backup, $safety, 'RESTORE WAYMARK', 'portable passphrase');
 
         $this->assertSame('Original Ramblers', SiteProfile::query()->sole()->group_name);
         Storage::disk('local')->assertExists('community-photos/original.jpg');
@@ -77,7 +78,7 @@ final class BackupRestoreTest extends TestCase
         $backup = app(CreateBackup::class)->handle('manual');
 
         try {
-            app(RestoreBackup::class)->fromRun($backup, 'restore waymark');
+            app(RestoreBackup::class)->assertRestorableRun($backup, 'restore waymark');
             $this->fail('The restore unexpectedly accepted an inexact confirmation.');
         } catch (RuntimeException $exception) {
             $this->assertStringContainsString('confirmation', $exception->getMessage());
@@ -126,6 +127,7 @@ final class BackupRestoreTest extends TestCase
         $target = app(CreateBackup::class)->handle('manual');
         $profile->update(['group_name' => 'Current Safe State']);
         Storage::disk('local')->put('documents/current.pdf', 'current-document');
+        $safety = app(CreateBackup::class)->handle('pre-restore');
         $this->app->instance(RestoreHealthProbe::class, new class implements RestoreHealthProbe
         {
             private int $attempts = 0;
@@ -140,7 +142,7 @@ final class BackupRestoreTest extends TestCase
         });
 
         try {
-            app(RestoreBackup::class)->fromRun($target, 'RESTORE WAYMARK');
+            app(RestoreBackup::class)->fromRunWithSafetyBackup($target, $safety, 'RESTORE WAYMARK');
             $this->fail('The interrupted restore unexpectedly succeeded.');
         } catch (RuntimeException $exception) {
             $this->assertStringContainsString('rolled back', $exception->getMessage());

@@ -12,6 +12,7 @@ use App\Domain\Operations\Backups\VerifiedBackup;
 use App\Domain\Operations\Installation\InstallationState;
 use App\Domain\Operations\Locks\DestructiveOperationLock;
 use App\Domain\Operations\Maintenance\MaintenanceManager;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -34,39 +35,50 @@ final readonly class RestoreBackup
         private InstallationState $installation,
     ) {}
 
-    public function fromRun(BackupRun $backup, string $confirmation, ?string $passphrase = null, bool $createSafetyBackup = true): void
+    public function fromRunWithSafetyBackup(BackupRun $backup, BackupRun $safetyBackup, string $confirmation, ?string $passphrase = null): void
     {
-        $this->operations->run('restore:known-backup', fn () => $this->restoreRun($backup, $confirmation, $passphrase, $createSafetyBackup, true));
+        $this->operations->run('restore:known-backup', fn () => $this->restoreRun($backup, $confirmation, $passphrase, true, false, $safetyBackup));
     }
 
-    private function restoreRun(BackupRun $backup, string $confirmation, ?string $passphrase, bool $createSafetyBackup, bool $completeInstallation): void
+    public function assertRestorableRun(BackupRun $backup, string $confirmation, ?string $passphrase = null): void
+    {
+        $this->confirm($confirmation);
+        $temporaryPath = $this->copyRunToTemporary($backup);
+        $verified = null;
+        $stagingDirectory = storage_path('framework/cache/waymark-restore-check-'.Str::uuid());
+        try {
+            $verified = $this->verifier->open($temporaryPath, $passphrase, $backup->sha256);
+            $this->assertVersionCompatibility($verified);
+            if (! mkdir($stagingDirectory, 0700, true) && ! is_dir($stagingDirectory)) {
+                throw new RuntimeException('The verified backup could not be checked for restore.');
+            }
+            $this->extract($verified, $stagingDirectory);
+            $databasePath = $stagingDirectory.DIRECTORY_SEPARATOR.'database.jsonl';
+            $this->databaseImporter->assertStructurallyValid($databasePath);
+            $this->databaseImporter->assertCompatible($databasePath);
+        } finally {
+            $verified?->cleanup();
+            @unlink($temporaryPath);
+            $this->cleanDirectory($stagingDirectory);
+        }
+    }
+
+    public function fromUpdateRollback(BackupRun $backup): void
+    {
+        $this->operations->run('restore:update-rollback', fn () => $this->restoreRun($backup, self::CONFIRMATION, null, false, true, null, true));
+    }
+
+    private function restoreRun(BackupRun $backup, string $confirmation, ?string $passphrase, bool $completeInstallation, bool $prepareSchema, ?BackupRun $providedSafetyBackup = null, bool $forceSchemaRebuild = false): void
     {
         $this->confirm($confirmation);
         if ($backup->status !== 'completed' || ! is_string($backup->storage_disk) || ! is_string($backup->storage_path)) {
             throw new RuntimeException('Only a completed backup can be restored.');
         }
 
-        $temporaryPath = tempnam(storage_path('framework/cache'), 'waymark-restore-source-');
-        if (! is_string($temporaryPath)) {
-            throw new RuntimeException('The backup could not be prepared for restore.');
-        }
-        $stream = Storage::disk($backup->storage_disk)->readStream($backup->storage_path);
-        $destination = fopen($temporaryPath, 'wb');
-        try {
-            if ($stream === false || $destination === false || stream_copy_to_stream($stream, $destination) === false) {
-                throw new RuntimeException('The backup could not be prepared for restore.');
-            }
-        } finally {
-            if (is_resource($stream)) {
-                fclose($stream);
-            }
-            if (is_resource($destination)) {
-                fclose($destination);
-            }
-        }
+        $temporaryPath = $this->copyRunToTemporary($backup);
 
         try {
-            $this->restoreArchive($temporaryPath, $confirmation, $passphrase, $backup->sha256, $createSafetyBackup ? 'required' : 'none', $completeInstallation, false);
+            $this->restoreArchive($temporaryPath, $confirmation, $passphrase, $backup->sha256, 'none', $completeInstallation, $prepareSchema, $providedSafetyBackup, $forceSchemaRebuild);
         } finally {
             @unlink($temporaryPath);
         }
@@ -74,10 +86,10 @@ final readonly class RestoreBackup
 
     public function restoreFile(string $sourcePath, string $confirmation, ?string $passphrase = null, ?string $expectedSha256 = null): void
     {
-        $this->operations->run('restore:archive', fn () => $this->restoreArchive($sourcePath, $confirmation, $passphrase, $expectedSha256, 'attempt', true, true));
+        $this->operations->run('restore:archive', fn () => $this->restoreArchive($sourcePath, $confirmation, $passphrase, $expectedSha256, 'attempt', true, true, null, false));
     }
 
-    private function restoreArchive(string $sourcePath, string $confirmation, ?string $passphrase, ?string $expectedSha256, string $safetyMode, bool $completeInstallation, bool $prepareSchema): void
+    private function restoreArchive(string $sourcePath, string $confirmation, ?string $passphrase, ?string $expectedSha256, string $safetyMode, bool $completeInstallation, bool $prepareSchema, ?BackupRun $providedSafetyBackup, bool $forceSchemaRebuild): void
     {
         $this->confirm($confirmation);
         $verified = $this->verifier->open($sourcePath, $passphrase, $expectedSha256);
@@ -92,13 +104,17 @@ final readonly class RestoreBackup
             $this->extract($verified, $stagingDirectory);
             $databasePath = $stagingDirectory.DIRECTORY_SEPARATOR.'database.jsonl';
             $this->databaseImporter->assertStructurallyValid($databasePath);
-            if (! $prepareSchema) {
+            $rebuildSchema = $prepareSchema && ($forceSchemaRebuild || ! Schema::hasTable('migrations'));
+            if (! $rebuildSchema) {
                 $this->databaseImporter->assertCompatible($databasePath);
             }
-            $safetyBackup = $this->safetyBackup($safetyMode);
+            $safetyBackup = $providedSafetyBackup ?? $this->safetyBackup($safetyMode);
+            if ($safetyBackup instanceof BackupRun) {
+                $this->assertRunIntegrity($safetyBackup);
+            }
             try {
-                $this->maintenance->run(function () use ($verified, $stagingDirectory, $databasePath, $safetyBackup, $completeInstallation, $prepareSchema): void {
-                    if ($prepareSchema) {
+                $this->maintenance->run(function () use ($verified, $stagingDirectory, $databasePath, $safetyBackup, $completeInstallation, $rebuildSchema): void {
+                    if ($rebuildSchema) {
                         $this->schema->handle();
                         $this->databaseImporter->assertCompatible($databasePath);
                     }
@@ -149,14 +165,49 @@ final readonly class RestoreBackup
             return null;
         }
         try {
-            return $this->backups->handle($mode === 'required' ? 'pre-restore' : 'pre-recovery');
+            return $this->backups->handle('pre-recovery');
         } catch (Throwable $exception) {
-            if ($mode === 'required') {
-                throw new RuntimeException('A verified safety backup could not be created, so restore did not begin.', previous: $exception);
-            }
             report($exception);
 
             return null;
+        }
+    }
+
+    private function copyRunToTemporary(BackupRun $backup): string
+    {
+        if ($backup->status !== 'completed' || ! is_string($backup->storage_disk) || ! is_string($backup->storage_path)) {
+            throw new RuntimeException('Only a completed backup can be restored.');
+        }
+        $temporaryPath = tempnam(storage_path('framework/cache'), 'waymark-restore-source-');
+        if (! is_string($temporaryPath)) {
+            throw new RuntimeException('The backup could not be prepared for restore.');
+        }
+        $stream = Storage::disk($backup->storage_disk)->readStream($backup->storage_path);
+        $destination = fopen($temporaryPath, 'wb');
+        try {
+            if ($stream === false || $destination === false || stream_copy_to_stream($stream, $destination) === false) {
+                throw new RuntimeException('The backup could not be prepared for restore.');
+            }
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+            if (is_resource($destination)) {
+                fclose($destination);
+            }
+        }
+
+        return $temporaryPath;
+    }
+
+    private function assertRunIntegrity(BackupRun $backup): void
+    {
+        $temporary = $this->copyRunToTemporary($backup);
+        try {
+            $verified = $this->verifier->open($temporary, null, $backup->sha256);
+            $verified->cleanup();
+        } finally {
+            @unlink($temporary);
         }
     }
 

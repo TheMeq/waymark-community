@@ -55,4 +55,32 @@ final class EmergencyUpdateRollbackTest extends TestCase
         $this->assertFileDoesNotExist($application.DIRECTORY_SEPARATOR.'added.php');
         $this->assertSame('boot_rollback_completed', json_decode(file_get_contents($statePath), true, flags: JSON_THROW_ON_ERROR)['status']);
     }
+
+    public function test_standalone_runtime_preserves_pending_database_rollback_authority(): void
+    {
+        $application = $this->directory.DIRECTORY_SEPARATOR.'application';
+        $rollback = $this->directory.DIRECTORY_SEPARATOR.'rollback';
+        file_put_contents($application.DIRECTORY_SEPARATOR.'bootstrap.php', 'uncertain-runtime');
+        file_put_contents($rollback.DIRECTORY_SEPARATOR.'bootstrap.php', 'working-old-runtime');
+        $statePath = $this->directory.DIRECTORY_SEPARATOR.'update-state.json';
+        file_put_contents($statePath, json_encode([
+            'format' => 1,
+            'status' => 'pending_rollback',
+            'activation_token_hash' => hash('sha256', 'private-activation-token'),
+            'rollback_token_hash' => hash('sha256', 'private-rollback-token'),
+            'application_root' => $application,
+            'rollback_directory' => $rollback,
+            'rollback_records' => [
+                ['path' => 'bootstrap.php', 'existed' => true, 'permissions' => 0644],
+            ],
+        ], JSON_THROW_ON_ERROR));
+
+        \WaymarkEmergencyUpdateRollback::restore($statePath, 'private-activation-token');
+
+        $state = json_decode(file_get_contents($statePath), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('working-old-runtime', file_get_contents($application.DIRECTORY_SEPARATOR.'bootstrap.php'));
+        $this->assertSame('pending_rollback', $state['status']);
+        $this->assertTrue($state['emergency_application_files_restored']);
+        $this->assertSame(hash('sha256', 'private-rollback-token'), $state['rollback_token_hash']);
+    }
 }

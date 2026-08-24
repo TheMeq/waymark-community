@@ -3,7 +3,9 @@
 namespace App\Filament\Pages;
 
 use App\Domain\Accounts\Enums\ModuleCapability;
-use App\Domain\Operations\Backups\Actions\RestoreBackup;
+use App\Domain\Operations\Backups\Actions\BeginGuidedRestore;
+use App\Domain\Operations\Backups\Actions\ContinueGuidedRestore;
+use App\Domain\Operations\Backups\GuidedRestoreStateStore;
 use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Models\User;
 use Filament\Notifications\Notification;
@@ -53,13 +55,17 @@ final class BackupRestore extends Page
     {
         try {
             $backup = BackupRun::query()->where('status', 'completed')->findOrFail($this->backupId);
-            app(RestoreBackup::class)->fromRun(
+            app(BeginGuidedRestore::class)->handle(
                 $backup,
                 $this->restoreConfirmation,
                 trim($this->backupPassphrase) === '' ? null : $this->backupPassphrase,
             );
 
-            return redirect('/admin/system-health');
+            Notification::make()->title('Safety backup started — continue when it completes')->success()->send();
+            $this->backupPassphrase = '';
+            $this->restoreConfirmation = '';
+
+            return null;
         } catch (Throwable $exception) {
             report($exception);
             $this->backupPassphrase = '';
@@ -68,5 +74,28 @@ final class BackupRestore extends Page
 
             return null;
         }
+    }
+
+    public function continueRestore(): RedirectResponse|Redirector|null
+    {
+        try {
+            if (app(ContinueGuidedRestore::class)->handle()) {
+                return redirect('/admin/system-health');
+            }
+            Notification::make()->title('Safety backup advanced — more work remains')->success()->send();
+
+            return null;
+        } catch (Throwable $exception) {
+            report($exception);
+            Notification::make()->title('Restore remains paused — review or retry its safety backup')->danger()->send();
+
+            return null;
+        }
+    }
+
+    /** @return array<string, mixed>|null */
+    public function restoreState(): ?array
+    {
+        return app(GuidedRestoreStateStore::class)->read();
     }
 }

@@ -27,6 +27,7 @@ return [
         'database_chunk_size' => (int) env('WAYMARK_BACKUP_DATABASE_CHUNK_SIZE', 100),
         'retention_count' => (int) env('WAYMARK_BACKUP_RETENTION_COUNT', 14),
         'restore_environment_path' => env('WAYMARK_RESTORE_ENVIRONMENT_PATH', base_path('.env')),
+        'restore_state_path' => env('WAYMARK_RESTORE_STATE_PATH', storage_path('app/private/guided-restore-state.json')),
         'minimum_staging_bytes' => (int) env('WAYMARK_BACKUP_MINIMUM_STAGING_BYTES', 25 * 1024 * 1024),
     ],
     'recovery' => [

@@ -17,6 +17,11 @@
         <label class="mt-5 block font-medium" for="restore-confirmation">Type <strong>RESTORE WAYMARK</strong></label>
         <x-filament::input.wrapper class="mt-2"><x-filament::input id="restore-confirmation" wire:model="restoreConfirmation" autocomplete="off" /></x-filament::input.wrapper>
 
-        <x-filament::button class="mt-5" color="danger" wire:click="restore" wire:loading.attr="disabled">Restore selected backup</x-filament::button>
+        @if (($this->restoreState()['status'] ?? null) === 'waiting_for_safety_backup')
+            <p class="mt-5 rounded-lg border p-3">The target is verified. Its bounded safety backup must complete before destructive restore begins.</p>
+            <x-filament::button class="mt-3" wire:click="continueRestore" wire:loading.attr="disabled">Continue safety backup / restore</x-filament::button>
+        @else
+            <x-filament::button class="mt-5" color="danger" wire:click="restore" wire:loading.attr="disabled">Restore selected backup</x-filament::button>
+        @endif
     </section>
 </x-filament-panels::page>
