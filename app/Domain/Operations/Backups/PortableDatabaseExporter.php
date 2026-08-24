@@ -17,14 +17,18 @@ final class PortableDatabaseExporter
 
         $connection = DB::connection();
         $driver = $connection->getDriverName();
-        if ($driver === 'mysql') {
-            $connection->statement('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
-        } elseif ($driver === 'sqlite') {
-            $connection->statement('PRAGMA read_uncommitted = 0');
-        }
-        $connection->beginTransaction();
+        $ownsSnapshotTransaction = $connection->transactionLevel() === 0;
 
         try {
+            if ($ownsSnapshotTransaction) {
+                if ($driver === 'mysql') {
+                    $connection->statement('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+                } elseif ($driver === 'sqlite') {
+                    $connection->statement('PRAGMA read_uncommitted = 0');
+                }
+                $connection->beginTransaction();
+            }
+
             foreach ($this->tables() as $table) {
                 $columns = $this->writableColumns($table);
                 $this->line($stream, ['type' => 'table', 'name' => $table, 'columns' => $columns]);
@@ -38,9 +42,11 @@ final class PortableDatabaseExporter
                     }
                 });
             }
-            $connection->commit();
+            if ($ownsSnapshotTransaction) {
+                $connection->commit();
+            }
         } catch (\Throwable $exception) {
-            if ($connection->transactionLevel() > 0) {
+            if ($ownsSnapshotTransaction && $connection->transactionLevel() > 0) {
                 $connection->rollBack();
             }
 
