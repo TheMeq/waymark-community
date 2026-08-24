@@ -28,7 +28,13 @@ use App\Domain\Operations\Analytics\ExternalAnalytics;
 use App\Domain\Operations\AntiSpam\PublicFormChallenge;
 use App\Domain\Operations\AntiSpam\TurnstilePublicFormChallenge;
 use App\Domain\Operations\Environment\StagingMode;
+use App\Domain\Operations\Installation\Contracts\DatabaseConnectionTester;
+use App\Domain\Operations\Installation\Contracts\EnvironmentWriter;
+use App\Domain\Operations\Installation\Contracts\MailConnectionTester;
+use App\Domain\Operations\Installation\EnvironmentFileWriter;
 use App\Domain\Operations\Installation\InstallationState;
+use App\Domain\Operations\Installation\PdoDatabaseConnectionTester;
+use App\Domain\Operations\Installation\SymfonyMailConnectionTester;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Walks\RelatedContent\RelatedWalks;
 use App\Domain\Walks\RelatedContent\SignalRelatedWalks;
@@ -52,7 +58,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(InstallationState::class, function (): InstallationState {
             $configuredState = config('waymark.installation.installed');
-            $applicationKey = config('app.key');
+            $applicationKey = config('waymark.installation.legacy_application_key');
 
             return new InstallationState(
                 (string) config('waymark.installation.lock_path'),
@@ -60,6 +66,9 @@ class AppServiceProvider extends ServiceProvider
                 is_string($applicationKey) ? $applicationKey : null,
             );
         });
+        $this->app->bind(DatabaseConnectionTester::class, PdoDatabaseConnectionTester::class);
+        $this->app->bind(MailConnectionTester::class, SymfonyMailConnectionTester::class);
+        $this->app->bind(EnvironmentWriter::class, EnvironmentFileWriter::class);
         $this->app->bind(RelatedWalks::class, SignalRelatedWalks::class);
         $this->app->bind(ImageMetadataReader::class, PhpExifImageMetadataReader::class);
         $this->app->bind(RasterImageTransformer::class, GdRasterImageTransformer::class);

@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Operations\Installation\SetupStep;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Http\Controllers\AccountPrivacyController;
@@ -49,7 +50,14 @@ use App\Http\Controllers\WhatsOnCalendarController;
 use App\Http\Controllers\WhatsOnController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/setup', SetupController::class)->name('setup');
+Route::get('/setup', [SetupController::class, 'show'])->name('setup');
+Route::post('/setup', [SetupController::class, 'start'])->name('setup.start');
+Route::get('/setup/{step}', [SetupController::class, 'show'])
+    ->whereIn('step', array_column(SetupStep::cases(), 'value'))
+    ->name('setup.step');
+Route::post('/setup/{step}', [SetupController::class, 'store'])
+    ->whereIn('step', array_column(SetupStep::cases(), 'value'))
+    ->name('setup.step.store');
 Route::get('/', HomeController::class)->name('home');
 Route::get('/manifest.webmanifest', [PwaController::class, 'manifest'])->name('pwa.manifest');
 Route::get('/service-worker.js', [PwaController::class, 'serviceWorker'])->name('pwa.service-worker');

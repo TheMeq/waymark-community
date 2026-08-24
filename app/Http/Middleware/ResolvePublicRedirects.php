@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Domain\Content\Models\PublicRedirect;
 use App\Domain\Operations\Analytics\CampaignParameterFilter;
+use App\Domain\Operations\Installation\InstallationState;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -11,10 +12,17 @@ use Symfony\Component\HttpFoundation\Response;
 
 final readonly class ResolvePublicRedirects
 {
-    public function __construct(private CampaignParameterFilter $campaignParameters) {}
+    public function __construct(
+        private CampaignParameterFilter $campaignParameters,
+        private InstallationState $installation,
+    ) {}
 
     public function handle(Request $request, Closure $next): Response
     {
+        if ($this->installation->installationRequired()) {
+            return $next($request);
+        }
+
         if ($request->isMethodSafe() && Schema::hasTable('public_redirects')) {
             $path = '/'.ltrim($request->path(), '/');
             $redirect = PublicRedirect::query()->where('enabled', true)->where('source_path', $path)->first();

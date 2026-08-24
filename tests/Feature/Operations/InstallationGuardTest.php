@@ -33,6 +33,9 @@ final class InstallationGuardTest extends TestCase
         $this->get('/')->assertRedirect('/setup');
         $this->get('/not-a-real-public-route')->assertRedirect('/setup');
         $this->post('/contact')->assertRedirect('/setup');
+        $this->get('/setup')
+            ->assertSuccessful()
+            ->assertSee('Set up Waymark Community');
     }
 
     public function test_setup_is_the_only_application_surface_available_before_installation(): void

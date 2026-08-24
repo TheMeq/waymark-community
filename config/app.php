@@ -1,5 +1,7 @@
 <?php
 
+use App\Domain\Operations\Installation\BootstrapApplicationKey;
+
 return [
 
     /*
@@ -97,7 +99,7 @@ return [
 
     'cipher' => 'AES-256-CBC',
 
-    'key' => env('APP_KEY'),
+    'key' => BootstrapApplicationKey::resolve(env('APP_KEY'), storage_path('app/private/setup.key')),
 
     'previous_keys' => [
         ...array_filter(

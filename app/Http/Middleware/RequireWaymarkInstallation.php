@@ -22,6 +22,10 @@ final readonly class RequireWaymarkInstallation
         }
 
         if ($setupRequest) {
+            if (config('session.driver') === 'database') {
+                config()->set('session.driver', 'file');
+            }
+
             return $next($request);
         }
 
