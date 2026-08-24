@@ -128,10 +128,9 @@ try {
     await page.getByLabel('Email address').fill('owner@example.test');
     await page.getByLabel('Password').fill('WaymarkInstall9!');
     await Promise.all([
-        page.waitForURL(`http://127.0.0.1:${appPort}/new-here`),
+        page.waitForURL(`http://127.0.0.1:${appPort}/admin`),
         page.getByRole('button', { name: 'Sign in' }).click(),
     ]);
-    await page.goto(`http://127.0.0.1:${appPort}/admin`);
     await page.getByRole('heading', { name: 'Dashboard' }).waitFor();
 
     const publicResponse = await page.goto(`http://127.0.0.1:${appPort}/`);
