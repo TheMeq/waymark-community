@@ -16,6 +16,13 @@ final class PublicFooterSections
             return collect();
         }
 
-        return Cache::remember(PublicContentCache::FOOTER, (int) config('waymark.public_cache_seconds', 300), fn (): Collection => FooterSection::query()->where('enabled', true)->orderBy('sort_order')->orderBy('id')->get());
+        $attributes = Cache::remember(
+            PublicContentCache::FOOTER,
+            (int) config('waymark.public_cache_seconds', 300),
+            fn (): array => FooterSection::query()->where('enabled', true)->orderBy('sort_order')->orderBy('id')->get()
+                ->map(fn (FooterSection $section): array => $section->getAttributes())->all(),
+        );
+
+        return FooterSection::hydrate($attributes);
     }
 }

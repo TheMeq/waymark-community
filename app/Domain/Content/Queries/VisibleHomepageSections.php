@@ -12,7 +12,13 @@ final class VisibleHomepageSections
     /** @return Collection<int, HomepageSection> */
     public function get(): Collection
     {
-        return Cache::remember(PublicContentCache::HOMEPAGE_SECTIONS, (int) config('waymark.public_cache_seconds', 300), fn (): Collection => $this->query());
+        $attributes = Cache::remember(
+            PublicContentCache::HOMEPAGE_SECTIONS,
+            (int) config('waymark.public_cache_seconds', 300),
+            fn (): array => $this->query()->map(fn (HomepageSection $section): array => $section->getAttributes())->all(),
+        );
+
+        return HomepageSection::hydrate($attributes);
     }
 
     /** @return Collection<int, HomepageSection> */
