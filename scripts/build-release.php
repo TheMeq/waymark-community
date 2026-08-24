@@ -30,7 +30,7 @@ if ($requestedCommit !== 'HEAD' && preg_match('/\A[a-f0-9]{40}\z/', $requestedCo
 $plan = [
     'version' => $version,
     'archive' => "waymark-community-{$version}-shared-hosting.zip",
-    'source' => 'git archive '.$requestedCommit,
+    'source' => 'git clone + detached checkout '.$requestedCommit,
     'build' => [
         'composer install --no-interaction --prefer-dist',
         'npm ci',
@@ -76,17 +76,13 @@ if (trim($status) !== '') {
 $commit = (new GitCommitResolver)->resolve($root, $requestedCommit);
 
 $temporaryRoot = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'waymark-release-'.bin2hex(random_bytes(8));
-$sourceArchive = $temporaryRoot.DIRECTORY_SEPARATOR.'source.zip';
 $source = $temporaryRoot.DIRECTORY_SEPARATOR.'source';
 $application = $temporaryRoot.DIRECTORY_SEPARATOR.'application';
 
 try {
     mkdir($temporaryRoot, 0700, true);
-    runCommand('git archive --format=zip --output='.escapeshellarg($sourceArchive).' '.$commit, $root);
-    extractArchive($sourceArchive, $source);
-    runCommand('git init --quiet', $source);
-    runCommand('git add --all', $source);
-    runCommand('git -c user.name=Waymark -c user.email=release@waymark.invalid commit --quiet -m "Exact release source"', $source);
+    runCommand('git clone --quiet --no-hardlinks --no-checkout '.escapeshellarg($root).' '.escapeshellarg($source), $root);
+    runCommand('git checkout --quiet --detach '.$commit, $source);
     (new VerificationEnvironment)->prepare($source);
 
     foreach ($plan['build'] as $command) {
@@ -166,21 +162,6 @@ function capture(string $command, string $directory): string
     }
 
     return implode("\n", $lines);
-}
-
-function extractArchive(string $archivePath, string $destination): void
-{
-    $archive = new ZipArchive;
-    if (! mkdir($destination, 0700, true) || $archive->open($archivePath) !== true) {
-        throw new RuntimeException('The exact-commit source archive could not be opened.');
-    }
-    try {
-        if (! $archive->extractTo($destination)) {
-            throw new RuntimeException('The exact-commit source archive could not be extracted.');
-        }
-    } finally {
-        $archive->close();
-    }
 }
 
 function copyApplicationSource(string $source, string $destination): void

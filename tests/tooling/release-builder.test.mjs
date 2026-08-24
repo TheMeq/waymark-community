@@ -16,7 +16,7 @@ test('shared-hosting builder plan uses a clean commit, locked dependencies, full
     const plan = JSON.parse(result.stdout);
     assert.equal(plan.version, '1.0.0');
     assert.equal(plan.archive, 'waymark-community-1.0.0-shared-hosting.zip');
-    assert.equal(plan.source, 'git archive HEAD');
+    assert.equal(plan.source, 'git clone + detached checkout HEAD');
     assert.deepEqual(plan.verification, [
         'composer validate --strict',
         'composer prohibits php 8.3',
@@ -48,16 +48,15 @@ test('builder can produce an exact prior-commit release candidate for upgrade te
 
     assert.equal(result.status, 0, result.stderr);
     const plan = JSON.parse(result.stdout);
-    assert.equal(plan.source, `git archive ${commit}`);
+    assert.equal(plan.source, `git clone + detached checkout ${commit}`);
     assert.equal(plan.archive, 'waymark-community-0.9.0-shared-hosting.zip');
 });
 
-test('exact-commit workspace supplies repository verification metadata without packaging it', async () => {
+test('exact-commit workspace preserves all tracked review files without packaging Git metadata', async () => {
     const source = await import('node:fs/promises').then(({ readFile }) => readFile(resolve(repositoryRoot, 'scripts/build-release.php'), 'utf8'));
 
-    assert.match(source, /git init --quiet/);
-    assert.match(source, /git add --all/);
-    assert.match(source, /git -c user\.name=Waymark -c user\.email=release@waymark\.invalid commit --quiet/);
+    assert.match(source, /git clone --quiet --no-hardlinks --no-checkout/);
+    assert.match(source, /git checkout --quiet --detach/);
     assert.match(source, /\\\.git\|\\\.github/);
     assert.match(source, /normalized !== '\.env\.example'/);
     assert.match(source, /RuntimePathFilter::excludes\(\$path\)/);
