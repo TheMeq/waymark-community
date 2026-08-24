@@ -4,8 +4,10 @@
 declare(strict_types=1);
 
 use Waymark\Release\ReleaseArchiveBuilder;
+use Waymark\Release\ReleaseArchiveVerifier;
 
 require_once __DIR__.'/release/ReleaseArchiveBuilder.php';
+require_once __DIR__.'/release/ReleaseArchiveVerifier.php';
 
 $options = getopt('', ['version:', 'output::', 'plan']);
 $version = is_string($options['version'] ?? null) ? trim($options['version']) : '';
@@ -35,6 +37,7 @@ $plan = [
         'composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader',
         'write release-manifest.json',
         'write SHA-256 checksum',
+        'verify the completed shared-hosting ZIP',
     ],
     'excludes' => ['.git', '.env', 'node_modules', 'tests', 'runtime storage', 'backups', 'logs', 'caches', 'reports', 'developer reference assets'],
 ];
@@ -92,6 +95,7 @@ try {
         'minimum_php' => '8.3.0',
         'schema' => $schema,
     ]);
+    $result['verification'] = (new ReleaseArchiveVerifier)->verify($outputPath);
 
     fwrite(STDOUT, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n");
 } catch (Throwable $exception) {

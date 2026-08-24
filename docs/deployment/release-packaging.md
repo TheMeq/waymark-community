@@ -12,4 +12,10 @@ The builder creates a temporary `git archive HEAD` workspace, installs the track
 
 The generated `waymark-community-<version>-shared-hosting.zip` contains `release-manifest.json` plus files under `application/`. The manifest follows [`scripts/release/release-manifest.schema.json`](../../scripts/release/release-manifest.schema.json) and records the source commit, build time, minimum PHP version, supported database baselines, latest migration, and the size and SHA-256 of every application file. The adjacent `.sha256` file authenticates the whole ZIP.
 
+The builder verifies the finished archive before reporting success. An existing artifact can be checked independently with:
+
+```sh
+php scripts/verify-release.php dist/waymark-community-1.0.0-shared-hosting.zip
+```
+
 The artifact includes production `vendor/`, compiled `public/build/` assets, installer and migrations, `.env.example`, and writable-directory placeholders. It excludes Git metadata, secrets, Node modules, tests, reports, runtime uploads/media, backups, logs, caches, sessions, generated views, local databases, and design/developer reference material.
