@@ -7,6 +7,7 @@ use App\Domain\Operations\Backups\BackupVerifier;
 use App\Domain\Operations\Backups\Contracts\BackupCapacityProbe;
 use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Domain\Operations\Backups\PortableDatabaseExporter;
+use App\Domain\Operations\Backups\RestorationEnvironmentPolicy;
 use App\Domain\Operations\Locks\DestructiveOperationLock;
 use App\Domain\Operations\Maintenance\MaintenanceManager;
 use Illuminate\Support\Facades\Crypt;
@@ -24,6 +25,7 @@ final readonly class CreateBackup
         private DestructiveOperationLock $operations,
         private BackupCapacityProbe $capacity,
         private MaintenanceManager $maintenance,
+        private RestorationEnvironmentPolicy $environment,
     ) {}
 
     public function handle(string $trigger, ?string $encryptionPassphrase = null): BackupRun
@@ -154,10 +156,8 @@ final readonly class CreateBackup
 
         $databasePath = $directory.DIRECTORY_SEPARATOR.'database.jsonl';
         $this->databaseExporter->export($databasePath, (int) config('waymark.backups.database_chunk_size', 100));
-        $configurationPath = $directory.DIRECTORY_SEPARATOR.'configuration.env';
-        if (! copy($environmentPath, $configurationPath)) {
-            throw new RuntimeException('Restoration configuration could not be staged.');
-        }
+        $configurationPath = $directory.DIRECTORY_SEPARATOR.'restoration.env';
+        $this->environment->export($environmentPath, $configurationPath);
 
         $privateFiles = [];
         foreach (Storage::disk('local')->allFiles() as $path) {
@@ -182,7 +182,7 @@ final readonly class CreateBackup
                 'archive_index' => 0,
                 'components' => [
                     $this->component('database.jsonl', $databasePath),
-                    $this->component('configuration/.env', $configurationPath),
+                    $this->component('configuration/restoration.env', $configurationPath),
                 ],
             ],
             'last_progress_at' => now(),
@@ -223,7 +223,7 @@ final readonly class CreateBackup
         $state = $run->work_state;
         $manifestPath = $this->stagingDirectory($run).DIRECTORY_SEPARATOR.'manifest.json';
         $encoded = json_encode([
-            'format' => 1,
+            'format' => 2,
             'created_at' => now('UTC')->toIso8601String(),
             'waymark_version' => config('waymark.version'),
             'database_driver' => config('database.default'),

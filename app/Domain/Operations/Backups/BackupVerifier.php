@@ -69,7 +69,7 @@ final readonly class BackupVerifier
 
             $manifestJson = $archive->getFromName('manifest.json');
             $manifest = is_string($manifestJson) ? json_decode($manifestJson, true) : null;
-            if (! is_array($manifest) || ($manifest['format'] ?? null) !== 1
+            if (! is_array($manifest) || ! in_array($manifest['format'] ?? null, [1, 2], true)
                 || ! is_string($manifest['created_at'] ?? null)
                 || ! is_string($manifest['waymark_version'] ?? null)
                 || ! in_array($manifest['database_driver'] ?? null, ['sqlite', 'mysql'], true)
@@ -109,7 +109,8 @@ final readonly class BackupVerifier
                 }
             }
 
-            if (! isset($declared['database.jsonl'], $declared['configuration/.env'])
+            $configurationPath = $manifest['format'] === 2 ? 'configuration/restoration.env' : 'configuration/.env';
+            if (! isset($declared['database.jsonl'], $declared[$configurationPath])
                 || array_diff_key($entries, $declared) !== [] || array_diff_key($declared, $entries) !== []) {
                 throw $this->failure();
             }

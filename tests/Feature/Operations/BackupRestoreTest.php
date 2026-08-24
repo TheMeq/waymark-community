@@ -5,6 +5,7 @@ namespace Tests\Feature\Operations;
 use App\Domain\Operations\Backups\Actions\CreateBackup;
 use App\Domain\Operations\Backups\Actions\RestoreBackup;
 use App\Domain\Operations\Backups\Contracts\RestoreHealthProbe;
+use App\Domain\Operations\Installation\InstallationState;
 use App\Domain\Operations\Maintenance\MaintenanceManager;
 use App\Domain\Operations\Models\SiteProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,23 +20,29 @@ final class BackupRestoreTest extends TestCase
 
     private string $environmentPath;
 
+    private string $installationPath;
+
     protected function setUp(): void
     {
         parent::setUp();
         Storage::fake('local');
         Storage::fake('backups');
         $this->environmentPath = storage_path('framework/testing/restore-environment-'.bin2hex(random_bytes(8)));
-        file_put_contents($this->environmentPath, "APP_KEY=base64:original-key\n");
+        file_put_contents($this->environmentPath, "APP_KEY=base64:original-key\nAPP_URL=https://source.example\nDB_HOST=source-db\nFILESYSTEM_DISK=source-disk\n");
         config()->set('waymark.backups.environment_path', $this->environmentPath);
         config()->set('waymark.backups.restore_environment_path', $this->environmentPath);
         config()->set('waymark.backups.destination_disk', 'backups');
         config()->set('waymark.maintenance.state_path', $this->environmentPath.'.maintenance');
+        $this->installationPath = $this->environmentPath.'.installed';
+        config()->set('waymark.installation.lock_path', $this->installationPath);
+        $this->app->forgetInstance(InstallationState::class);
     }
 
     protected function tearDown(): void
     {
         @unlink($this->environmentPath);
         @unlink($this->environmentPath.'.maintenance');
+        @unlink($this->installationPath);
         parent::tearDown();
     }
 
@@ -48,14 +55,18 @@ final class BackupRestoreTest extends TestCase
         $profile->update(['group_name' => 'Changed Group']);
         Storage::disk('local')->delete('community-photos/original.jpg');
         Storage::disk('local')->put('community-photos/new.jpg', 'new-image');
-        file_put_contents($this->environmentPath, "APP_KEY=base64:changed-key\n");
+        file_put_contents($this->environmentPath, "APP_KEY=base64:changed-key\nAPP_URL=https://target.example\nDB_HOST=target-db\nFILESYSTEM_DISK=local\n");
 
         app(RestoreBackup::class)->fromRun($backup, 'RESTORE WAYMARK', 'portable passphrase');
 
         $this->assertSame('Original Ramblers', SiteProfile::query()->sole()->group_name);
         Storage::disk('local')->assertExists('community-photos/original.jpg');
         Storage::disk('local')->assertMissing('community-photos/new.jpg');
-        $this->assertSame("APP_KEY=base64:original-key\n", file_get_contents($this->environmentPath));
+        $restoredEnvironment = (string) file_get_contents($this->environmentPath);
+        $this->assertStringContainsString('APP_KEY=base64:original-key', $restoredEnvironment);
+        $this->assertStringContainsString('APP_URL=https://target.example', $restoredEnvironment);
+        $this->assertStringContainsString('DB_HOST=target-db', $restoredEnvironment);
+        $this->assertStringContainsString('FILESYSTEM_DISK=local', $restoredEnvironment);
         $this->assertFalse(app(MaintenanceManager::class)->active());
     }
 

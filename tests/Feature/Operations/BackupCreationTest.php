@@ -60,7 +60,8 @@ final class BackupCreationTest extends TestCase
         $this->assertTrue($archive->open(Storage::disk('backups')->path($backup->storage_path)));
         $this->assertNotFalse($archive->locateName('manifest.json'));
         $this->assertNotFalse($archive->locateName('database.jsonl'));
-        $this->assertNotFalse($archive->locateName('configuration/.env'));
+        $this->assertNotFalse($archive->locateName('configuration/restoration.env'));
+        $this->assertFalse($archive->locateName('configuration/.env'));
         $this->assertNotFalse($archive->locateName('private/community-photos/example/large.jpg'));
         $this->assertStringContainsString('site_profiles', (string) $archive->getFromName('database.jsonl'));
         $archive->close();

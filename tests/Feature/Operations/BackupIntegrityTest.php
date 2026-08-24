@@ -43,9 +43,9 @@ final class BackupIntegrityTest extends TestCase
             'strong recovery phrase',
         );
 
-        $this->assertSame(1, $verified->manifest['format']);
+        $this->assertSame(2, $verified->manifest['format']);
         $this->assertContains('database.jsonl', $verified->componentPaths());
-        $this->assertContains('configuration/.env', $verified->componentPaths());
+        $this->assertContains('configuration/restoration.env', $verified->componentPaths());
         $this->assertContains('private/documents/policy.pdf', $verified->componentPaths());
         $verified->cleanup();
     }

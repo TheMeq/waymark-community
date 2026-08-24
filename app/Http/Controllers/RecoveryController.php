@@ -23,7 +23,8 @@ final readonly class RecoveryController
         $validator = Validator::make($request->all(), [
             'recovery_token' => ['required', 'string', 'max:1024'],
             'confirmation' => ['required', 'string', 'max:100'],
-            'backup' => ['required', 'file', 'max:1048576'],
+            'backup' => ['nullable', 'required_without:server_archive', 'file', 'max:1048576'],
+            'server_archive' => ['nullable', 'required_without:backup', 'string', 'max:200', 'regex:/\A[A-Za-z0-9][A-Za-z0-9._-]*\.zip(?:\.enc)?\z/i'],
             'passphrase' => ['nullable', 'string', 'max:1024'],
         ]);
         if ($validator->fails()) {
@@ -38,8 +39,12 @@ final readonly class RecoveryController
 
         try {
             $upload = $request->file('backup');
+            $archivePath = $upload?->getRealPath();
+            if (! is_string($archivePath) || $archivePath === '') {
+                $archivePath = $this->serverArchive((string) $request->input('server_archive'));
+            }
             $this->restore->restoreFile(
-                (string) $upload?->getRealPath(),
+                $archivePath,
                 (string) $request->input('confirmation'),
                 $request->filled('passphrase') ? (string) $request->input('passphrase') : null,
             );
@@ -50,5 +55,20 @@ final readonly class RecoveryController
 
             return back()->withErrors(['recovery' => 'Recovery could not be authorised or the backup was invalid.']);
         }
+    }
+
+    private function serverArchive(string $filename): string
+    {
+        $directory = (string) config('waymark.recovery.archive_directory');
+        $root = realpath($directory);
+        if (! is_string($root) || basename($filename) !== $filename) {
+            throw new \RuntimeException('The server-side recovery archive is unavailable.');
+        }
+        $archive = realpath($root.DIRECTORY_SEPARATOR.$filename);
+        if (! is_string($archive) || ! is_file($archive) || strcasecmp(dirname($archive), $root) !== 0) {
+            throw new \RuntimeException('The server-side recovery archive is unavailable.');
+        }
+
+        return $archive;
     }
 }

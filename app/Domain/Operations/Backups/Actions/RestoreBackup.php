@@ -6,7 +6,9 @@ use App\Domain\Operations\Backups\BackupVerifier;
 use App\Domain\Operations\Backups\Contracts\RestoreHealthProbe;
 use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Domain\Operations\Backups\PortableDatabaseImporter;
+use App\Domain\Operations\Backups\RestorationEnvironmentPolicy;
 use App\Domain\Operations\Backups\VerifiedBackup;
+use App\Domain\Operations\Installation\InstallationState;
 use App\Domain\Operations\Locks\DestructiveOperationLock;
 use App\Domain\Operations\Maintenance\MaintenanceManager;
 use Illuminate\Support\Facades\Storage;
@@ -26,14 +28,16 @@ final readonly class RestoreBackup
         private DestructiveOperationLock $operations,
         private CreateBackup $backups,
         private RestoreHealthProbe $health,
+        private RestorationEnvironmentPolicy $environment,
+        private InstallationState $installation,
     ) {}
 
     public function fromRun(BackupRun $backup, string $confirmation, ?string $passphrase = null, bool $createSafetyBackup = true): void
     {
-        $this->operations->run('restore:known-backup', fn () => $this->restoreRun($backup, $confirmation, $passphrase, $createSafetyBackup));
+        $this->operations->run('restore:known-backup', fn () => $this->restoreRun($backup, $confirmation, $passphrase, $createSafetyBackup, true));
     }
 
-    private function restoreRun(BackupRun $backup, string $confirmation, ?string $passphrase, bool $createSafetyBackup): void
+    private function restoreRun(BackupRun $backup, string $confirmation, ?string $passphrase, bool $createSafetyBackup, bool $completeInstallation): void
     {
         $this->confirm($confirmation);
         if ($backup->status !== 'completed' || ! is_string($backup->storage_disk) || ! is_string($backup->storage_path)) {
@@ -60,7 +64,7 @@ final readonly class RestoreBackup
         }
 
         try {
-            $this->restoreArchive($temporaryPath, $confirmation, $passphrase, $backup->sha256, $createSafetyBackup ? 'required' : 'none');
+            $this->restoreArchive($temporaryPath, $confirmation, $passphrase, $backup->sha256, $createSafetyBackup ? 'required' : 'none', $completeInstallation);
         } finally {
             @unlink($temporaryPath);
         }
@@ -68,10 +72,10 @@ final readonly class RestoreBackup
 
     public function restoreFile(string $sourcePath, string $confirmation, ?string $passphrase = null, ?string $expectedSha256 = null): void
     {
-        $this->operations->run('restore:archive', fn () => $this->restoreArchive($sourcePath, $confirmation, $passphrase, $expectedSha256, 'attempt'));
+        $this->operations->run('restore:archive', fn () => $this->restoreArchive($sourcePath, $confirmation, $passphrase, $expectedSha256, 'attempt', true));
     }
 
-    private function restoreArchive(string $sourcePath, string $confirmation, ?string $passphrase, ?string $expectedSha256, string $safetyMode): void
+    private function restoreArchive(string $sourcePath, string $confirmation, ?string $passphrase, ?string $expectedSha256, string $safetyMode, bool $completeInstallation): void
     {
         $this->confirm($confirmation);
         $verified = $this->verifier->open($sourcePath, $passphrase, $expectedSha256);
@@ -87,18 +91,21 @@ final readonly class RestoreBackup
             $this->databaseImporter->assertCompatible($stagingDirectory.DIRECTORY_SEPARATOR.'database.jsonl');
             $safetyBackup = $this->safetyBackup($safetyMode);
             try {
-                $this->maintenance->run(function () use ($verified, $stagingDirectory, $safetyBackup): void {
+                $this->maintenance->run(function () use ($verified, $stagingDirectory, $safetyBackup, $completeInstallation): void {
                     $this->databaseImporter->restore($stagingDirectory.DIRECTORY_SEPARATOR.'database.jsonl');
                     $this->restorePrivateFiles($verified, $stagingDirectory);
                     $this->restoreEnvironment($stagingDirectory);
                     $this->registerSafetyBackup($safetyBackup);
                     $this->health->assertHealthy();
+                    if ($completeInstallation) {
+                        $this->installation->complete();
+                    }
                 }, 'Waymark is restoring a verified backup.');
             } catch (Throwable $restoreFailure) {
                 $rolledBack = false;
                 if ($safetyBackup instanceof BackupRun) {
                     try {
-                        $this->restoreRun($safetyBackup, self::CONFIRMATION, null, false);
+                        $this->restoreRun($safetyBackup, self::CONFIRMATION, null, false, false);
                         $this->registerSafetyBackup($safetyBackup);
                         $rolledBack = true;
                     } catch (Throwable $rollbackFailure) {
@@ -225,17 +232,14 @@ final readonly class RestoreBackup
 
     private function restoreEnvironment(string $stagingDirectory): void
     {
-        $source = $stagingDirectory.DIRECTORY_SEPARATOR.'configuration'.DIRECTORY_SEPARATOR.'.env';
+        $portable = $stagingDirectory.DIRECTORY_SEPARATOR.'configuration'.DIRECTORY_SEPARATOR.'restoration.env';
+        $legacy = $stagingDirectory.DIRECTORY_SEPARATOR.'configuration'.DIRECTORY_SEPARATOR.'.env';
+        $source = is_file($portable) ? $portable : $legacy;
         if (! is_file($source)) {
             return;
         }
         $destination = (string) config('waymark.backups.restore_environment_path', base_path('.env'));
-        $temporary = $destination.'.restore-'.bin2hex(random_bytes(6));
-        if (! copy($source, $temporary) || ! rename($temporary, $destination)) {
-            @unlink($temporary);
-            throw new RuntimeException('The restored configuration could not be applied.');
-        }
-        @chmod($destination, 0600);
+        $this->environment->merge($source, $destination);
     }
 
     private function cleanDirectory(string $directory): void

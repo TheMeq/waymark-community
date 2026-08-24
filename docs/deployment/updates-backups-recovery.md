@@ -18,13 +18,15 @@ Backup creation, restore, and update installation share one filesystem lock. A s
 
 ## Backups
 
-Administrators can create and download a backup from **System health**. The scheduler creates one daily at 02:00 when cron is configured. `WAYMARK_BACKUP_RETENTION_COUNT` controls how many completed archives are retained (14 by default).
+Administrators can start and download a backup from **System health**. Creation is a persisted sequence of bounded steps: cron advances it once per minute, while **Continue backup work** provides the same safe progression when cron is unavailable. The scheduler starts one daily at 02:00 when cron is configured. Only one backup consistency window can run at a time. `WAYMARK_BACKUP_RETENTION_COUNT` controls how many completed archives are retained (14 by default).
 
 Local private storage is the default. An S3-compatible disk can be selected during setup or configured with the standard `AWS_*` settings and `WAYMARK_BACKUP_DISK=s3`. Off-host storage is encouraged for disaster recovery.
 
 Encryption is optional. An encrypted archive requires the exact passphrase at restore time; Waymark cannot recover a forgotten passphrase.
 
-Backup must cover database, media/uploads, documents, and restoration-relevant configuration.
+Each run temporarily uses Waymark's maintenance boundary to stop normal HTTP writes. Scheduled/fallback media-changing work is paused until the backup succeeds or fails. The database export runs in one transaction using SQLite snapshot semantics or InnoDB repeatable-read semantics, and private files are size/hash checked both before and after their bounded staging copy. A changed file fails the run as retryable; it can never produce a completed archive.
+
+Backups cover the database, media/uploads, documents, and an allowlisted restoration configuration. New archives contain only `APP_KEY` and `APP_PREVIOUS_KEYS` from the source environment, never source database credentials, canonical URL, or host runtime/storage settings.
 
 Waymark verifies the archive manifest, expected database component, every declared component size and SHA-256 checksum, and safe archive paths before recording a backup as completed or allowing restore.
 
@@ -34,9 +36,11 @@ Before creating an archive, Waymark checks that the local staging area has enoug
 
 Normal guided restore is available at **System → Restore backup** after fresh password confirmation (and fresh 2FA when enabled). Select a known completed backup and type the exact destructive confirmation `RESTORE WAYMARK`.
 
-If normal administration is broken, open `/recovery`, upload a Waymark backup, supply its encryption passphrase when applicable, provide the recovery token established during setup, and type the same destructive confirmation. Keep that token in the group's password manager: only its SHA-256 hash is stored in `WAYMARK_RECOVERY_TOKEN_HASH`, so Waymark cannot display or recover it later.
+If normal administration is broken, open `/recovery`, select a Waymark backup, supply its encryption passphrase when applicable, provide the recovery token established during setup, and type the same destructive confirmation. Keep that token in the group's password manager: only its SHA-256 hash is stored in `WAYMARK_RECOVERY_TOKEN_HASH`, so Waymark cannot display or recover it later.
 
-Restore verifies archive compatibility before entering maintenance mode, then creates a mandatory safety backup of the current installation. Restore replaces the database, private media/documents and restoration configuration, performs health checks while maintenance remains active, and automatically rolls back to the safety backup if activation fails. Standalone recovery makes a best-effort safety backup because it must remain usable when the normal database is already broken. Keep an additional off-host copy of the current state before beginning.
+When a backup is larger than the hosting account's PHP upload/post limit, place it through the hosting control panel or SFTP in the private `storage/app/private/recovery-inbox` directory, then enter only its filename in the recovery form. `WAYMARK_RECOVERY_ARCHIVE_DIRECTORY` may point to another private server directory. Waymark accepts a simple `.zip` or `.zip.enc` filename only, resolves it inside that configured directory, and never accepts an arbitrary request path. Delete the server-side copy after recovery.
+
+Restore verifies archive compatibility before entering maintenance mode, then creates a mandatory safety backup of the current installation. Restore replaces the database and private media/documents, merges only the allowlisted source cryptographic identity into the target `.env`, and preserves the target database connection, canonical URL, filesystem, cache, session, queue, and other host settings. Legacy Phase 9 archives containing a full environment component use the same allowlisted merge and are not copied wholesale. After health checks pass, restore idempotently completes the private installation marker, so a recovered fresh host cannot expose `/setup`. Restore automatically rolls back to the safety backup if activation fails. Standalone recovery makes a best-effort safety backup because it must remain usable when the normal database is already broken. Keep an additional off-host copy of the current state before beginning.
 
 ## Maintenance mode
 

@@ -31,6 +31,7 @@ return [
     ],
     'recovery' => [
         'token_hash' => env('WAYMARK_RECOVERY_TOKEN_HASH'),
+        'archive_directory' => env('WAYMARK_RECOVERY_ARCHIVE_DIRECTORY', storage_path('app/private/recovery-inbox')),
     ],
     'maintenance' => [
         'state_path' => env('WAYMARK_MAINTENANCE_STATE_PATH', storage_path('framework/waymark-maintenance.json')),
