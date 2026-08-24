@@ -41,6 +41,7 @@ use App\Http\Controllers\PublicWalkShowController;
 use App\Http\Controllers\PwaController;
 use App\Http\Controllers\RobotsController;
 use App\Http\Controllers\SensitiveTwoFactorConfirmationController;
+use App\Http\Controllers\SetupController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\SiteMediaStreamController;
 use App\Http\Controllers\WalkGradingGuideController;
@@ -48,6 +49,7 @@ use App\Http\Controllers\WhatsOnCalendarController;
 use App\Http\Controllers\WhatsOnController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/setup', SetupController::class)->name('setup');
 Route::get('/', HomeController::class)->name('home');
 Route::get('/manifest.webmanifest', [PwaController::class, 'manifest'])->name('pwa.manifest');
 Route::get('/service-worker.js', [PwaController::class, 'serviceWorker'])->name('pwa.service-worker');

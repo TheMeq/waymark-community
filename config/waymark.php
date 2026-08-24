@@ -1,6 +1,10 @@
 <?php
 
 return [
+    'installation' => [
+        'installed' => env('WAYMARK_INSTALLED'),
+        'lock_path' => env('WAYMARK_INSTALLATION_LOCK', storage_path('app/private/installed.lock')),
+    ],
     'staging' => env('WAYMARK_STAGING', env('APP_ENV') === 'staging'),
     'contact_submission_retention_days' => (int) env('WAYMARK_CONTACT_RETENTION_DAYS', 14),
     'public_cache_seconds' => (int) env('WAYMARK_PUBLIC_CACHE_SECONDS', 300),

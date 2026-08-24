@@ -28,6 +28,7 @@ use App\Domain\Operations\Analytics\ExternalAnalytics;
 use App\Domain\Operations\AntiSpam\PublicFormChallenge;
 use App\Domain\Operations\AntiSpam\TurnstilePublicFormChallenge;
 use App\Domain\Operations\Environment\StagingMode;
+use App\Domain\Operations\Installation\InstallationState;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Walks\RelatedContent\RelatedWalks;
 use App\Domain\Walks\RelatedContent\SignalRelatedWalks;
@@ -49,6 +50,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(InstallationState::class, function (): InstallationState {
+            $configuredState = config('waymark.installation.installed');
+            $applicationKey = config('app.key');
+
+            return new InstallationState(
+                (string) config('waymark.installation.lock_path'),
+                is_bool($configuredState) ? $configuredState : null,
+                is_string($applicationKey) ? $applicationKey : null,
+            );
+        });
         $this->app->bind(RelatedWalks::class, SignalRelatedWalks::class);
         $this->app->bind(ImageMetadataReader::class, PhpExifImageMetadataReader::class);
         $this->app->bind(RasterImageTransformer::class, GdRasterImageTransformer::class);
