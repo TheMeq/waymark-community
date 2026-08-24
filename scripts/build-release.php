@@ -102,6 +102,7 @@ try {
     copyGeneratedDirectory($source, $application, 'public/build');
     file_put_contents($application.DIRECTORY_SEPARATOR.'VERSION', $version."\n", LOCK_EX);
     runCommand($plan['package'][0], $application);
+    RuntimePathFilter::purge($application);
 
     $schema = latestMigration($application);
     $outputDirectory = is_string($options['output'] ?? null) && trim($options['output']) !== ''
