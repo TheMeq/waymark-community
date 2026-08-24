@@ -3,6 +3,7 @@
 namespace Tests\Feature\Operations;
 
 use App\Domain\Operations\Backups\Actions\CreateBackup;
+use App\Domain\Operations\Backups\Contracts\BackupCapacityProbe;
 use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Domain\Operations\Models\SiteProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -83,5 +84,26 @@ final class BackupCreationTest extends TestCase
 
         $this->assertDatabaseHas('backup_runs', ['status' => 'failed']);
         $this->assertDatabaseMissing('backup_runs', ['status' => 'completed']);
+    }
+
+    public function test_backup_refuses_known_insufficient_local_staging_space_before_export(): void
+    {
+        $this->app->instance(BackupCapacityProbe::class, new class implements BackupCapacityProbe
+        {
+            public function availableBytes(): ?int
+            {
+                return 1024;
+            }
+        });
+
+        try {
+            app(CreateBackup::class)->handle('manual');
+            $this->fail('The backup unexpectedly ignored a known low-space condition.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('Backup creation failed', $exception->getMessage());
+        }
+
+        $this->assertDatabaseHas('backup_runs', ['status' => 'failed']);
+        Storage::disk('backups')->assertDirectoryEmpty('/');
     }
 }

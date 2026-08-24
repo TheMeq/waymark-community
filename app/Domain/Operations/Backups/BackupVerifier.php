@@ -69,7 +69,11 @@ final readonly class BackupVerifier
 
             $manifestJson = $archive->getFromName('manifest.json');
             $manifest = is_string($manifestJson) ? json_decode($manifestJson, true) : null;
-            if (! is_array($manifest) || ($manifest['format'] ?? null) !== 1 || ! is_array($manifest['components'] ?? null)) {
+            if (! is_array($manifest) || ($manifest['format'] ?? null) !== 1
+                || ! is_string($manifest['created_at'] ?? null)
+                || ! is_string($manifest['waymark_version'] ?? null)
+                || ! in_array($manifest['database_driver'] ?? null, ['sqlite', 'mysql'], true)
+                || ! is_array($manifest['components'] ?? null)) {
                 throw $this->failure();
             }
 

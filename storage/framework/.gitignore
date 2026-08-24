@@ -8,3 +8,6 @@ routes.php
 routes.scanned.php
 schedule-*
 services.json
+waymark-maintenance.json
+waymark-operation.json
+waymark-operation.lock

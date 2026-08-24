@@ -55,6 +55,9 @@ final class UpdateOrchestrationTest extends TestCase
         config()->set('waymark.updates.application_root', $this->applicationRoot);
         config()->set('waymark.updates.staging_root', $this->directory.DIRECTORY_SEPARATOR.'staging');
         config()->set('waymark.maintenance.state_path', $this->directory.DIRECTORY_SEPARATOR.'maintenance.json');
+        config()->set('waymark.operations.lock_path', $this->directory.DIRECTORY_SEPARATOR.'operation.lock');
+        config()->set('waymark.operations.state_path', $this->directory.DIRECTORY_SEPARATOR.'operation.json');
+        config()->set('waymark.operations.journal_path', $this->directory.DIRECTORY_SEPARATOR.'journal.jsonl');
         config()->set('waymark.backups.environment_path', $this->environmentPath);
         config()->set('waymark.backups.restore_environment_path', $this->environmentPath);
         config()->set('waymark.backups.destination_disk', 'backups');
@@ -102,7 +105,7 @@ final class UpdateOrchestrationTest extends TestCase
         $this->assertFalse(app(MaintenanceManager::class)->active());
     }
 
-    public function test_controlled_runtime_failure_rolls_back_files_database_and_keeps_maintenance_active(): void
+    public function test_controlled_migration_failure_rolls_back_files_database_and_keeps_maintenance_active(): void
     {
         $profile = SiteProfile::query()->create(['group_name' => 'Before Failed Update']);
         Storage::disk('local')->put('documents/policy.pdf', 'before-update-document');
@@ -111,7 +114,7 @@ final class UpdateOrchestrationTest extends TestCase
             public function activate(string $version, string $applicationRoot): void
             {
                 SiteProfile::query()->update(['group_name' => 'Partially Migrated']);
-                throw new RuntimeException('controlled activation failure');
+                throw new RuntimeException('controlled migration failure');
             }
         });
 
@@ -161,6 +164,61 @@ final class UpdateOrchestrationTest extends TestCase
 
         $this->assertDatabaseCount('backup_runs', 0);
         $this->assertSame('old-marker', file_get_contents($this->applicationRoot.DIRECTORY_SEPARATOR.'app-marker.txt'));
+    }
+
+    public function test_backup_failure_stops_before_maintenance_or_file_swap(): void
+    {
+        config()->set('waymark.backups.environment_path', $this->environmentPath.'.missing');
+
+        try {
+            app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+            $this->fail('The update unexpectedly ignored backup failure.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('Backup creation failed', $exception->getMessage());
+        }
+
+        $this->assertDatabaseHas('backup_runs', ['trigger' => 'pre-update', 'status' => 'failed']);
+        $this->assertSame('old-marker', file_get_contents($this->applicationRoot.DIRECTORY_SEPARATOR.'app-marker.txt'));
+        $this->assertFalse(app(MaintenanceManager::class)->active());
+    }
+
+    public function test_file_swap_preflight_conflict_stops_after_backup_without_entering_maintenance(): void
+    {
+        unlink($this->applicationRoot.DIRECTORY_SEPARATOR.'app-marker.txt');
+        mkdir($this->applicationRoot.DIRECTORY_SEPARATOR.'app-marker.txt');
+
+        try {
+            app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+            $this->fail('The update unexpectedly ignored a file path conflict.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('conflicts', $exception->getMessage());
+        }
+
+        $this->assertDatabaseHas('backup_runs', ['trigger' => 'pre-update', 'status' => 'completed']);
+        $this->assertDirectoryExists($this->applicationRoot.DIRECTORY_SEPARATOR.'app-marker.txt');
+        $this->assertFalse(app(MaintenanceManager::class)->active());
+    }
+
+    public function test_controlled_health_failure_rolls_back_and_does_not_reopen(): void
+    {
+        SiteProfile::query()->create(['group_name' => 'Before Health Failure']);
+        $this->app->instance(UpdateRuntime::class, new class implements UpdateRuntime
+        {
+            public function activate(string $version, string $applicationRoot): void
+            {
+                throw new RuntimeException('controlled post-update health failure');
+            }
+        });
+
+        try {
+            app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+            $this->fail('The failed health check unexpectedly reopened the site.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('rolled back', $exception->getMessage());
+        }
+
+        $this->assertSame('old-marker', file_get_contents($this->applicationRoot.DIRECTORY_SEPARATOR.'app-marker.txt'));
+        $this->assertTrue(app(MaintenanceManager::class)->active());
     }
 
     /** @return array<string, mixed> */

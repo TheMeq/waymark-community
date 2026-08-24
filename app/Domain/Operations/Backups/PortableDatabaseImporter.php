@@ -53,6 +53,11 @@ final class PortableDatabaseImporter
         }
     }
 
+    public function assertCompatible(string $path): void
+    {
+        $this->validate($path);
+    }
+
     /** @return list<string> */
     private function validate(string $path): array
     {

@@ -14,6 +14,8 @@ Update packages use a signed-feed SHA-256 plus an internal `release-manifest.jso
 
 If activation is interrupted or fails, affected files and the full backup are restored. Maintenance remains active after failure so an administrator can review System health or use `/recovery`; Waymark never silently reopens a partially updated installation.
 
+Backup creation, restore, and update installation share one filesystem lock. A second destructive operation is refused while another is active, and start/success/failure events are appended to the private operations audit journal. The lock is independent of the database so it remains effective while a restore is replacing database state.
+
 ## Backups
 
 Administrators can create and download a backup from **System health**. The scheduler creates one daily at 02:00 when cron is configured. `WAYMARK_BACKUP_RETENTION_COUNT` controls how many completed archives are retained (14 by default).
@@ -26,13 +28,15 @@ Backup must cover database, media/uploads, documents, and restoration-relevant c
 
 Waymark verifies the archive manifest, expected database component, every declared component size and SHA-256 checksum, and safe archive paths before recording a backup as completed or allowing restore.
 
+Before creating an archive, Waymark checks that the local staging area has enough free space for the configured safety margin and the known private/configuration payload. A clear low-space failure occurs before export work begins.
+
 ## Recovery
 
 Normal guided restore is available at **System → Restore backup** after fresh password confirmation (and fresh 2FA when enabled). Select a known completed backup and type the exact destructive confirmation `RESTORE WAYMARK`.
 
 If normal administration is broken, open `/recovery`, upload a Waymark backup, supply its encryption passphrase when applicable, provide the recovery token established during setup, and type the same destructive confirmation. Keep that token in the group's password manager: only its SHA-256 hash is stored in `WAYMARK_RECOVERY_TOKEN_HASH`, so Waymark cannot display or recover it later.
 
-Restore replaces the current database, private media/documents and restoration configuration. Keep an additional off-host copy of the current state before beginning.
+Restore verifies archive compatibility before entering maintenance mode, then creates a mandatory safety backup of the current installation. Restore replaces the database, private media/documents and restoration configuration, performs health checks while maintenance remains active, and automatically rolls back to the safety backup if activation fails. Standalone recovery makes a best-effort safety backup because it must remain usable when the normal database is already broken. Keep an additional off-host copy of the current state before beginning.
 
 ## Maintenance mode
 

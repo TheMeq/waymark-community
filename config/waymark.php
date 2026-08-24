@@ -27,12 +27,18 @@ return [
         'database_chunk_size' => (int) env('WAYMARK_BACKUP_DATABASE_CHUNK_SIZE', 100),
         'retention_count' => (int) env('WAYMARK_BACKUP_RETENTION_COUNT', 14),
         'restore_environment_path' => env('WAYMARK_RESTORE_ENVIRONMENT_PATH', base_path('.env')),
+        'minimum_staging_bytes' => (int) env('WAYMARK_BACKUP_MINIMUM_STAGING_BYTES', 25 * 1024 * 1024),
     ],
     'recovery' => [
         'token_hash' => env('WAYMARK_RECOVERY_TOKEN_HASH'),
     ],
     'maintenance' => [
         'state_path' => env('WAYMARK_MAINTENANCE_STATE_PATH', storage_path('framework/waymark-maintenance.json')),
+    ],
+    'operations' => [
+        'lock_path' => env('WAYMARK_OPERATION_LOCK_PATH', storage_path('framework/waymark-operation.lock')),
+        'state_path' => env('WAYMARK_OPERATION_STATE_PATH', storage_path('framework/waymark-operation.json')),
+        'journal_path' => env('WAYMARK_OPERATION_JOURNAL_PATH', storage_path('app/private/operation-audit.jsonl')),
     ],
     'staging' => env('WAYMARK_STAGING', env('APP_ENV') === 'staging'),
     'contact_submission_retention_days' => (int) env('WAYMARK_CONTACT_RETENTION_DAYS', 14),

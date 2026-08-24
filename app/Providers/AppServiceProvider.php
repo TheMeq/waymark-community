@@ -27,6 +27,10 @@ use App\Domain\Operations\Analytics\ConsentPreferences;
 use App\Domain\Operations\Analytics\ExternalAnalytics;
 use App\Domain\Operations\AntiSpam\PublicFormChallenge;
 use App\Domain\Operations\AntiSpam\TurnstilePublicFormChallenge;
+use App\Domain\Operations\Backups\Contracts\BackupCapacityProbe;
+use App\Domain\Operations\Backups\Contracts\RestoreHealthProbe;
+use App\Domain\Operations\Backups\NativeBackupCapacityProbe;
+use App\Domain\Operations\Backups\NativeRestoreHealthProbe;
 use App\Domain\Operations\Environment\StagingMode;
 use App\Domain\Operations\Installation\Contracts\DatabaseConnectionTester;
 use App\Domain\Operations\Installation\Contracts\EnvironmentWriter;
@@ -101,6 +105,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(UpdateEnvironmentProbe::class, NativeUpdateEnvironment::class);
         $this->app->bind(ReleasePackageDownloader::class, NativeReleasePackageDownloader::class);
         $this->app->bind(UpdateRuntime::class, NativeUpdateRuntime::class);
+        $this->app->bind(BackupCapacityProbe::class, NativeBackupCapacityProbe::class);
+        $this->app->bind(RestoreHealthProbe::class, NativeRestoreHealthProbe::class);
     }
 
     /**

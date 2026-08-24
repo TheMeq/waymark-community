@@ -4,8 +4,10 @@ namespace App\Domain\Operations\Backups\Actions;
 
 use App\Domain\Operations\Backups\BackupEncryptor;
 use App\Domain\Operations\Backups\BackupVerifier;
+use App\Domain\Operations\Backups\Contracts\BackupCapacityProbe;
 use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Domain\Operations\Backups\PortableDatabaseExporter;
+use App\Domain\Operations\Locks\DestructiveOperationLock;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -18,14 +20,22 @@ final readonly class CreateBackup
         private PortableDatabaseExporter $databaseExporter,
         private BackupEncryptor $encryptor,
         private BackupVerifier $verifier,
+        private DestructiveOperationLock $operations,
+        private BackupCapacityProbe $capacity,
     ) {}
 
     public function handle(string $trigger, ?string $encryptionPassphrase = null): BackupRun
+    {
+        return $this->operations->run('backup:'.$trigger, fn (): BackupRun => $this->create($trigger, $encryptionPassphrase));
+    }
+
+    private function create(string $trigger, ?string $encryptionPassphrase): BackupRun
     {
         $run = BackupRun::query()->create(['status' => 'running', 'trigger' => $trigger, 'started_at' => now()]);
         $temporaryDirectory = storage_path('framework/cache/waymark-backup-'.Str::uuid());
 
         try {
+            $this->ensureStagingCapacity();
             if (! mkdir($temporaryDirectory, 0700, true) && ! is_dir($temporaryDirectory)) {
                 throw new RuntimeException('The backup staging directory could not be created.');
             }
@@ -131,6 +141,28 @@ final readonly class CreateBackup
             throw new RuntimeException('Backup creation failed. Review system health and try again.', previous: $exception);
         } finally {
             $this->cleanDirectory($temporaryDirectory);
+        }
+    }
+
+    private function ensureStagingCapacity(): void
+    {
+        $available = $this->capacity->availableBytes();
+        if ($available === null) {
+            return;
+        }
+        $required = (int) config('waymark.backups.minimum_staging_bytes', 25 * 1024 * 1024);
+        foreach (Storage::disk('local')->allFiles() as $path) {
+            $size = Storage::disk('local')->size($path);
+            if (is_int($size) && $size > 0) {
+                $required += $size;
+            }
+        }
+        $environmentPath = (string) config('waymark.backups.environment_path', base_path('.env'));
+        if (is_file($environmentPath)) {
+            $required += (int) filesize($environmentPath);
+        }
+        if ($available < $required) {
+            throw new RuntimeException('Insufficient local staging space is available for a verified backup.');
         }
     }
 

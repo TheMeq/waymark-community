@@ -27,4 +27,19 @@ final class ReleasePackageDownloadTest extends TestCase
         $this->expectException(\RuntimeException::class);
         (new NativeReleasePackageDownloader)->download('http://updates.example.test/release.zip', storage_path('framework/testing/not-created.zip'));
     }
+
+    public function test_failed_download_does_not_leave_a_partial_staged_package(): void
+    {
+        Http::fake(['https://updates.example.test/release.zip' => Http::response('partial-error-body', 503)]);
+        $destination = storage_path('framework/testing/failed-release-download-'.bin2hex(random_bytes(8)).'.zip');
+
+        try {
+            (new NativeReleasePackageDownloader)->download('https://updates.example.test/release.zip', $destination);
+            $this->fail('A failed release response was unexpectedly accepted.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('could not be downloaded', $exception->getMessage());
+        }
+
+        $this->assertFileDoesNotExist($destination);
+    }
 }

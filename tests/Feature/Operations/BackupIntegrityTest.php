@@ -64,6 +64,27 @@ final class BackupIntegrityTest extends TestCase
         app(BackupVerifier::class)->open($path);
     }
 
+    public function test_archive_missing_database_component_is_rejected(): void
+    {
+        $backup = app(CreateBackup::class)->handle('manual');
+        $path = Storage::disk('backups')->path($backup->storage_path);
+        $archive = new ZipArchive;
+        $this->assertTrue($archive->open($path));
+
+        $manifest = json_decode($archive->getFromName('manifest.json'), true, flags: JSON_THROW_ON_ERROR);
+        $manifest['components'] = array_values(array_filter(
+            $manifest['components'],
+            static fn (array $component): bool => $component['path'] !== 'database.jsonl',
+        ));
+        $archive->deleteName('database.jsonl');
+        $archive->addFromString('manifest.json', json_encode($manifest, JSON_THROW_ON_ERROR));
+        $archive->close();
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('integrity');
+        app(BackupVerifier::class)->open($path);
+    }
+
     public function test_archive_with_traversal_entry_is_rejected(): void
     {
         $path = storage_path('framework/testing/unsafe-backup-'.bin2hex(random_bytes(8)).'.zip');

@@ -4,6 +4,7 @@ namespace App\Domain\Operations\Updates\Actions;
 
 use App\Domain\Operations\Backups\Actions\CreateBackup;
 use App\Domain\Operations\Backups\Actions\RestoreBackup;
+use App\Domain\Operations\Locks\DestructiveOperationLock;
 use App\Domain\Operations\Maintenance\MaintenanceManager;
 use App\Domain\Operations\Updates\ApplicationFileTransaction;
 use App\Domain\Operations\Updates\AppliedUpdate;
@@ -29,9 +30,15 @@ final readonly class ApplyUpdate
         private UpdateRuntime $runtime,
         private RestoreBackup $restore,
         private UpdateStateStore $state,
+        private DestructiveOperationLock $operations,
     ) {}
 
     public function handle(string $confirmation): AppliedUpdate
+    {
+        return $this->operations->run('update', fn (): AppliedUpdate => $this->apply($confirmation));
+    }
+
+    private function apply(string $confirmation): AppliedUpdate
     {
         if (! hash_equals(self::CONFIRMATION, $confirmation)) {
             throw new RuntimeException('The exact destructive update confirmation is required.');
@@ -77,7 +84,7 @@ final readonly class ApplyUpdate
                     $rollbackComplete = false;
                 }
                 try {
-                    $this->restore->fromRun($backup, RestoreBackup::CONFIRMATION);
+                    $this->restore->fromRun($backup, RestoreBackup::CONFIRMATION, null, false);
                 } catch (Throwable $backupRollbackFailure) {
                     report($backupRollbackFailure);
                     $rollbackComplete = false;
