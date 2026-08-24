@@ -59,8 +59,12 @@ await new Promise((resolveListening, reject) => {
 const scanEnvironment = process.env.PHP_INI_SCAN_DIR === undefined
     ? {}
     : { PHP_INI_SCAN_DIR: process.env.PHP_INI_SCAN_DIR };
-const php = spawn('php', ['artisan', 'serve', '--host=127.0.0.1', `--port=${appPort}`], {
-    cwd: applicationRoot,
+const php = spawn('php', [
+    '-S',
+    `127.0.0.1:${appPort}`,
+    resolve(applicationRoot, 'vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php'),
+], {
+    cwd: resolve(applicationRoot, 'public'),
     env: {
         ...process.env,
         ...scanEnvironment,
