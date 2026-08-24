@@ -3,6 +3,7 @@
 namespace Tests\Feature\Discovery;
 
 use App\Domain\Accounts\Enums\AccountRole;
+use App\Domain\Content\Models\PublicRedirect;
 use App\Domain\Operations\Models\AnalyticsSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -24,6 +25,59 @@ final class CampaignAnalyticsTest extends TestCase
                 'utm_term' => 'boots',
                 'utm_content' => 'hero',
             ]);
+    }
+
+    public function test_allowed_campaign_parameters_are_appended_to_an_internal_redirect(): void
+    {
+        $this->redirect();
+
+        $this->get('/old-campaign?utm_source=mail&utm_medium=email&utm_campaign=summer&utm_term=boots&utm_content=hero')
+            ->assertMovedPermanently()
+            ->assertRedirect('/walks?utm_source=mail&utm_medium=email&utm_campaign=summer&utm_term=boots&utm_content=hero');
+    }
+
+    public function test_redirect_destination_records_propagated_campaign_parameters_in_the_session(): void
+    {
+        $this->redirect();
+
+        $response = $this->get('/old-campaign?utm_source=mail&utm_campaign=summer');
+
+        $this->followRedirects($response)
+            ->assertOk()
+            ->assertSessionHas('waymark.campaign', [
+                'utm_source' => 'mail',
+                'utm_campaign' => 'summer',
+            ]);
+    }
+
+    public function test_internal_redirect_drops_unapproved_query_parameters(): void
+    {
+        $this->redirect();
+
+        $this->get('/old-campaign?gclid=secret&utm_extra=nope&return=%2Fadmin')
+            ->assertMovedPermanently()
+            ->assertRedirect('/walks')
+            ->assertSessionMissing('waymark.campaign');
+    }
+
+    public function test_internal_redirect_discards_malformed_campaign_parameters(): void
+    {
+        $this->redirect();
+        $tooLong = str_repeat('x', 101);
+
+        $this->get('/old-campaign?utm_source=%3Cscript%3E&utm_medium%5Bbad%5D=value&utm_campaign='.$tooLong)
+            ->assertMovedPermanently()
+            ->assertRedirect('/walks')
+            ->assertSessionMissing('waymark.campaign');
+    }
+
+    public function test_redirect_without_campaign_parameters_is_unchanged(): void
+    {
+        $this->redirect();
+
+        $this->get('/old-campaign')
+            ->assertMovedPermanently()
+            ->assertRedirect('/walks');
     }
 
     public function test_optional_analytics_is_absent_without_explicit_consent(): void
@@ -70,5 +124,15 @@ final class CampaignAnalyticsTest extends TestCase
 
         $this->actingAs($administrator)->get('/admin/analytics-settings')->assertOk()->assertSeeText('Analytics');
         $this->actingAs($member)->get('/admin/analytics-settings')->assertForbidden();
+    }
+
+    private function redirect(): void
+    {
+        PublicRedirect::query()->create([
+            'source_path' => '/old-campaign',
+            'target_url' => '/walks',
+            'status_code' => 301,
+            'enabled' => true,
+        ]);
     }
 }
