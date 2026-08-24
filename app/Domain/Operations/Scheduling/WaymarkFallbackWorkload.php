@@ -6,6 +6,7 @@ use App\Domain\Accounts\Actions\ProcessPersonalDataExports;
 use App\Domain\Gallery\Actions\ProcessDeferredCommunityPhotos;
 use App\Domain\Operations\Backups\Actions\AdvancePendingBackups;
 use App\Domain\Operations\Maintenance\MaintenanceManager;
+use App\Domain\Operations\Portability\Actions\AdvancePendingPortabilityExports;
 use App\Domain\Operations\Scheduling\Contracts\FallbackWorkload;
 use Throwable;
 
@@ -15,6 +16,7 @@ final readonly class WaymarkFallbackWorkload implements FallbackWorkload
         private ProcessDeferredCommunityPhotos $photos,
         private ProcessPersonalDataExports $exports,
         private AdvancePendingBackups $backups,
+        private AdvancePendingPortabilityExports $portabilityExports,
         private MaintenanceManager $maintenance,
     ) {}
 
@@ -25,6 +27,7 @@ final readonly class WaymarkFallbackWorkload implements FallbackWorkload
                 'deferred_photos' => 0,
                 'personal_data_exports' => 0,
                 'backup_steps' => $this->runSafely(fn (): int => $this->backups->handle(1)),
+                'portability_export_steps' => 0,
             ];
         }
 
@@ -32,6 +35,7 @@ final readonly class WaymarkFallbackWorkload implements FallbackWorkload
             'deferred_photos' => $this->runSafely(fn (): int => $this->photos->handle(1)),
             'personal_data_exports' => $this->runSafely(fn (): int => $this->exports->handle(1)),
             'backup_steps' => $this->runSafely(fn (): int => $this->backups->handle(1)),
+            'portability_export_steps' => $this->runSafely(fn (): int => $this->portabilityExports->handle(1)),
         ];
     }
 

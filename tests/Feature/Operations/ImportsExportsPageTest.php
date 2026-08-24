@@ -5,16 +5,27 @@ namespace Tests\Feature\Operations;
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Security\SensitiveActionAssurance;
 use App\Domain\Events\Models\Event;
+use App\Domain\Operations\Portability\Actions\CreatePortabilityExport;
+use App\Domain\Operations\Portability\Models\PortabilityExportRun;
+use App\Domain\Operations\Scheduling\WaymarkFallbackWorkload;
 use App\Filament\Pages\ImportsExports;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
 final class ImportsExportsPageTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Storage::fake('local');
+        Storage::fake('public');
+    }
 
     public function test_imports_page_requires_an_administrator_and_recent_sensitive_assurance(): void
     {
@@ -91,6 +102,44 @@ final class ImportsExportsPageTest extends TestCase
             ->assertFileDownloaded('waymark-walks-import-report.csv');
 
         $this->assertDatabaseCount('events', 0);
+    }
+
+    public function test_administrator_can_start_and_advance_a_bounded_full_portability_export(): void
+    {
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator]);
+        $this->actingAs($administrator);
+        session()->put($this->assuredSession($administrator));
+
+        Livewire::test(ImportsExports::class)
+            ->assertSee('Full portability export')
+            ->call('startPortabilityExport')
+            ->assertSee('Export queued')
+            ->call('advancePortabilityExport');
+
+        $run = PortabilityExportRun::query()->sole();
+        $this->assertSame('running', $run->status);
+        $this->assertSame('copy_files', $run->stage);
+
+        $fallback = app(WaymarkFallbackWorkload::class)->run();
+        $this->assertSame(1, $fallback['portability_export_steps']);
+    }
+
+    public function test_completed_portability_export_download_requires_an_assured_administrator(): void
+    {
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator]);
+        $run = app(CreatePortabilityExport::class)->handle();
+
+        $this->actingAs($administrator)
+            ->withSession($this->assuredSession($administrator))
+            ->get(route('admin.portability-exports.download', $run))
+            ->assertOk()
+            ->assertDownload(basename((string) $run->storage_path));
+
+        $member = User::factory()->create(['role' => AccountRole::VerifiedMember]);
+        $this->actingAs($member)
+            ->withSession($this->assuredSession($member))
+            ->get(route('admin.portability-exports.download', $run))
+            ->assertForbidden();
     }
 
     /** @return array<string, int> */

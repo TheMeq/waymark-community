@@ -87,4 +87,43 @@
             </section>
         @endif
     </section>
+
+    <section class="mt-6 max-w-5xl rounded-xl border p-5" aria-labelledby="portability-export-heading">
+        <h2 id="portability-export-heading" class="text-lg font-semibold">Full portability export</h2>
+        <p class="mt-2 text-sm text-gray-600">Create a checksummed migration archive of structured records, configuration, documents and media. This is separate from disaster-recovery backups and contains no restoration environment.</p>
+
+        <div class="mt-4 flex flex-wrap gap-3">
+            <x-filament::button wire:click="startPortabilityExport" wire:loading.attr="disabled">Create portability export</x-filament::button>
+            @if (collect($this->portabilityExports())->contains(fn ($export) => in_array($export->status, ['queued', 'running'], true)))
+                <x-filament::button color="gray" wire:click="advancePortabilityExport" wire:loading.attr="disabled">Advance export now</x-filament::button>
+            @endif
+        </div>
+        @if ($portabilityMessage !== '')
+            <p class="mt-3 font-medium" role="status">{{ $portabilityMessage }}</p>
+        @endif
+
+        @if ($this->portabilityExports() !== [])
+            <div class="mt-5 overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead><tr class="border-b"><th class="p-2">Created</th><th class="p-2">Status</th><th class="p-2">Progress</th><th class="p-2">Download</th></tr></thead>
+                    <tbody>
+                        @foreach ($this->portabilityExports() as $export)
+                            <tr class="border-b">
+                                <td class="p-2">{{ $export->created_at?->format('j M Y H:i') }}</td>
+                                <td class="p-2 font-medium">{{ ucfirst($export->status) }}</td>
+                                <td class="p-2">{{ str_replace('_', ' ', ucfirst($export->stage)) }}</td>
+                                <td class="p-2">
+                                    @if ($export->status === 'completed')
+                                        <a class="font-medium underline" href="{{ route('admin.portability-exports.download', $export) }}">Download ZIP</a>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </section>
 </x-filament-panels::page>

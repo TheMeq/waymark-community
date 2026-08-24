@@ -21,6 +21,16 @@ final class SchedulerCommandTest extends TestCase
         $this->assertTrue($event->withoutOverlapping);
     }
 
+    public function test_pending_portability_exports_are_advanced_in_bounded_scheduled_steps(): void
+    {
+        $event = collect(app(Schedule::class)->events())
+            ->first(fn ($event): bool => str_contains((string) $event->command, 'waymark:advance-portability-exports'));
+
+        $this->assertNotNull($event);
+        $this->assertSame('* * * * *', $event->expression);
+        $this->assertTrue($event->withoutOverlapping);
+    }
+
     public function test_manual_fallback_command_explains_that_it_does_not_replace_cron(): void
     {
         $exit = Artisan::call('waymark:run-fallback');

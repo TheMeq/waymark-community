@@ -25,6 +25,7 @@ use App\Http\Controllers\LeaderHubDuplicateWalkController;
 use App\Http\Controllers\LeaderProfileSettingsController;
 use App\Http\Controllers\MaintenanceModeController;
 use App\Http\Controllers\NewHereController;
+use App\Http\Controllers\PortabilityExportDownloadController;
 use App\Http\Controllers\PublicCommitteeController;
 use App\Http\Controllers\PublicDocumentController;
 use App\Http\Controllers\PublicGalleryController;
@@ -120,6 +121,8 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/admin/maintenance-mode/disable', [MaintenanceModeController::class, 'disable'])->middleware('sensitive.confirmed')->name('admin.maintenance.disable');
     Route::get('/admin/system-health/backups/{backup}/download', BackupDownloadController::class)
         ->middleware('sensitive.confirmed')->name('admin.backups.download');
+    Route::get('/admin/imports-exports/{export}/download', PortabilityExportDownloadController::class)
+        ->middleware('sensitive.confirmed')->name('admin.portability-exports.download');
     Route::post('/admin/system-health/backups/{backup}/advance', [BackupWorkController::class, 'advance'])->name('admin.backups.advance');
     Route::post('/admin/system-health/backups/{backup}/retry', [BackupWorkController::class, 'retry'])->name('admin.backups.retry');
     Route::get('/committee-hub', CommitteeHubController::class)->name('committee-hub.index');

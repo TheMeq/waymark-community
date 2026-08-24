@@ -11,6 +11,7 @@ use App\Domain\Operations\Backups\Actions\CreateBackup;
 use App\Domain\Operations\Backups\Actions\PruneBackups;
 use App\Domain\Operations\Health\Actions\ScanMissingMedia;
 use App\Domain\Operations\Maintenance\MaintenanceManager;
+use App\Domain\Operations\Portability\Actions\AdvancePendingPortabilityExports;
 use App\Domain\Operations\Scheduling\Contracts\FallbackRunner;
 use App\Domain\Operations\Scheduling\SchedulerHeartbeat;
 use App\Domain\Operations\Updates\Actions\CheckForUpdates;
@@ -82,6 +83,10 @@ Artisan::command('waymark:advance-backups', function (AdvancePendingBackups $bac
     $this->info($handled.' pending backup step(s) handled.');
 })->purpose('Advance bounded backup work without a permanent worker');
 
+Artisan::command('waymark:advance-portability-exports', function (AdvancePendingPortabilityExports $exports): void {
+    $this->info($exports->handle(1).' pending portability export step(s) handled.');
+})->purpose('Advance bounded portability export work without a permanent worker');
+
 Artisan::command('waymark:check-for-updates', function (CheckForUpdates $updates): void {
     $result = $updates->handle('command');
     $this->info($result->updateAvailable
@@ -100,4 +105,5 @@ Schedule::command('waymark:scheduler-heartbeat')->everyMinute()->withoutOverlapp
 Schedule::command('waymark:scan-missing-media --limit=500')->dailyAt('06:00')->when(fn (): bool => ! app(MaintenanceManager::class)->active())->withoutOverlapping();
 Schedule::command('waymark:create-backup')->dailyAt('02:00')->withoutOverlapping();
 Schedule::command('waymark:advance-backups')->everyMinute()->withoutOverlapping();
+Schedule::command('waymark:advance-portability-exports')->everyMinute()->when(fn (): bool => ! app(MaintenanceManager::class)->active())->withoutOverlapping();
 Schedule::command('waymark:check-for-updates')->dailyAt('07:00')->withoutOverlapping();

@@ -6,6 +6,8 @@ use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Operations\Imports\GuidedCsvImport;
 use App\Domain\Operations\Imports\ImportDefinitionRegistry;
 use App\Domain\Operations\Imports\ImportPreview;
+use App\Domain\Operations\Portability\Actions\CreatePortabilityExport;
+use App\Domain\Operations\Portability\Models\PortabilityExportRun;
 use App\Models\User;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -50,6 +52,8 @@ final class ImportsExports extends Page
     public array $resultSummary = [];
 
     public string $reportCsv = '';
+
+    public string $portabilityMessage = '';
 
     public static function getSlug(?Panel $panel = null): string
     {
@@ -153,6 +157,43 @@ final class ImportsExports extends Page
             'waymark-'.$this->definition.'-import-report.csv',
             ['Content-Type' => 'text/csv; charset=UTF-8'],
         );
+    }
+
+    /** @return list<PortabilityExportRun> */
+    public function portabilityExports(): array
+    {
+        return PortabilityExportRun::query()->latest('id')->limit(20)->get()->all();
+    }
+
+    public function startPortabilityExport(): void
+    {
+        try {
+            app(CreatePortabilityExport::class)->start();
+            $this->portabilityMessage = 'Export queued';
+            Notification::make()->success()->title('Export queued')->send();
+        } catch (Throwable $exception) {
+            report($exception);
+            $this->portabilityMessage = $exception->getMessage();
+            Notification::make()->danger()->title($exception->getMessage())->send();
+        }
+    }
+
+    public function advancePortabilityExport(): void
+    {
+        $run = PortabilityExportRun::query()->whereIn('status', ['queued', 'running'])->oldest('id')->first();
+        if (! $run instanceof PortabilityExportRun) {
+            return;
+        }
+
+        try {
+            app(CreatePortabilityExport::class)->advance($run);
+            $this->portabilityMessage = 'Export advanced';
+            Notification::make()->success()->title('Export advanced')->send();
+        } catch (Throwable $exception) {
+            report($exception);
+            $this->portabilityMessage = 'Export failed — review system health and retry';
+            Notification::make()->danger()->title('Export failed — review system health and retry')->send();
+        }
     }
 
     private function csvPath(): string
