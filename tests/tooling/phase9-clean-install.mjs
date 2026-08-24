@@ -126,9 +126,11 @@ try {
     await page.getByRole('button', { name: 'Finish setup' }).click();
     await page.getByLabel('Email address').fill('owner@example.test');
     await page.getByRole('textbox', { name: /^Password/ }).fill('WaymarkInstall9!');
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.goto(`http://127.0.0.1:${appPort}/admin`);
-    await page.getByText('Dashboard').first().waitFor();
+    await Promise.all([
+        page.waitForURL(`http://127.0.0.1:${appPort}/admin`),
+        page.getByRole('button', { name: 'Sign in' }).click(),
+    ]);
+    await page.getByRole('heading', { name: 'Dashboard' }).waitFor();
 
     const publicResponse = await page.goto(`http://127.0.0.1:${appPort}/`);
     if (publicResponse?.status() !== 200) {
