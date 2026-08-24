@@ -10,6 +10,7 @@ use App\Domain\Operations\Maintenance\MaintenanceManager;
 use App\Domain\Operations\Models\SiteProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\TestCase;
 use ZipArchive;
@@ -85,7 +86,8 @@ final class BackupRestoreTest extends TestCase
         $this->assertSame('Keep This Group', $profile->fresh()->group_name);
     }
 
-    public function test_future_backup_metadata_is_rejected_before_safety_backup_or_maintenance(): void
+    #[DataProvider('incompatibleBackupVersions')]
+    public function test_different_release_backup_is_rejected_before_safety_backup_or_maintenance(string $backupVersion): void
     {
         config()->set('waymark.version', '1.0.0');
         $profile = SiteProfile::query()->create(['group_name' => 'Current Group']);
@@ -94,20 +96,28 @@ final class BackupRestoreTest extends TestCase
         $archive = new ZipArchive;
         $this->assertTrue($archive->open($path));
         $manifest = json_decode($archive->getFromName('manifest.json'), true, flags: JSON_THROW_ON_ERROR);
-        $manifest['waymark_version'] = '99.0.0';
+        $manifest['waymark_version'] = $backupVersion;
         $archive->addFromString('manifest.json', json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         $archive->close();
 
         try {
             app(RestoreBackup::class)->restoreFile($path, 'RESTORE WAYMARK');
-            $this->fail('The future backup unexpectedly restored.');
+            $this->fail('The different-release backup unexpectedly restored.');
         } catch (RuntimeException $exception) {
-            $this->assertStringContainsString('newer Waymark version', $exception->getMessage());
+            $this->assertStringContainsString('matching Waymark release', $exception->getMessage());
         }
 
         $this->assertSame('Current Group', $profile->fresh()->group_name);
         $this->assertFalse(app(MaintenanceManager::class)->active());
         $this->assertDatabaseMissing('backup_runs', ['trigger' => 'pre-restore']);
+    }
+
+    public static function incompatibleBackupVersions(): array
+    {
+        return [
+            'older release' => ['0.9.0'],
+            'newer release' => ['99.0.0'],
+        ];
     }
 
     public function test_interrupted_restore_uses_safety_backup_and_keeps_maintenance_active(): void

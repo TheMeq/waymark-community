@@ -6,6 +6,7 @@ use App\Domain\Operations\Backups\BackupVerifier;
 use App\Domain\Operations\Backups\Contracts\RestoreHealthProbe;
 use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Domain\Operations\Backups\PortableDatabaseImporter;
+use App\Domain\Operations\Backups\PrepareDatabaseForRestore;
 use App\Domain\Operations\Backups\RestorationEnvironmentPolicy;
 use App\Domain\Operations\Backups\VerifiedBackup;
 use App\Domain\Operations\Installation\InstallationState;
@@ -24,6 +25,7 @@ final readonly class RestoreBackup
     public function __construct(
         private BackupVerifier $verifier,
         private PortableDatabaseImporter $databaseImporter,
+        private PrepareDatabaseForRestore $schema,
         private MaintenanceManager $maintenance,
         private DestructiveOperationLock $operations,
         private CreateBackup $backups,
@@ -64,7 +66,7 @@ final readonly class RestoreBackup
         }
 
         try {
-            $this->restoreArchive($temporaryPath, $confirmation, $passphrase, $backup->sha256, $createSafetyBackup ? 'required' : 'none', $completeInstallation);
+            $this->restoreArchive($temporaryPath, $confirmation, $passphrase, $backup->sha256, $createSafetyBackup ? 'required' : 'none', $completeInstallation, false);
         } finally {
             @unlink($temporaryPath);
         }
@@ -72,10 +74,10 @@ final readonly class RestoreBackup
 
     public function restoreFile(string $sourcePath, string $confirmation, ?string $passphrase = null, ?string $expectedSha256 = null): void
     {
-        $this->operations->run('restore:archive', fn () => $this->restoreArchive($sourcePath, $confirmation, $passphrase, $expectedSha256, 'attempt', true));
+        $this->operations->run('restore:archive', fn () => $this->restoreArchive($sourcePath, $confirmation, $passphrase, $expectedSha256, 'attempt', true, true));
     }
 
-    private function restoreArchive(string $sourcePath, string $confirmation, ?string $passphrase, ?string $expectedSha256, string $safetyMode, bool $completeInstallation): void
+    private function restoreArchive(string $sourcePath, string $confirmation, ?string $passphrase, ?string $expectedSha256, string $safetyMode, bool $completeInstallation, bool $prepareSchema): void
     {
         $this->confirm($confirmation);
         $verified = $this->verifier->open($sourcePath, $passphrase, $expectedSha256);
@@ -88,11 +90,19 @@ final readonly class RestoreBackup
 
         try {
             $this->extract($verified, $stagingDirectory);
-            $this->databaseImporter->assertCompatible($stagingDirectory.DIRECTORY_SEPARATOR.'database.jsonl');
+            $databasePath = $stagingDirectory.DIRECTORY_SEPARATOR.'database.jsonl';
+            $this->databaseImporter->assertStructurallyValid($databasePath);
+            if (! $prepareSchema) {
+                $this->databaseImporter->assertCompatible($databasePath);
+            }
             $safetyBackup = $this->safetyBackup($safetyMode);
             try {
-                $this->maintenance->run(function () use ($verified, $stagingDirectory, $safetyBackup, $completeInstallation): void {
-                    $this->databaseImporter->restore($stagingDirectory.DIRECTORY_SEPARATOR.'database.jsonl');
+                $this->maintenance->run(function () use ($verified, $stagingDirectory, $databasePath, $safetyBackup, $completeInstallation, $prepareSchema): void {
+                    if ($prepareSchema) {
+                        $this->schema->handle();
+                        $this->databaseImporter->assertCompatible($databasePath);
+                    }
+                    $this->databaseImporter->restore($databasePath);
                     $this->restorePrivateFiles($verified, $stagingDirectory);
                     $this->restoreEnvironment($stagingDirectory);
                     $this->registerSafetyBackup($safetyBackup);
@@ -127,11 +137,9 @@ final readonly class RestoreBackup
     {
         $backupVersion = (string) $verified->manifest['waymark_version'];
         $currentVersion = (string) config('waymark.version', 'development');
-        if (preg_match('/^\d+\.\d+\.\d+$/', $backupVersion) === 1
-            && preg_match('/^\d+\.\d+\.\d+$/', $currentVersion) === 1
-            && version_compare($backupVersion, $currentVersion, '>')) {
+        if (! hash_equals($currentVersion, $backupVersion)) {
             $verified->cleanup();
-            throw new RuntimeException('This backup was created by a newer Waymark version and cannot be restored safely.');
+            throw new RuntimeException('This backup was created by a different Waymark release. Install the matching Waymark release before recovery.');
         }
     }
 

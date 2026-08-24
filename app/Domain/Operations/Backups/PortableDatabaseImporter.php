@@ -58,8 +58,13 @@ final class PortableDatabaseImporter
         $this->validate($path);
     }
 
+    public function assertStructurallyValid(string $path): void
+    {
+        $this->validate($path, false);
+    }
+
     /** @return list<string> */
-    private function validate(string $path): array
+    private function validate(string $path, bool $checkSchema = true): array
     {
         $stream = fopen($path, 'rb');
         if ($stream === false) {
@@ -75,15 +80,18 @@ final class PortableDatabaseImporter
                 }
                 if ($record['type'] === 'table') {
                     $table = $record['name'] ?? null;
-                    if (! is_string($table) || isset($knownColumns[$table]) || ! Schema::hasTable($table)) {
+                    $declaredColumns = $record['columns'] ?? null;
+                    if (! is_string($table) || $table === '' || isset($knownColumns[$table])
+                        || ! is_array($declaredColumns) || $declaredColumns === []
+                        || array_filter($declaredColumns, fn (mixed $column): bool => ! is_string($column) || $column === '') !== []
+                        || count(array_unique($declaredColumns)) !== count($declaredColumns)) {
                         throw new RuntimeException('The verified database component does not match this installation.');
                     }
-                    $columns = $this->writableColumns($table);
-                    if (($record['columns'] ?? null) !== $columns) {
+                    if ($checkSchema && (! Schema::hasTable($table) || $declaredColumns !== $this->writableColumns($table))) {
                         throw new RuntimeException('The verified database component does not match this installation.');
                     }
                     $tables[] = $table;
-                    $knownColumns[$table] = array_fill_keys($columns, true);
+                    $knownColumns[$table] = array_fill_keys($declaredColumns, true);
 
                     continue;
                 }
