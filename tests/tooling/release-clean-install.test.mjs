@@ -32,3 +32,10 @@ test('public-html clean-install fixture uses PHP 8.3 Apache with htaccess overri
     assert.match(dockerfile, /AllowOverride All/);
     assert.match(dockerfile, /pdo_mysql/);
 });
+
+test('public-html clean-install mail fixture is reachable from the Apache container', () => {
+    const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
+
+    assert.match(harness, /const smtpBindHost = requestedLayout === 'public-html' \? '0\.0\.0\.0' : '127\.0\.0\.1';/);
+    assert.match(harness, /smtp\.listen\(smtpPort, smtpBindHost, resolveListening\);/);
+});

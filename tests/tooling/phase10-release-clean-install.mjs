@@ -56,9 +56,10 @@ for (const required of ['vendor/autoload.php', 'public/build/manifest.json', '.e
 }
 
 const smtp = createSmtpFixture();
+const smtpBindHost = requestedLayout === 'public-html' ? '0.0.0.0' : '127.0.0.1';
 await new Promise((resolveListening, reject) => {
     smtp.once('error', reject);
-    smtp.listen(smtpPort, '127.0.0.1', resolveListening);
+    smtp.listen(smtpPort, smtpBindHost, resolveListening);
 });
 
 const phpScan = process.env.PHP_INI_SCAN_DIR === undefined ? {} : { PHP_INI_SCAN_DIR: process.env.PHP_INI_SCAN_DIR };
