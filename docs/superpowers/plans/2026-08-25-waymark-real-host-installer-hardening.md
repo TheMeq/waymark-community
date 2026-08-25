@@ -6,7 +6,7 @@
 
 **Architecture:** Retain authoritative Laravel migrations, but execute them incrementally through a persisted installation attempt rather than one long request. A generated schema manifest, database ownership marker, initial-empty proof, and private attempt record classify empty, completed, owned-incomplete, known-Waymark-incomplete, and ambiguous databases before any destructive action. Setup data remains in the existing private session boundary; persisted progress contains no submitted credentials.
 
-**Tech Stack:** Laravel 12, PHP 8.3+, Blade, Filament 4 admin, PDO, PHPUnit, Playwright, MySQL 8.4, MariaDB 11.4.
+**Tech Stack:** Laravel 13, PHP 8.3+, Blade, Filament 5 admin, PDO, PHPUnit, Playwright, MySQL 8.4, MariaDB 11.4.
 
 **Spec:** Approved real-host installer findings supplied on 2026-08-25, plus `docs/superpowers/specs/2026-08-20-waymark-community-design.md` and `docs/superpowers/plans/2026-08-20-waymark-phase-09-operations.md`.
 
