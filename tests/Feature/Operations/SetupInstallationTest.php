@@ -22,7 +22,7 @@ final class SetupInstallationTest extends TestCase
 
     private string $databasePath;
 
-    private EnvironmentWriter $environmentWriter;
+    private object $environmentWriter;
 
     protected function setUp(): void
     {
@@ -42,12 +42,18 @@ final class SetupInstallationTest extends TestCase
         $this->app->forgetInstance(InstallationAttemptStore::class);
         $this->environmentWriter = new class implements EnvironmentWriter
         {
+            public bool $fail = false;
+
             /** @var array<string, string>|null */
             public ?array $received = null;
 
             public function write(array $values): EnvironmentWriteResult
             {
                 $this->received = $values;
+
+                if ($this->fail) {
+                    return new EnvironmentWriteResult(false, "APP_ENV=production\n", 'Create the environment file, then retry.');
+                }
 
                 return new EnvironmentWriteResult(true, "APP_ENV=production\n", '');
             }
@@ -121,6 +127,35 @@ final class SetupInstallationTest extends TestCase
         $this->assertFileDoesNotExist($this->markerPath);
     }
 
+    public function test_recoverable_failed_stage_can_be_retried_without_starting_a_second_attempt(): void
+    {
+        $this->environmentWriter->fail = true;
+
+        $this->withSession($this->completeSetupSession())->post('/setup/install');
+        $failure = $this->postJson('/setup/install/advance')
+            ->assertUnprocessable()
+            ->assertJsonPath('retryable', true)
+            ->json();
+
+        $this->environmentWriter->fail = false;
+
+        $this->post('/setup/install/retry')
+            ->assertRedirect('/setup/install/progress');
+
+        $retried = $this->get('/setup/install/progress')
+            ->assertOk()
+            ->assertSee('Continue installation')
+            ->assertSee('No database or application data was changed by the failed step.');
+
+        $record = app(InstallationAttemptStore::class)->load();
+        self::assertNotNull($record);
+        self::assertSame($failure['attempt_id'], $record->id);
+        self::assertSame('running', $record->status->value);
+        self::assertSame('preparing_configuration', $record->stage->value);
+
+        $this->postJson('/setup/install/advance')->assertSuccessful();
+    }
+
     public function test_install_does_not_use_the_pre_environment_database_cache_configuration(): void
     {
         config()->set('cache.default', 'database');
@@ -128,6 +163,20 @@ final class SetupInstallationTest extends TestCase
         $this->withSession($this->completeSetupSession())->post('/setup/install');
         $this->postJson('/setup/install/advance')->assertSuccessful();
         $this->assertSame('array', config('cache.default'));
+    }
+
+    public function test_skipped_email_install_writes_an_explicit_disabled_state_without_smtp_credentials(): void
+    {
+        $session = $this->completeSetupSession();
+        $session['waymark.setup.data']['mail'] = ['configured' => false];
+
+        $this->withSession($session)->post('/setup/install')->assertRedirect('/setup/install/progress');
+        $this->postJson('/setup/install/advance')->assertSuccessful();
+
+        self::assertSame('false', $this->environmentWriter->received['WAYMARK_MAIL_CONFIGURED']);
+        self::assertSame('array', $this->environmentWriter->received['MAIL_MAILER']);
+        self::assertSame('', $this->environmentWriter->received['MAIL_HOST']);
+        self::assertSame('', $this->environmentWriter->received['MAIL_PASSWORD']);
     }
 
     public function test_install_cannot_run_with_missing_setup_sections(): void

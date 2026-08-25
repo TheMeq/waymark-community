@@ -43,6 +43,19 @@ final class SystemHealthPageTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_system_health_warns_when_outbound_email_was_deliberately_left_unconfigured(): void
+    {
+        config()->set('waymark.email.configured', false);
+        config()->set('mail.default', 'array');
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator]);
+
+        $this->actingAs($administrator)
+            ->get('/admin/system-health')
+            ->assertSuccessful()
+            ->assertSee('Email delivery is not configured.')
+            ->assertSee('Configure email delivery');
+    }
+
     public function test_serious_missing_media_creates_an_admin_banner_with_repair_link(): void
     {
         $administrator = User::factory()->create(['role' => AccountRole::Administrator]);

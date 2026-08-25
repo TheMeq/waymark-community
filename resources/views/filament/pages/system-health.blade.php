@@ -9,6 +9,9 @@
                         <span>{{ ucfirst($check->status) }}</span>
                     </div>
                     <p class="mt-2 text-sm text-gray-600">{{ $check->message }}</p>
+                    @if($check->key === 'email' && $check->status !== 'healthy')
+                        <a class="mt-2 inline-block underline" href="{{ route('filament.admin.pages.email-delivery') }}">Configure email delivery</a>
+                    @endif
                 </section>
             @endforeach
         </div>

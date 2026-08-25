@@ -8,6 +8,6 @@ Backups contain the database, media/uploads, documents and allowlisted restorati
 - Download and independently preserve an archive before updates or risky host work.
 - Review retention (`WAYMARK_BACKUP_RETENTION_COUNT`) and free staging space.
 - Verify the archive and periodically rehearse recovery on an isolated environment.
-- Store recovery tokens and encryption passphrases in the group's password manager, not beside the archive.
+- Store recovery keys and encryption passphrases in the group's password manager, not beside the archive.
 
 See [`updates-backups-recovery.md`](updates-backups-recovery.md) for transaction consistency, capacity, manifest and orchestration details.

@@ -4,20 +4,31 @@ namespace App\Domain\Accounts\Actions;
 
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Notifications\AdministratorAccessChanged;
+use App\Domain\Communication\Support\OutboundEmailStatus;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 final readonly class CreateAdministrator
 {
-    public function __construct(private RecordAccountAdministrationAudit $audit) {}
+    public function __construct(
+        private RecordAccountAdministrationAudit $audit,
+        private OutboundEmailStatus $emailStatus,
+    ) {}
 
     public function handle(User $actor, string $name, string $email): User
     {
         Gate::forUser($actor)->authorize('createAdministrator', User::class);
+
+        if (! $this->emailStatus->configured()) {
+            throw ValidationException::withMessages([
+                'email' => $this->emailStatus->unavailableMessage(),
+            ]);
+        }
 
         $data = validator([
             'name' => $name,

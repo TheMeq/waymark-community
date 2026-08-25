@@ -9,6 +9,9 @@ return [
         'attempt_path' => env('WAYMARK_INSTALLATION_ATTEMPT_PATH', storage_path('app/private/installation-attempt.json')),
         'legacy_application_key' => env('APP_KEY'),
     ],
+    'email' => [
+        'configured' => (bool) env('WAYMARK_MAIL_CONFIGURED', false),
+    ],
     'scheduler' => [
         'heartbeat_path' => env('WAYMARK_SCHEDULER_HEARTBEAT_PATH', storage_path('app/private/scheduler-heartbeat.json')),
         'stale_after_minutes' => (int) env('WAYMARK_SCHEDULER_STALE_AFTER_MINUTES', 5),

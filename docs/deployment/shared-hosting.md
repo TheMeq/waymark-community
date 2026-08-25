@@ -24,7 +24,7 @@ Verify the selected ZIP against its adjacent SHA-256 and retain both files. Do n
 
 For either layout, create an empty MySQL/MariaDB database with a least-privilege account, visit `/setup`, and follow the wizard. The installer checks PHP/extensions, paths, sensitive-file exposure, database and mail, writes the private environment, runs migrations and creates the installation owner. After setup, remove the downloaded archive, confirm setup is locked, and complete homepage/admin/media/email/System-health smoke checks.
 
-Never copy an existing `.env` between hosts. Use new secrets and database credentials, and keep the recovery token in the group's password manager.
+Never copy an existing `.env` between hosts. Use new secrets and database credentials, and keep the recovery key in the group's password manager.
 
 ## Not required on destination
 

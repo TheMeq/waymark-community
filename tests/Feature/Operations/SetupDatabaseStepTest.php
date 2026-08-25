@@ -5,6 +5,7 @@ namespace Tests\Feature\Operations;
 use App\Domain\Operations\Installation\Contracts\DatabaseConnectionTester;
 use App\Domain\Operations\Installation\DatabaseConfiguration;
 use App\Domain\Operations\Installation\DatabaseConnectionResult;
+use App\Domain\Operations\Installation\DatabaseInstallationState;
 use App\Domain\Operations\Installation\InstallationState;
 use Tests\TestCase;
 
@@ -82,6 +83,34 @@ final class SetupDatabaseStepTest extends TestCase
         $response->assertRedirect('/setup/database')
             ->assertSessionHasErrors(['host', 'database', 'username']);
         $this->assertArrayNotHasKey('password', session()->getOldInput());
+    }
+
+    public function test_known_incomplete_database_preserves_connection_for_explicit_recovery_and_shows_the_safe_reset_path(): void
+    {
+        $this->app->instance(DatabaseConnectionTester::class, new class implements DatabaseConnectionTester
+        {
+            public function test(DatabaseConfiguration $configuration): DatabaseConnectionResult
+            {
+                return new DatabaseConnectionResult(
+                    false,
+                    'An incomplete Waymark installation was detected.',
+                    DatabaseInstallationState::Incomplete,
+                    true,
+                );
+            }
+        });
+
+        $this->withSession(['waymark.setup.current_step' => 3])
+            ->post('/setup/database', $this->databasePayload())
+            ->assertRedirect('/setup/database')
+            ->assertSessionHasErrors('database')
+            ->assertSessionHas('waymark.setup.data.database.password', 'database-secret')
+            ->assertSessionHas('waymark.setup.database_recovery', true);
+
+        $this->get('/setup/database')
+            ->assertOk()
+            ->assertSee('Reset incomplete installation and retry')
+            ->assertSee('/setup/install/reset', false);
     }
 
     /** @return array<string, string|int> */

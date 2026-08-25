@@ -71,6 +71,24 @@ final class NewsletterPolicyTest extends TestCase
         $this->assertSame('sent', $scheduled->fresh()->status);
     }
 
+    public function test_newsletter_send_stops_safely_while_email_delivery_is_unconfigured(): void
+    {
+        config()->set('waymark.email.configured', false);
+        Mail::fake();
+        $actor = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
+        $newsletter = Newsletter::query()->create($this->newsletter(['consent_required' => false]));
+
+        try {
+            app(SendNewsletter::class)->handle($actor, $newsletter);
+            self::fail('Newsletter sending continued without outbound email.');
+        } catch (ValidationException $exception) {
+            self::assertArrayHasKey('newsletter', $exception->errors());
+        }
+
+        self::assertSame('draft', $newsletter->fresh()->status);
+        Mail::assertNothingSent();
+    }
+
     public function test_due_newsletters_can_be_sent_by_the_shared_hosting_scheduler_command(): void
     {
         Mail::fake();

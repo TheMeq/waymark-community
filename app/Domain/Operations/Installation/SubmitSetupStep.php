@@ -40,7 +40,11 @@ final readonly class SubmitSetupStep
             return $this->database($request, $progress);
         }
 
-        if (! in_array($step, [SetupStep::GroupDetails, SetupStep::Branding, SetupStep::FirstAdministrator, SetupStep::Mail, SetupStep::Modules, SetupStep::Advanced], true)) {
+        if ($step === SetupStep::Mail) {
+            return $this->mail($request, $progress);
+        }
+
+        if (! in_array($step, [SetupStep::GroupDetails, SetupStep::Branding, SetupStep::FirstAdministrator, SetupStep::Modules, SetupStep::Advanced], true)) {
             return new SetupSubmissionResult(true);
         }
 
@@ -52,17 +56,6 @@ final readonly class SubmitSetupStep
         }
 
         $validated = $validator->validated();
-
-        if ($step === SetupStep::Mail) {
-            $mail = MailConfiguration::fromArray($validated);
-            $result = $this->mailConnection->test($mail);
-
-            if (! $result->successful) {
-                return new SetupSubmissionResult(false, ['mail' => $result->message], $safeInput);
-            }
-
-            $validated = $mail->toArray();
-        }
 
         if ($step === SetupStep::FirstAdministrator) {
             unset($validated['password_confirmation']);
@@ -77,6 +70,52 @@ final readonly class SubmitSetupStep
         }
 
         $progress->save($step->value, $validated);
+
+        return new SetupSubmissionResult(true);
+    }
+
+    private function mail(Request $request, SetupProgress $progress): SetupSubmissionResult
+    {
+        $choice = Validator::make($request->all(), [
+            'email_setup' => ['required', Rule::in(['configure', 'later'])],
+        ]);
+        $safeInput = $request->except(['password', 'password_confirmation']);
+
+        if ($choice->fails()) {
+            return new SetupSubmissionResult(false, $choice->errors()->toArray(), $safeInput);
+        }
+
+        if ($request->string('email_setup')->toString() === 'later') {
+            $progress->save(SetupStep::Mail->value, ['configured' => false]);
+
+            return new SetupSubmissionResult(true);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'host' => ['required', 'string', 'max:255'],
+            'port' => ['required', 'integer', 'between:1,65535'],
+            'encryption' => ['nullable', Rule::in(['tls', 'ssl'])],
+            'username' => ['nullable', 'string', 'max:255'],
+            'password' => ['nullable', 'string', 'max:1024'],
+            'from_address' => ['required', 'email:rfc', 'max:255'],
+            'test_address' => ['required', 'email:rfc', 'max:255'],
+        ]);
+
+        if ($validator->fails()) {
+            return new SetupSubmissionResult(false, $validator->errors()->toArray(), $safeInput);
+        }
+
+        $mail = MailConfiguration::fromArray($validator->validated());
+        $result = $this->mailConnection->test($mail);
+
+        if (! $result->successful) {
+            return new SetupSubmissionResult(false, ['mail' => $result->message], $safeInput);
+        }
+
+        $progress->save(SetupStep::Mail->value, [
+            'configured' => true,
+            ...$mail->toArray(),
+        ]);
 
         return new SetupSubmissionResult(true);
     }
@@ -101,9 +140,17 @@ final readonly class SubmitSetupStep
         $result = $this->databaseConnection->test($configuration);
 
         if (! $result->successful) {
+            if ($result->state === DatabaseInstallationState::Incomplete && $result->resetSafe) {
+                $progress->save('database', $configuration->toArray());
+                $request->session()->put('waymark.setup.database_recovery', true);
+            } else {
+                $request->session()->forget('waymark.setup.database_recovery');
+            }
+
             return new SetupSubmissionResult(false, ['database' => $result->message], $safeInput);
         }
 
+        $request->session()->forget('waymark.setup.database_recovery');
         $progress->save('database', $configuration->toArray());
 
         return new SetupSubmissionResult(true);
@@ -132,15 +179,6 @@ final readonly class SubmitSetupStep
                 'password' => ['required', 'confirmed', Password::min(12)->letters()->numbers()],
                 'password_confirmation' => ['required', 'string'],
             ],
-            SetupStep::Mail => [
-                'host' => ['required', 'string', 'max:255'],
-                'port' => ['required', 'integer', 'between:1,65535'],
-                'encryption' => ['nullable', Rule::in(['tls', 'ssl'])],
-                'username' => ['nullable', 'string', 'max:255'],
-                'password' => ['nullable', 'string', 'max:1024'],
-                'from_address' => ['required', 'email:rfc', 'max:255'],
-                'test_address' => ['required', 'email:rfc', 'max:255'],
-            ],
             SetupStep::Modules => [
                 'modules' => ['required', 'array', 'min:1'],
                 'modules.*' => [Rule::in(['walks', 'socials', 'holidays', 'gallery', 'news', 'documents'])],
@@ -155,6 +193,7 @@ final readonly class SubmitSetupStep
                 's3_secret_key' => ['required_if:backup_disk,s3', 'nullable', 'string', 'max:1024'],
                 'recovery_token' => ['required', 'confirmed', Password::min(24)->mixedCase()->numbers()->symbols()],
                 'recovery_token_confirmation' => ['required', 'string'],
+                'recovery_key_saved' => ['accepted'],
             ],
             default => [],
         };

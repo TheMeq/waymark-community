@@ -79,6 +79,32 @@ final class PublicAccountAccessTest extends TestCase
         Notification::assertSentTo($user, VerifyEmail::class);
     }
 
+    public function test_email_dependent_account_workflows_stop_safely_when_delivery_is_not_configured(): void
+    {
+        config()->set('waymark.email.configured', false);
+        Notification::fake();
+        $existing = User::factory()->unverified()->create(['email' => 'walker@example.test']);
+
+        $this->from('/forgot-password')
+            ->post('/forgot-password', ['email' => $existing->email])
+            ->assertRedirect('/forgot-password')
+            ->assertSessionHasErrors('email');
+
+        $this->post('/register', [
+            'name' => 'New Walker',
+            'email' => 'new@example.test',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ])->assertSessionHasErrors('email');
+
+        $this->actingAs($existing)
+            ->post('/email/verification-notification')
+            ->assertSessionHasErrors('email');
+
+        $this->assertDatabaseMissing('users', ['email' => 'new@example.test']);
+        Notification::assertNothingSent();
+    }
+
     public function test_registration_is_rate_limited_by_normalised_email_and_ip_without_creating_an_account_or_sending_mail_after_exhaustion(): void
     {
         Notification::fake();

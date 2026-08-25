@@ -35,6 +35,8 @@
                     <p>Detailed diagnostics are recorded server-side in <code>storage/logs/laravel.log</code>.</p>
                 @endif
             </section>
+            <p>{{ $status['changed'] ? 'The installer changed the Waymark database or application configuration before this point.' : 'No database or application data was changed by the failed step.' }}</p>
+            @if ($errors->has('retry'))<p class="error">{{ $errors->first('retry') }}</p>@endif
 
             @if (! $status['completed'] && ! $status['failed'])
                 <form id="installation-advance" method="post" action="{{ route('setup.install.advance') }}">
@@ -43,7 +45,13 @@
                 </form>
             @elseif ($status['completed'])
                 <p><a href="{{ route('filament.admin.pages.dashboard') }}">Continue to administration</a></p>
-            @elseif ($status['changed'])
+            @elseif ($status['retryable'])
+                <p>Correct the reported configuration or service problem, then retry this saved step. The installer will not start a second attempt.</p>
+                <form method="post" action="{{ route('setup.install.retry') }}">
+                    @csrf
+                    <button type="submit">Retry step</button>
+                </form>
+            @elseif ($status['resettable'])
                 @if ($errors->any())<p>{{ $errors->first() }}</p>@endif
                 <form method="post" action="{{ route('setup.install.reset') }}">
                     @csrf
@@ -54,6 +62,10 @@
                     </label>
                     <button type="submit">Reset incomplete installation and retry</button>
                 </form>
+            @elseif ($status['return_to_database'])
+                <p><a href="{{ route('setup.step', 'database') }}">Return to database settings</a></p>
+            @elseif ($status['failed'])
+                <p>This step cannot be retried automatically. Review the server log using the reference above, or seek technical assistance.</p>
             @endif
         </main>
 
@@ -89,7 +101,12 @@
                                 return;
                             }
 
-                            if (!result.failed && response.ok) window.setTimeout(advance, 250);
+                            if (result.failed) {
+                                window.location.reload();
+                                return;
+                            }
+
+                            if (response.ok) window.setTimeout(advance, 250);
                         } catch (error) {
                             message.textContent = 'The connection was interrupted. Refresh this page to resume the saved installation attempt.';
                         } finally {

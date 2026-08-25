@@ -109,6 +109,30 @@ final readonly class InstallationAttemptRecord
         );
     }
 
+    public function retry(string $now): self
+    {
+        if ($this->status !== InstallationAttemptStatus::Failed) {
+            throw new InvalidArgumentException('Only a failed installation attempt can be retried.');
+        }
+
+        return new self(
+            $this->id,
+            $this->ownershipToken,
+            $this->connectionFingerprint,
+            $this->migrationSetHash,
+            InstallationAttemptStatus::Running,
+            $this->stage,
+            $this->migrationIndex,
+            $this->totalMigrations,
+            null,
+            null,
+            'The failed step is ready to retry.',
+            $this->changed,
+            $this->createdAt,
+            $now,
+        );
+    }
+
     public function complete(string $now): self
     {
         return new self(

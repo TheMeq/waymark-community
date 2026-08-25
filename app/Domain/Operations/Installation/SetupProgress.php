@@ -82,6 +82,7 @@ final readonly class SetupProgress
         $this->session->put(self::CURRENT_STEP_KEY, SetupStep::Database->number());
         $this->session->forget([
             'waymark.setup.installed',
+            'waymark.setup.database_recovery',
             'waymark.setup.environment_file',
             'waymark.setup.environment_instructions',
         ]);

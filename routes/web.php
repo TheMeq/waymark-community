@@ -62,13 +62,16 @@ use App\Http\Middleware\CaptureCampaignParameters;
 use App\Http\Middleware\RecordAccountActivity;
 use App\Http\Middleware\RequireActiveAccount;
 use App\Http\Middleware\TriggerNonCriticalFallback;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/setup', [SetupController::class, 'show'])->name('setup');
 Route::post('/setup', [SetupController::class, 'start'])->name('setup.start');
 Route::get('/setup/install/progress', [SetupController::class, 'progress'])->name('setup.install.progress');
 Route::post('/setup/install/advance', [SetupController::class, 'advance'])->name('setup.install.advance');
+Route::post('/setup/install/retry', [SetupController::class, 'retry'])->name('setup.install.retry');
 Route::post('/setup/install/reset', [SetupController::class, 'reset'])->name('setup.install.reset');
+Route::post('/setup/recovery-key', [SetupController::class, 'recoveryKey'])->name('setup.recovery-key');
 Route::get('/setup/{step}', [SetupController::class, 'show'])
     ->whereIn('step', array_column(SetupStep::cases(), 'value'))
     ->name('setup.step');
@@ -181,6 +184,13 @@ Route::get('/calendar.ics', CalendarFeedController::class)->defaults('calendarTy
 Route::get('/calendar/{calendarType}.ics', CalendarFeedController::class)->whereIn('calendarType', ['walks', 'socials', 'holidays'])->name('calendar.type');
 
 if (app()->environment(['local', 'testing', 'browser-testing'])) {
+    Route::get('/_dev/setup/{step}', function (Request $request, string $step) {
+        $setupStep = SetupStep::from($step);
+        $request->session()->put('waymark.setup.current_step', $setupStep->number());
+
+        return to_route('setup.step', $setupStep->value);
+    })->whereIn('step', array_column(SetupStep::cases(), 'value'))->name('dev.setup.step');
+
     Route::get('/_dev/components', function () {
         return view('dev.components', [
             'theme' => BrandTheme::fromSiteProfile(new SiteProfile),

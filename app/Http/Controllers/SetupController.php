@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Operations\Installation\DatabaseConfiguration;
+use App\Domain\Operations\Installation\GenerateRecoveryKey;
 use App\Domain\Operations\Installation\InstallationAttemptRecord;
 use App\Domain\Operations\Installation\InstallationAttemptStatus;
 use App\Domain\Operations\Installation\InstallationAttemptStore;
@@ -27,6 +28,7 @@ final class SetupController
         private readonly InstallationState $installationState,
         private readonly InstallationAttemptStore $attemptStore,
         private readonly ResetIncompleteInstallation $resetIncompleteInstallation,
+        private readonly GenerateRecoveryKey $generateRecoveryKey,
     ) {}
 
     public function show(Request $request, ?string $step = null): View|RedirectResponse
@@ -51,6 +53,8 @@ final class SetupController
             'environmentFile' => $request->session()->get('waymark.setup.environment_file'),
             'environmentInstructions' => $request->session()->get('waymark.setup.environment_instructions'),
             'groupDetails' => $progress->data('group-details'),
+            'databaseRecovery' => $requestedStep === SetupStep::Database
+                && (bool) $request->session()->get('waymark.setup.database_recovery', false),
         ]);
     }
 
@@ -178,13 +182,42 @@ final class SetupController
         );
 
         if (! $result->successful) {
-            return to_route('setup.install.progress')->withErrors(['reset' => $result->message]);
+            $destination = $this->attemptStore->load() === null
+                ? to_route('setup.step', SetupStep::Database->value)
+                : to_route('setup.install.progress');
+
+            return $destination->withErrors(['reset' => $result->message]);
         }
 
         $this->attemptStore->clear();
         $progress->resetAfterIncompleteInstallation();
 
         return to_route('setup.step', SetupStep::Database->value)->with('status', $result->message);
+    }
+
+    public function retry(): RedirectResponse
+    {
+        $attempt = $this->attemptStore->load();
+
+        if ($attempt === null || ! $this->installer->retryable($attempt)) {
+            return to_route('setup.install.progress')
+                ->withErrors(['retry' => 'This installation step cannot be retried safely. Use the action shown for the failed stage.']);
+        }
+
+        $this->installer->retry();
+
+        return to_route('setup.install.progress');
+    }
+
+    public function recoveryKey(Request $request): JsonResponse
+    {
+        $progress = new SetupProgress($request->session());
+
+        abort_unless($progress->canVisit(SetupStep::Advanced), 403);
+
+        return response()->json([
+            'recovery_key' => $this->generateRecoveryKey->handle(),
+        ]);
     }
 
     /** @return array<string, mixed> */
@@ -205,6 +238,11 @@ final class SetupController
             ],
             'completed' => $attempt->status === InstallationAttemptStatus::Completed,
             'failed' => $attempt->status === InstallationAttemptStatus::Failed,
+            'retryable' => $this->installer->retryable($attempt),
+            'resettable' => $attempt->status === InstallationAttemptStatus::Failed
+                && ($attempt->changed || $attempt->failureCategory === 'incomplete_waymark_installation_detected'),
+            'return_to_database' => $attempt->status === InstallationAttemptStatus::Failed
+                && in_array($attempt->failureCategory, ['database_not_empty_or_ambiguous', 'database_configuration_changed'], true),
         ];
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Domain\Operations\Health;
 
+use App\Domain\Communication\Support\OutboundEmailStatus;
 use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Domain\Operations\Health\Models\MissingMediaRepair;
 use App\Domain\Operations\Installation\Contracts\PublicApplicationExposureProbe;
@@ -16,6 +17,7 @@ final readonly class SystemHealth
         private SchedulerHeartbeat $scheduler,
         private UpdateStateStore $updateState,
         private PublicApplicationExposureProbe $exposureProbe,
+        private OutboundEmailStatus $emailStatus,
     ) {}
 
     public function report(bool $https, ?string $baseUrl = null): SystemHealthReport
@@ -78,10 +80,9 @@ final readonly class SystemHealth
 
     private function email(): HealthCheck
     {
-        $mailer = (string) config('mail.default');
-        $configured = $mailer !== '' && ($mailer !== 'smtp' || trim((string) config('mail.mailers.smtp.host')) !== '');
+        $configured = $this->emailStatus->configured();
 
-        return new HealthCheck('email', 'Email', $configured ? 'healthy' : 'warning', $configured ? ucfirst($mailer).' delivery is configured.' : 'Email delivery is not configured.');
+        return new HealthCheck('email', 'Email', $configured ? 'healthy' : 'warning', $configured ? 'Outbound email delivery is configured.' : 'Email delivery is not configured.');
     }
 
     private function scheduler(): HealthCheck

@@ -90,6 +90,30 @@ final class WaymarkInstaller
         return $this->environmentResult;
     }
 
+    public function retry(): InstallationAttemptRecord
+    {
+        $record = $this->attemptStore->load();
+
+        if ($record === null || ! $this->retryable($record)) {
+            throw new RuntimeException('This installation step cannot be retried safely.');
+        }
+
+        return $this->save($record->retry(now()->toIso8601String()));
+    }
+
+    public function retryable(InstallationAttemptRecord $record): bool
+    {
+        return $record->status === InstallationAttemptStatus::Failed
+            && in_array($record->failureCategory, [
+                'configuration_file_could_not_be_written',
+                'database_connection_or_permissions_failed',
+                'group_creation_failed',
+                'administrator_creation_failed',
+                'optional_configuration_failed',
+                'health_verification_failed',
+            ], true);
+    }
+
     /** @param array<string, array<string, mixed>> $data */
     private function prepareConfiguration(InstallationAttemptRecord $record, array $data, string $applicationUrl): InstallationAttemptRecord
     {
@@ -315,6 +339,7 @@ final class WaymarkInstaller
     {
         $database = $data['database'];
         $mail = $data['mail'];
+        $mailConfigured = (bool) ($mail['configured'] ?? true);
         $advanced = $data['advanced'];
         $configuredKey = trim((string) config('app.key'));
 
@@ -335,13 +360,14 @@ final class WaymarkInstaller
             'SESSION_COOKIE' => 'waymark-community-session',
             'CACHE_STORE' => 'file',
             'QUEUE_CONNECTION' => 'database',
-            'MAIL_MAILER' => 'smtp',
-            'MAIL_HOST' => (string) $mail['host'],
-            'MAIL_PORT' => (string) $mail['port'],
+            'WAYMARK_MAIL_CONFIGURED' => $mailConfigured ? 'true' : 'false',
+            'MAIL_MAILER' => $mailConfigured ? 'smtp' : 'array',
+            'MAIL_HOST' => (string) ($mail['host'] ?? ''),
+            'MAIL_PORT' => (string) ($mail['port'] ?? ''),
             'MAIL_USERNAME' => (string) ($mail['username'] ?? ''),
             'MAIL_PASSWORD' => (string) ($mail['password'] ?? ''),
             'MAIL_ENCRYPTION' => (string) ($mail['encryption'] ?? ''),
-            'MAIL_FROM_ADDRESS' => (string) $mail['from_address'],
+            'MAIL_FROM_ADDRESS' => (string) ($mail['from_address'] ?? ''),
             'WAYMARK_BACKUP_DISK' => $advanced['backup_disk'] === 's3' ? 's3' : 'backups',
             'AWS_ENDPOINT' => (string) ($advanced['s3_endpoint'] ?? ''),
             'AWS_BUCKET' => (string) ($advanced['s3_bucket'] ?? ''),

@@ -13,6 +13,10 @@ final readonly class RequireWaymarkInstallation
 
     public function handle(Request $request, Closure $next): Response
     {
+        if (app()->environment('browser-testing') && $request->is('_dev/setup/*')) {
+            return $next($request);
+        }
+
         $setupRequest = $request->is('setup') || $request->is('setup/*');
         $recoveryRequest = $request->is('recovery');
 
