@@ -39,3 +39,10 @@ test('public-html clean-install mail fixture is reachable from the Apache contai
     assert.match(harness, /const smtpBindHost = requestedLayout === 'public-html' \? '0\.0\.0\.0' : '127\.0\.0\.1';/);
     assert.match(harness, /smtp\.listen\(smtpPort, smtpBindHost, resolveListening\);/);
 });
+
+test('public-html clean-install checks compiled assets in the public web root', () => {
+    const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
+
+    assert.match(harness, /existsSync\(resolve\(publicRoot, 'build\/manifest\.json'\)\)/);
+    assert.doesNotMatch(harness, /\['vendor\/autoload\.php', 'public\/build\/manifest\.json', '\.env\.example'\]/);
+});

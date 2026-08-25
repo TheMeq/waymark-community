@@ -51,8 +51,11 @@ if (actualLayout !== requestedLayout) throw new Error(`Release layout mismatch: 
 for (const forbidden of ['.git', '.env', 'node_modules', 'tests', 'package.json']) {
     if (existsSync(resolve(applicationRoot, forbidden))) throw new Error(`Release install tree contains forbidden path: ${forbidden}`);
 }
-for (const required of ['vendor/autoload.php', 'public/build/manifest.json', '.env.example']) {
+for (const required of ['vendor/autoload.php', '.env.example']) {
     if (!existsSync(resolve(applicationRoot, required))) throw new Error(`Release install tree is missing: ${required}`);
+}
+if (!existsSync(resolve(publicRoot, 'build/manifest.json'))) {
+    throw new Error('Release install tree is missing the compiled asset manifest.');
 }
 
 const smtp = createSmtpFixture();
