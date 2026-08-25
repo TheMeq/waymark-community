@@ -11,5 +11,6 @@ final readonly class SharedHostingEnvironment
         public string $environmentPath,
         public bool $production,
         public bool $debug,
+        public bool $protectedPublicHtmlLayout = false,
     ) {}
 }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Operations;
 
+use App\Domain\Operations\Installation\Contracts\PublicApplicationExposureProbe;
 use App\Domain\Operations\Installation\InstallationState;
 use Tests\TestCase;
 
@@ -49,6 +50,24 @@ final class SetupSharedHostingSecurityTest extends TestCase
             ->post('/setup/install')
             ->assertRedirect('/setup/install')
             ->assertSessionHasErrors('hosting');
+    }
+
+    public function test_verified_public_html_layout_can_advance_past_server_checks(): void
+    {
+        config()->set('waymark.deployment_layout', 'public-html');
+        $this->app->instance(PublicApplicationExposureProbe::class, new class implements PublicApplicationExposureProbe
+        {
+            public function protected(string $baseUrl): ?bool
+            {
+                return true;
+            }
+        });
+
+        $this->withServerVariables(['DOCUMENT_ROOT' => dirname(base_path())])
+            ->withSession(['waymark.setup.current_step' => 2])
+            ->post('/setup/server-checks')
+            ->assertRedirect('/setup/database')
+            ->assertSessionDoesntHaveErrors();
     }
 
     public function test_install_completion_rechecks_and_blocks_production_debug_mode(): void

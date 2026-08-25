@@ -42,6 +42,24 @@ final class SharedHostingSecurityTest extends TestCase
         $this->assertStringContainsString('outside', $report->check('environment-exposure')->remediation);
     }
 
+    public function test_verified_public_html_layout_allows_the_protected_internal_application_beneath_the_document_root(): void
+    {
+        $report = (new SharedHostingSecurity)->inspect(new SharedHostingEnvironment(
+            documentRoot: '/srv/hosting/public_html',
+            applicationRoot: '/srv/hosting/public_html/application',
+            publicPath: '/srv/hosting/public_html',
+            environmentPath: '/srv/hosting/public_html/application/.env',
+            production: true,
+            debug: false,
+            protectedPublicHtmlLayout: true,
+        ));
+
+        $this->assertFalse($report->blocked());
+        $this->assertSame('pass', $report->check('document-root')->status);
+        $this->assertSame('pass', $report->check('environment-exposure')->status);
+        $this->assertStringContainsString('blocked from public requests', $report->check('document-root')->message);
+    }
+
     public function test_debug_mode_blocks_production_completion_but_not_local_development(): void
     {
         $production = (new SharedHostingSecurity)->inspect(new SharedHostingEnvironment(

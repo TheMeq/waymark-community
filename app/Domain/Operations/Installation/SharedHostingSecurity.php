@@ -6,8 +6,10 @@ final class SharedHostingSecurity
 {
     public function inspect(SharedHostingEnvironment $environment): PreflightReport
     {
-        $applicationExposed = $this->contains($environment->documentRoot, $environment->applicationRoot);
-        $environmentExposed = $this->contains($environment->documentRoot, $environment->environmentPath);
+        $applicationExposed = $this->contains($environment->documentRoot, $environment->applicationRoot)
+            && ! $environment->protectedPublicHtmlLayout;
+        $environmentExposed = $this->contains($environment->documentRoot, $environment->environmentPath)
+            && ! $environment->protectedPublicHtmlLayout;
         $publicRootMatches = $this->same($environment->documentRoot, $environment->publicPath);
         $debugUnsafe = $environment->production && $environment->debug;
 
@@ -15,19 +17,23 @@ final class SharedHostingSecurity
             new PreflightCheck(
                 'document-root',
                 'Document root',
-                $applicationExposed ? 'blocker' : ($publicRootMatches ? 'pass' : 'warning'),
+                $applicationExposed ? 'blocker' : (($publicRootMatches || $environment->protectedPublicHtmlLayout) ? 'pass' : 'warning'),
                 $applicationExposed
                     ? 'The web server document root contains the Waymark application files.'
-                    : ($publicRootMatches ? 'Only Waymark public files are inside the document root.' : 'The document root differs from Waymark’s public path.'),
+                    : ($environment->protectedPublicHtmlLayout
+                        ? 'The internal Waymark application is blocked from public requests.'
+                        : ($publicRootMatches ? 'Only Waymark public files are inside the document root.' : 'The document root differs from Waymark’s public path.')),
                 $applicationExposed
                     ? 'Move the application outside the document root and serve only its public directory.'
-                    : ($publicRootMatches ? null : 'Confirm that this document root contains only the copied public entry point and assets.'),
+                    : (($publicRootMatches || $environment->protectedPublicHtmlLayout) ? null : 'Confirm that this document root contains only the copied public entry point and assets.'),
             ),
             new PreflightCheck(
                 'environment-exposure',
                 'Environment file exposure',
                 $environmentExposed ? 'blocker' : 'pass',
-                $environmentExposed ? 'The .env file is under the served document root.' : 'The .env file is outside the served document root.',
+                $environmentExposed
+                    ? 'The .env file is under the served document root.'
+                    : ($environment->protectedPublicHtmlLayout ? 'The internal .env file is blocked from public requests.' : 'The .env file is outside the served document root.'),
                 $environmentExposed ? 'Move .env and the application outside the public document root before continuing.' : null,
             ),
             new PreflightCheck(
