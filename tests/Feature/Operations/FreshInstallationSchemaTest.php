@@ -3,15 +3,12 @@
 namespace Tests\Feature\Operations;
 
 use App\Domain\Operations\Installation\FreshInstallationSchema;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 final class FreshInstallationSchemaTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected function setUp(): void
     {
         parent::setUp();
