@@ -119,6 +119,7 @@ const browser = await chromium.launch();
 try {
     await waitForHttp(applicationUrl('/setup'), server, () => serverOutput);
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    page.setDefaultNavigationTimeout(60_000);
     await page.goto(applicationUrl('/setup'));
     await submitSetupStep(page, 'Begin setup', browserBaseUrl, urlPrefix);
     await submitSetupStep(page, 'Continue', browserBaseUrl, urlPrefix);

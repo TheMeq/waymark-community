@@ -82,6 +82,7 @@ test('prefixed clean install audits generated application URLs and persisted app
 test('real-server setup submissions wait for navigation before the next step', () => {
     const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
 
+    assert.match(harness, /page\.setDefaultNavigationTimeout\(60_000\)/);
     assert.match(harness, /async function submitSetupStep[\s\S]*?Promise\.all\(\[[\s\S]*?page\.waitForURL\(/);
     assert.match(harness, /getByRole\('button',[\s\S]*?\.click\(\{ timeout: 60_000 \}\)/);
 });
