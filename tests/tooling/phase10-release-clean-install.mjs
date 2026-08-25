@@ -40,6 +40,9 @@ const installRoot = process.env.PHASE10_INSTALL_DESTINATION === undefined
     : resolve(process.env.PHASE10_INSTALL_DESTINATION);
 const appPort = Number(process.env.PHASE10_INSTALL_APP_PORT ?? (database.driver === 'mysql' ? 8030 : 8031));
 const smtpPort = Number(process.env.PHASE10_INSTALL_SMTP_PORT ?? (database.driver === 'mysql' ? 8040 : 8041));
+const browserBaseUrl = requestedLayout === 'public-html'
+    ? `http://host.docker.internal:${appPort}`
+    : `http://127.0.0.1:${appPort}`;
 rmSync(evidenceRoot, { recursive: true, force: true });
 mkdirSync(evidenceRoot, { recursive: true });
 
@@ -96,9 +99,9 @@ server.stderr.on('data', (chunk) => { serverOutput += chunk.toString(); });
 
 const browser = await chromium.launch();
 try {
-    await waitForHttp(`http://127.0.0.1:${appPort}/setup`, server, () => serverOutput);
+    await waitForHttp(`${browserBaseUrl}/setup`, server, () => serverOutput);
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-    await page.goto(`http://127.0.0.1:${appPort}/setup`);
+    await page.goto(`${browserBaseUrl}/setup`);
     await page.getByRole('button', { name: 'Begin setup' }).click();
     await page.getByRole('button', { name: 'Continue' }).click();
 
@@ -138,26 +141,26 @@ try {
     await page.getByRole('heading', { name: 'Final health check' }).waitFor();
     await page.getByRole('button', { name: 'Finish setup' }).click();
 
-    await page.goto(`http://127.0.0.1:${appPort}/login`);
+    await page.goto(`${browserBaseUrl}/login`);
     await page.getByLabel('Email address').fill('owner@example.test');
     await page.getByLabel('Password').fill('WaymarkRelease10!');
     await Promise.all([
-        page.waitForURL(`http://127.0.0.1:${appPort}/admin`),
+        page.waitForURL(`${browserBaseUrl}/admin`),
         page.getByRole('button', { name: 'Sign in' }).click(),
     ]);
     await page.getByRole('heading', { name: 'Dashboard' }).waitFor();
 
-    const publicResponse = await page.goto(`http://127.0.0.1:${appPort}/`);
+    const publicResponse = await page.goto(`${browserBaseUrl}/`);
     if (publicResponse?.status() !== 200) throw new Error(`Public homepage returned ${publicResponse?.status()}.`);
 
-    await page.goto(`http://127.0.0.1:${appPort}/admin/media-library`);
+    await page.goto(`${browserBaseUrl}/admin/media-library`);
     const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADElEQVQImWNgYGAAAAAEAAGjChXjAAAAAElFTkSuQmCC', 'base64');
     await page.getByLabel('Site media image').setInputFiles({ name: 'release-smoke.png', mimeType: 'image/png', buffer: png });
     await page.getByLabel('Alt text').fill('Release package upload smoke');
     await page.getByRole('button', { name: 'Upload media' }).click();
     await expect(page.getByText('Release package upload smoke')).toBeVisible();
 
-    const setupResponse = await page.goto(`http://127.0.0.1:${appPort}/setup`);
+    const setupResponse = await page.goto(`${browserBaseUrl}/setup`);
     if (setupResponse?.status() !== 404) throw new Error(`Locked installer returned ${setupResponse?.status()}.`);
     if (!existsSync(resolve(applicationRoot, '.env'))
         || !existsSync(resolve(applicationRoot, 'storage/app/private/installed.lock'))
@@ -170,7 +173,7 @@ try {
         : ['/.env'];
     const protectionStatuses = {};
     for (const path of protectedPaths) {
-        const response = await page.request.get(`http://127.0.0.1:${appPort}${path}`);
+        const response = await page.request.get(`${browserBaseUrl}${path}`);
         protectionStatuses[path] = response.status();
         if (response.status() < 400) throw new Error(`Protected path was publicly retrievable (${response.status()}): ${path}`);
     }

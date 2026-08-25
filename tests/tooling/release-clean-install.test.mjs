@@ -46,3 +46,10 @@ test('public-html clean-install checks compiled assets in the public web root', 
     assert.match(harness, /existsSync\(resolve\(publicRoot, 'build\/manifest\.json'\)\)/);
     assert.doesNotMatch(harness, /\['vendor\/autoload\.php', 'public\/build\/manifest\.json', '\.env\.example'\]/);
 });
+
+test('public-html clean-install uses a host name reachable by the Apache self-protection probe', () => {
+    const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
+
+    assert.match(harness, /const browserBaseUrl = requestedLayout === 'public-html'\s+\? `http:\/\/host\.docker\.internal:\$\{appPort\}`/);
+    assert.match(harness, /waitForHttp\(`\$\{browserBaseUrl\}\/setup`/);
+});
