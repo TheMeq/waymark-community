@@ -147,6 +147,7 @@ try {
         copyPreparedApplication($application, $publicHtmlApplication);
         file_put_contents($publicHtmlApplication.DIRECTORY_SEPARATOR.'DEPLOYMENT-LAYOUT', "public-html\n", LOCK_EX);
         file_put_contents($publicHtmlApplication.DIRECTORY_SEPARATOR.'.htaccess', template('public-html-application.htaccess'), LOCK_EX);
+        file_put_contents($publicHtmlApplication.DIRECTORY_SEPARATOR.'public'.DIRECTORY_SEPARATOR.'.htaccess', template('public-html-root.htaccess'), LOCK_EX);
         file_put_contents($publicHtmlApplication.DIRECTORY_SEPARATOR.'public'.DIRECTORY_SEPARATOR.'index.php', template('public-html-index.php'), LOCK_EX);
         file_put_contents($publicHtmlApplication.DIRECTORY_SEPARATOR.'public'.DIRECTORY_SEPARATOR.'README.md', str_replace('{{VERSION}}', $version, template('public-html-README.md')), LOCK_EX);
         $outputPath = $outputDirectory.DIRECTORY_SEPARATOR.$artifacts['public-html'];

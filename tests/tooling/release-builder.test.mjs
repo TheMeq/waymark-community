@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
@@ -70,4 +71,16 @@ test('builder can produce an exact prior-commit release candidate for upgrade te
     const plan = JSON.parse(result.stdout);
     assert.equal(plan.source, `git clone + detached checkout ${commit}`);
     assert.equal(plan.archive, 'waymark-community-0.9.0-shared-hosting.zip');
+});
+
+test('public-html transformation supplies the current protected web-root rules', () => {
+    const builder = readFileSync(resolve(repositoryRoot, 'scripts/build-release.php'), 'utf8');
+    const template = readFileSync(resolve(repositoryRoot, 'scripts/release/templates/public-html-root.htaccess'), 'utf8');
+
+    assert.match(builder, /public-html-root\.htaccess/);
+    assert.match(template, /Options -MultiViews -Indexes/);
+    assert.match(template, /<FilesMatch "\^\\\.">/);
+    assert.match(template, /Require all denied/);
+    assert.match(template, /Deny from all/);
+    assert.match(template, /RewriteEngine On/);
 });
