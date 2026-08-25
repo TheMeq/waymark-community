@@ -7,7 +7,7 @@ import test from 'node:test';
 const repositoryRoot = resolve(import.meta.dirname, '../..');
 
 test('shared-hosting builder plan uses a clean commit, locked dependencies, full tests and production-only packaging', () => {
-    const result = spawnSync('php', ['scripts/build-release.php', '--version=1.0.0', '--plan'], {
+    const result = spawnSync('php', ['scripts/build-release.php', '--plan'], {
         cwd: repositoryRoot,
         encoding: 'utf8',
         env: process.env,
@@ -15,11 +15,11 @@ test('shared-hosting builder plan uses a clean commit, locked dependencies, full
 
     assert.equal(result.status, 0, result.stderr);
     const plan = JSON.parse(result.stdout);
-    assert.equal(plan.version, '1.0.0');
-    assert.equal(plan.archive, 'waymark-community-1.0.0-shared-hosting.zip');
+    assert.equal(plan.version, '1.0.1');
+    assert.equal(plan.archive, 'waymark-community-1.0.1-shared-hosting.zip');
     assert.deepEqual(plan.artifacts, {
-        standard: 'waymark-community-1.0.0-shared-hosting.zip',
-        'public-html': 'waymark-community-1.0.0-public-html.zip',
+        standard: 'waymark-community-1.0.1-shared-hosting.zip',
+        'public-html': 'waymark-community-1.0.1-public-html.zip',
     });
     assert.equal(plan.source, 'git clone + detached checkout HEAD');
     assert.deepEqual(plan.verification, [
@@ -48,7 +48,7 @@ test('shared-hosting builder plan uses a clean commit, locked dependencies, full
 });
 
 test('builder can select the public-html artifact with protected root layout', () => {
-    const result = spawnSync('php', ['scripts/build-release.php', '--version=1.0.0', '--formats=public-html', '--plan'], {
+    const result = spawnSync('php', ['scripts/build-release.php', '--formats=public-html', '--plan'], {
         cwd: repositoryRoot,
         encoding: 'utf8',
         env: process.env,
@@ -57,7 +57,7 @@ test('builder can select the public-html artifact with protected root layout', (
     assert.equal(result.status, 0, result.stderr);
     const plan = JSON.parse(result.stdout);
     assert.deepEqual(plan.formats, ['public-html']);
-    assert.equal(plan.artifacts['public-html'], 'waymark-community-1.0.0-public-html.zip');
+    assert.equal(plan.artifacts['public-html'], 'waymark-community-1.0.1-public-html.zip');
     assert.ok(plan.package.includes('protect the internal application beneath the public web root'));
 });
 
