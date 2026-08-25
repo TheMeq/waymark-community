@@ -3,10 +3,9 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import vm from 'node:vm';
 
-const source = (await readFile(new URL('../../resources/views/pwa/service-worker.blade.php', import.meta.url), 'utf8'))
-    .replace('{{ $cacheVersion }}', 'waymark-shell-test');
+const template = await readFile(new URL('../../resources/views/pwa/service-worker.blade.php', import.meta.url), 'utf8');
 
-function workerHarness({ cached = new Map(), keys = [], fetchImplementation = async () => ({ ok: true, clone() { return this; } }), putImplementation = async () => {} } = {}) {
+function workerHarness({ prefix = '', cached = new Map(), keys = [], fetchImplementation = async () => ({ ok: true, clone() { return this; } }), putImplementation = async () => {} } = {}) {
     const listeners = new Map();
     const deleted = [];
     const put = [];
@@ -30,7 +29,7 @@ function workerHarness({ cached = new Map(), keys = [], fetchImplementation = as
     };
     const fetch = async (request) => { fetches++; return fetchImplementation(request); };
 
-    vm.runInNewContext(source, { self, caches, fetch, URL, Promise });
+    vm.runInNewContext(renderWorker(prefix), { self, caches, fetch, URL, Promise });
 
     return {
         deleted,
@@ -48,6 +47,22 @@ function workerHarness({ cached = new Map(), keys = [], fetchImplementation = as
             return response ? response : undefined;
         },
     };
+}
+
+function renderWorker(prefix) {
+    const normalisedPrefix = prefix === '' ? '' : `/${prefix.split('/').filter(Boolean).join('/')}`;
+    const staticAssets = [
+        `${normalisedPrefix}/images/pwa/icon-192.png`,
+        `${normalisedPrefix}/images/pwa/icon-512.png`,
+        `${normalisedPrefix}/offline`,
+    ];
+
+    return template
+        .replace('{{ $cacheVersion }}', 'waymark-shell-test')
+        .replace('{!! json_encode($staticAssets, JSON_UNESCAPED_SLASHES) !!}', JSON.stringify(staticAssets))
+        .replace('{!! json_encode($offlineUrl, JSON_UNESCAPED_SLASHES) !!}', JSON.stringify(`${normalisedPrefix}/offline`))
+        .replace('{!! json_encode($applicationBasePath, JSON_UNESCAPED_SLASHES) !!}', JSON.stringify(normalisedPrefix))
+        .replace('{!! json_encode($buildPath, JSON_UNESCAPED_SLASHES) !!}', JSON.stringify(`${normalisedPrefix}/build/`));
 }
 
 function request(path, { method = 'GET', mode = 'navigate' } = {}) {
@@ -131,4 +146,21 @@ test('mutations, private and unknown navigations bypass the service worker', asy
         assert.equal(await harness.fetch(candidate), undefined, candidate.url);
     }
     assert.equal(harness.fetches, 0);
+});
+
+test('mounted service worker handles only prefixed public routes and assets', async () => {
+    const offline = { source: 'prefixed-offline' };
+    const compiled = { source: 'prefixed-cache' };
+    const harness = workerHarness({
+        prefix: '/demo-site/ndwg',
+        cached: new Map([
+            ['/demo-site/ndwg/offline', offline],
+            ['/demo-site/ndwg/build/assets/app-hash.js', compiled],
+        ]),
+        fetchImplementation: async () => { throw new Error('offline'); },
+    });
+
+    assert.equal(await harness.fetch(request('/demo-site/ndwg/walks')), offline);
+    assert.equal(await harness.fetch(request('/demo-site/ndwg/build/assets/app-hash.js', { mode: 'no-cors' })), compiled);
+    assert.equal(await harness.fetch(request('/walks')), undefined);
 });
