@@ -87,4 +87,12 @@ final class PublicUrlPresentationTest extends TestCase
         $this->assertSame('/demo-site/ndwg/images/demo/hero-walkers-1536.webp', $homepage->hero['image_url']);
         $this->assertStringContainsString('/demo-site/ndwg/images/demo/hero-walkers-768.webp 768w', $homepage->hero['image_srcset']);
     }
+
+    public function test_configured_application_url_supplies_the_prefix_when_relative_routes_do_not(): void
+    {
+        URL::forceRootUrl('https://example.org');
+        config()->set('app.url', 'https://example.org/demo-site/ndwg');
+
+        $this->assertSame('/demo-site/ndwg/manifest.webmanifest', PublicUrl::route('pwa.manifest'));
+    }
 }

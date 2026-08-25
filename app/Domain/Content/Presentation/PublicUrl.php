@@ -34,12 +34,29 @@ final class PublicUrl
 
     private static function withApplicationPrefix(string $path): string
     {
-        $basePath = rtrim((string) parse_url(route('home', absolute: false), PHP_URL_PATH), '/');
+        $basePath = self::applicationPrefix();
 
         if ($basePath !== '' && ($path === $basePath || str_starts_with($path, $basePath.'/'))) {
             return $path;
         }
 
         return $basePath.$path;
+    }
+
+    private static function applicationPrefix(): string
+    {
+        $requestBasePath = app()->bound('request') ? request()->getBaseUrl() : '';
+        $configuredBasePath = parse_url((string) config('app.url'), PHP_URL_PATH);
+        $generatedBasePath = parse_url(route('home', absolute: false), PHP_URL_PATH);
+
+        foreach ([$requestBasePath, $configuredBasePath, $generatedBasePath] as $candidate) {
+            $basePath = rtrim((string) $candidate, '/');
+
+            if ($basePath !== '') {
+                return $basePath;
+            }
+        }
+
+        return '';
     }
 }
