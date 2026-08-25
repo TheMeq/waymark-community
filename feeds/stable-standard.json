@@ -2,46 +2,34 @@
     "payload": {
         "schema": 1,
         "channel": "stable",
-        "version": "1.0.0",
-        "published_at": "2026-08-25T08:20:01Z",
+        "version": "1.0.1",
+        "published_at": "2026-08-25T21:32:42Z",
         "security_release": false,
-        "summary": "Waymark Community 1.0.0 stable release for standard Shared Hosting.",
+        "summary": "Shared-host installer reliability and updater transport improvements.",
         "release_notes": [
-            "First stable Waymark Community release.",
-            "Use this feed when the hosting document root points at application/public.",
-            "Includes production dependencies, compiled assets, setup, update, backup and recovery support."
+            "Improved setup beneath supported URL prefixes and subdirectories.",
+            "Made outbound email configuration optional during setup.",
+            "Clarified required-field and recovery-key guidance and improved module controls.",
+            "Made fresh installation progress bounded, persisted and recoverable.",
+            "Added database capability checks, interrupted-install recovery and non-sensitive diagnostics.",
+            "Made updater package downloads follow bounded HTTPS redirects used by release asset hosting."
         ],
-        "package_url": "https://themeq.github.io/waymark-community/downloads/1.0.0/waymark-community-1.0.0-shared-hosting.zip",
-        "package_sha256": "a6d414b4b754e8373217f5e3ff97d6d5f872b3abf8ff385cd07f213612eb20d7",
-        "package_size_bytes": 41334134,
         "requirements": {
             "php": "8.3.0",
             "extensions": [
-                "ctype",
-                "curl",
-                "dom",
                 "exif",
-                "fileinfo",
-                "filter",
                 "gd",
-                "hash",
-                "intl",
-                "json",
-                "mbstring",
-                "openssl",
-                "pdo",
-                "pdo_mysql",
-                "session",
-                "tokenizer",
-                "xml",
                 "zip"
             ],
             "database": {
                 "mysql": "8.4.0",
                 "mariadb": "11.4.0"
             },
-            "disk_free_bytes": 150000000
-        }
+            "disk_free_bytes": 250000000
+        },
+        "package_url": "https://github.com/TheMeq/waymark-community/releases/download/v1.0.1/waymark-community-1.0.1-shared-hosting.zip",
+        "package_sha256": "999b20fad1544118c71275b161fd2b2c3af97015e5329051506b7a4cfc1f6d01",
+        "package_size_bytes": 41369921
     },
-    "signature": "Weh3OpuiFr1svqBe+ihF7KI8eZmNfSyRzWzk1MHlThBA7Q8I384936h+PgZoyI8MBcLMOeDbCfepHkGBRaVYF5zXau8aUsir/zBgcHXjNH6gEvRwC0zfIWYJxjUhFVokg7rjSN3/wanFeDj+XPlS1xQI9Bh7y1kEGRvbtSs+Qz9HwoZSX4xDByaad7a7gi9hJRi+SeVJAAaDsIOUzLNNsp9+e3plGiaBiaXC0cXbORVhNUvp0esB5n9eEnlJTQPcRaFKcY8wniNJBirD99uyZZ7qBZ2XCOv/GIGuxKkITNpVCtGkxXkNifv1N9SkfDJMyLTrhjWq8iQDI6m2q2yhn4Gfw5LtiWWFQdPy1F9YgzYABTVpJhgTNtB34tdoCwxHgxuKVM7CSyNGED+tWWv03IUR7bOgbJnWMQF2f9C+h639i9TtQ6ZRviqRGCTtsJfV58WM1A65vb8bFXP/Oc3FEJW6BIxOj3QSC7XkBwtuvJ4ZiQR8H69jThxGkBrR14/k"
+    "signature": "cHxcjW1A9eE20POcpXy5+urypx8XKC3uCKIvaMhm9IywCqoDWsAeVmEJu8HZ5sPskc0uxJr9TdYrIz1FtmAuaAHXAdE6eGblxP0u8cjqqQb7M1fTwnfCV3gOlCjh5CHF/GC3BGaYc60Dem66uCQYNxyft5Py2MI8guIHc3GidKxhowI50j1MXAyDt5Ax0vqMPHkv4155NJ6FOYvdo+hZ6d7LVLcgrpVNcOpTx5YL9Z6C/cQXBIAF9XpaPPYEaKlOshACnU9arrUsUnPtdqJx0aZhaW9Ww74mVRVgw8smHw6Z87zzjiUkbUdEFGtmvCE4CNVVVl0ywZYz3SPJzpQlXuijoKTu85fDhCeYujvCQnG9/uZ3yPEdmjqgRzhHy1IH6judOK3U3Kug+2r3WO7YxagGkAyc6EktsQJpWraRe2R+/ShtOb7tVCu4ff93757ywkLjCIVVE63vWy4TRORe7QS6yVZWGqm4GK6S5c14YPDE5Z+Bd3cjL3Sp+Pe7GwF7"
 }
