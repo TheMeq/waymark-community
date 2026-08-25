@@ -2,6 +2,8 @@
 
 namespace App\Domain\Accounts\Data;
 
+use App\Domain\Content\Presentation\PublicUrl;
+
 final readonly class LeaderProfilePhoto
 {
     private function __construct(public string $url) {}
@@ -14,6 +16,6 @@ final readonly class LeaderProfilePhoto
             return null;
         }
 
-        return new self($reference);
+        return new self(PublicUrl::asset($reference));
     }
 }

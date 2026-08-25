@@ -24,7 +24,7 @@
             <p class="eyebrow">{{ $site['name'] }}</p>
             <h1>You're offline</h1>
             <p class="copy">Try again when you're back online.</p>
-            <a href="/">Try again</a>
+            <a href="{{ route('home', absolute: false) }}">Try again</a>
         </article>
     </main>
 </body>

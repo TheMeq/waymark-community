@@ -39,7 +39,7 @@ final readonly class UpdateActivationController
             $result = $this->updates->handle($token);
             $request->session()->forget('waymark.update_activation_token');
 
-            return redirect('/admin/update-centre')->with('status', 'Waymark Community '.$result->version.' was installed successfully.');
+            return to_route('filament.admin.pages.update-centre')->with('status', 'Waymark Community '.$result->version.' was installed successfully.');
         } catch (PendingUpdateRollback $exception) {
             $request->session()->forget('waymark.update_activation_token');
 
@@ -49,7 +49,7 @@ final readonly class UpdateActivationController
         } catch (Throwable $exception) {
             report($exception);
 
-            return redirect('/recovery')->withErrors([
+            return to_route('recovery.show')->withErrors([
                 'recovery' => 'Fresh-runtime update activation failed. Maintenance remains active; review recovery before retrying.',
             ]);
         }

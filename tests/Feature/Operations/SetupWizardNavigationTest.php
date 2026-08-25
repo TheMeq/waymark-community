@@ -3,6 +3,9 @@
 namespace Tests\Feature\Operations;
 
 use App\Domain\Operations\Installation\InstallationState;
+use App\Http\Controllers\SetupController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -43,6 +46,35 @@ final class SetupWizardNavigationTest extends TestCase
             ->assertSuccessful()
             ->assertSee('Server checks')
             ->assertSee('Step 2 of 11');
+    }
+
+    public function test_setup_navigation_preserves_a_nested_request_base_path(): void
+    {
+        URL::forceRootUrl('http://localhost/demo-site/ndwg');
+        $request = Request::create('/setup', 'POST');
+        $request->setLaravelSession(app('session')->driver());
+
+        $this->assertSame('http://localhost/demo-site/ndwg/setup', route('setup.start'));
+        $this->assertSame('http://localhost/demo-site/ndwg/setup/server-checks', route('setup.step.store', 'server-checks'));
+        $this->assertSame(
+            'http://localhost/demo-site/ndwg/setup/server-checks',
+            app(SetupController::class)->start($request)->getTargetUrl(),
+        );
+    }
+
+    public function test_setup_routes_derive_the_mount_path_from_the_request_before_environment_configuration(): void
+    {
+        $request = Request::create('http://example.test/demo-site/ndwg/setup', 'GET', [], [], [], [
+            'SCRIPT_NAME' => '/demo-site/ndwg/index.php',
+            'SCRIPT_FILENAME' => 'C:/shared-hosting/demo-site/ndwg/index.php',
+            'PHP_SELF' => '/demo-site/ndwg/index.php',
+            'REQUEST_URI' => '/demo-site/ndwg/setup',
+        ]);
+        app('url')->setRequest($request);
+
+        $this->assertSame('/demo-site/ndwg', $request->getBaseUrl());
+        $this->assertSame('http://example.test/demo-site/ndwg/setup', route('setup.start'));
+        $this->assertSame('http://example.test/demo-site/ndwg/setup/server-checks', route('setup.step', 'server-checks'));
     }
 
     public function test_later_steps_cannot_be_opened_before_prerequisites(): void

@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Content\Presentation\PublicUrl;
 use App\Domain\Operations\Installation\SetupStep;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
@@ -190,7 +191,7 @@ if (app()->environment(['local', 'testing', 'browser-testing'])) {
             'event' => [
                 'title' => 'Ridge and reservoir',
                 'url' => route('walks.show', 'ridge-and-reservoir'),
-                'image_url' => '/images/demo/hero-walkers.png',
+                'image_url' => PublicUrl::asset('/images/demo/hero-walkers.png'),
                 'image_alt' => 'Walkers following a mountain path',
                 'date' => 'Saturday 24 August',
                 'day' => 'Sat',
@@ -205,7 +206,7 @@ if (app()->environment(['local', 'testing', 'browser-testing'])) {
                 'status' => 'Spaces available',
             ],
             'photo' => [
-                'image_url' => '/images/demo/woodland-walk.png',
+                'image_url' => PublicUrl::asset('/images/demo/woodland-walk.png'),
                 'image_alt' => 'A green valley beneath a wide sky',
                 'caption' => 'A bright day above the valley',
             ],

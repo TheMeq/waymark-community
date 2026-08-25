@@ -2,6 +2,8 @@
 
 namespace App\Domain\Holidays\Data;
 
+use App\Domain\Content\Presentation\PublicUrl;
+
 final readonly class HolidayFeaturedImage
 {
     private function __construct(public string $url, public string $alt) {}
@@ -14,7 +16,7 @@ final readonly class HolidayFeaturedImage
             return null;
         }
 
-        return new self($reference, match (strtolower($matches[1])) {
+        return new self(PublicUrl::asset($reference), match (strtolower($matches[1])) {
             'coastal-weekend.png', 'coastal-weekend-768.webp', 'coastal-weekend-1536.webp' => 'A walking group following a coastal path',
             'hero-walkers.png', 'hero-walkers-768.webp', 'hero-walkers-1536.webp' => 'A group walking together across open moorland',
             'woodland-walk.png', 'woodland-walk-768.webp', 'woodland-walk-1536.webp' => 'Walkers following a path through green woodland',

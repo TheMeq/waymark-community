@@ -3,6 +3,7 @@
 namespace App\Domain\Content\Queries;
 
 use App\Domain\Content\Models\FooterSection;
+use App\Domain\Content\Presentation\PublicUrl;
 use App\Domain\Content\Support\PublicContentCache;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -23,6 +24,12 @@ final class PublicFooterSections
                 ->map(fn (FooterSection $section): array => $section->getAttributes())->all(),
         );
 
-        return FooterSection::hydrate($attributes);
+        return FooterSection::hydrate($attributes)->each(function (FooterSection $section): void {
+            $section->setAttribute('links', collect((array) $section->links)->map(function (array $link): array {
+                $link['url'] = PublicUrl::resolve($link['url'] ?? null);
+
+                return $link;
+            })->all());
+        });
     }
 }

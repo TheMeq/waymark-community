@@ -37,7 +37,7 @@
 
             @if ($step === App\Domain\Operations\Installation\SetupStep::Welcome)
                 <p>Installation has not started. This guide will check the server and collect the details needed for this walking group.</p>
-                <form method="post" action="/setup">
+                <form method="post" action="{{ route('setup.start') }}">
                     @csrf
                     <button type="submit">Begin setup</button>
                 </form>
@@ -53,14 +53,14 @@
                         </li>
                     @endforeach
                 </ul>
-                <form method="post" action="/setup/server-checks">
+                <form method="post" action="{{ route('setup.step.store', $step->value) }}">
                     @csrf
                     <button type="submit">Continue</button>
                 </form>
             @elseif ($step === App\Domain\Operations\Installation\SetupStep::Database)
                 <p>Connect Waymark to the MySQL or MariaDB database supplied by your host.</p>
                 @if ($errors->any())<p class="error">{{ $errors->first() }}</p>@endif
-                <form method="post" action="/setup/database">
+                <form method="post" action="{{ route('setup.step.store', $step->value) }}">
                     @csrf
                     <label>Database type
                         <select name="driver">
@@ -78,7 +78,7 @@
             @elseif ($step === App\Domain\Operations\Installation\SetupStep::GroupDetails)
                 <p>Use the walking group's own identity. These details can be refined later.</p>
                 @if ($errors->any())<p class="error">{{ $errors->first() }}</p>@endif
-                <form method="post" action="/setup/group-details">@csrf
+                <form method="post" action="{{ route('setup.step.store', $step->value) }}">@csrf
                     <label>Group name <input name="group_name" value="{{ old('group_name', $data['group_name'] ?? '') }}" required></label>
                     <label>Short name <input name="short_name" value="{{ old('short_name', $data['short_name'] ?? '') }}"></label>
                     <label>Contact email <input name="contact_email" type="email" value="{{ old('contact_email', $data['contact_email'] ?? '') }}" required></label>
@@ -94,7 +94,7 @@
                     <span>View upcoming walks</span>
                 </div>
                 @if ($errors->any())<p class="error">{{ $errors->first() }}</p>@endif
-                <form method="post" action="/setup/branding">@csrf
+                <form method="post" action="{{ route('setup.step.store', $step->value) }}">@csrf
                     <label>Primary colour <input name="primary_colour" type="color" value="{{ old('primary_colour', $data['primary_colour'] ?? '#526B3F') }}"></label>
                     <label>Accent colour <input name="accent_colour" type="color" value="{{ old('accent_colour', $data['accent_colour'] ?? '#D97845') }}"></label>
                     <label>Typography <select name="typography_option"><option value="instrument">Waymark type</option><option value="system">System type</option></select></label>
@@ -103,7 +103,7 @@
             @elseif ($step === App\Domain\Operations\Installation\SetupStep::FirstAdministrator)
                 <p>This verified account becomes the installation owner.</p>
                 @if ($errors->any())<p class="error">{{ $errors->first() }}</p>@endif
-                <form method="post" action="/setup/first-administrator">@csrf
+                <form method="post" action="{{ route('setup.step.store', $step->value) }}">@csrf
                     <label>Name <input name="name" value="{{ old('name', $data['name'] ?? '') }}" autocomplete="name" required></label>
                     <label>Email <input name="email" type="email" value="{{ old('email', $data['email'] ?? '') }}" autocomplete="email" required></label>
                     <label>Password <input name="password" type="password" value="" autocomplete="new-password" required></label>
@@ -113,7 +113,7 @@
             @elseif ($step === App\Domain\Operations\Installation\SetupStep::Mail)
                 <p>Waymark will send a test message before saving these SMTP settings.</p>
                 @if ($errors->any())<p class="error">{{ $errors->first() }}</p>@endif
-                <form method="post" action="/setup/mail">@csrf
+                <form method="post" action="{{ route('setup.step.store', $step->value) }}">@csrf
                     <label>SMTP host <input name="host" value="{{ old('host', $data['host'] ?? '') }}" required></label>
                     <label>Port <input name="port" type="number" value="{{ old('port', $data['port'] ?? 587) }}" required></label>
                     <label>Encryption <select name="encryption"><option value="tls">TLS</option><option value="ssl">SSL</option><option value="">None</option></select></label>
@@ -125,7 +125,7 @@
                 </form>
             @elseif ($step === App\Domain\Operations\Installation\SetupStep::Modules)
                 <p>Walks are always available. Choose the other public areas this group needs now.</p>
-                <form method="post" action="/setup/modules">@csrf
+                <form method="post" action="{{ route('setup.step.store', $step->value) }}">@csrf
                     @foreach (['walks' => 'Walks', 'socials' => 'Socials', 'holidays' => 'Weekends away', 'gallery' => 'Gallery', 'news' => 'News', 'documents' => 'Documents'] as $value => $label)
                         <label><input name="modules[]" type="checkbox" value="{{ $value }}" @checked(in_array($value, old('modules', $data['enabled'] ?? ['walks', 'socials', 'holidays', 'gallery', 'news', 'documents']), true))> {{ $label }}</label>
                     @endforeach
@@ -134,7 +134,7 @@
             @elseif ($step === App\Domain\Operations\Installation\SetupStep::Advanced)
                 <p>Local backups are the safe default. External storage and release metadata can be added now or later.</p>
                 @if ($errors->any())<p class="error">{{ $errors->first() }}</p>@endif
-                <form method="post" action="/setup/advanced">@csrf
+                <form method="post" action="{{ route('setup.step.store', $step->value) }}">@csrf
                     <label>Backup destination <select name="backup_disk"><option value="local">Local private storage</option><option value="s3">S3-compatible storage</option></select></label>
                     <label>Release metadata URL <input name="release_metadata_url" type="url" value="{{ old('release_metadata_url', $data['release_metadata_url'] ?? '') }}"></label>
                     <label>Release verification public key <textarea name="release_public_key_base64" rows="3">{{ old('release_public_key_base64', $data['release_public_key_base64'] ?? '') }}</textarea></label>
@@ -156,7 +156,7 @@
                         <textarea readonly>{{ $environmentFile }}</textarea>
                     </label>
                 @endif
-                <form method="post" action="/setup/install">@csrf
+                <form method="post" action="{{ route('setup.step.store', $step->value) }}">@csrf
                     <button type="submit">{{ $environmentFile ? 'Re-check and install' : 'Install Waymark Community' }}</button>
                 </form>
             @elseif ($step === App\Domain\Operations\Installation\SetupStep::HealthCheck)
@@ -170,7 +170,7 @@
                         </li>
                     @endforeach
                 </ul>
-                <form method="post" action="/setup/health-check">@csrf
+                <form method="post" action="{{ route('setup.step.store', $step->value) }}">@csrf
                     <button type="submit">Finish setup</button>
                 </form>
             @else

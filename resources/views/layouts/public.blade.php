@@ -1,8 +1,11 @@
 <!DOCTYPE html>
 @php($seoMetadata = $seo ?? null)
+@php($serviceWorkerScope = (rtrim((string) parse_url(route('home', absolute: false), PHP_URL_PATH), '/') ?: '').'/')
 <html
     lang="{{ str_replace('_', '-', app()->getLocale()) }}"
     style="@foreach ($theme->cssVariables() as $property => $value) {{ $property }}: {{ $value }}; @endforeach"
+    data-service-worker-url="{{ route('pwa.service-worker', absolute: false) }}"
+    data-service-worker-scope="{{ $serviceWorkerScope }}"
 >
     <head>
         <meta charset="utf-8">
@@ -20,7 +23,7 @@
         @foreach($seoMetadata?->structuredData ?? [] as $structuredData)
             <script type="application/ld+json">{!! json_encode($structuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
         @endforeach
-        <link rel="manifest" href="/manifest.webmanifest">
+        <link rel="manifest" href="{{ route('pwa.manifest', absolute: false) }}">
         <meta name="theme-color" content="{{ $theme->primaryColour }}">
         @if ($branding['favicon_url'])<link rel="icon" href="{{ $branding['favicon_url'] }}">@endif
 

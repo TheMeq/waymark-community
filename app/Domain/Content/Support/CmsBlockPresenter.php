@@ -2,6 +2,7 @@
 
 namespace App\Domain\Content\Support;
 
+use App\Domain\Content\Presentation\PublicUrl;
 use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Domain\SiteMedia\SiteMediaPresenter;
 
@@ -34,6 +35,16 @@ final readonly class CmsBlockPresenter
 
                     return $item instanceof SiteMedia ? $this->media->present($item) : null;
                 })->filter()->values()->all();
+            }
+            if (isset($block['url'])) {
+                $block['url'] = PublicUrl::resolve($block['url']);
+            }
+            if (isset($block['items']) && in_array($block['type'], ['button_group', 'document_list'], true)) {
+                $block['items'] = collect((array) $block['items'])->map(function (array $item): array {
+                    $item['url'] = PublicUrl::resolve($item['url'] ?? null);
+
+                    return $item;
+                })->all();
             }
 
             return $block;

@@ -22,11 +22,11 @@ final readonly class UpdateContinuationController
             $result = $this->updates->continue();
             $request->session()->put('waymark.update_activation_token', $result->activationToken);
 
-            return redirect('/updates/activate')->withHeaders(['Referrer-Policy' => 'no-referrer']);
+            return to_route('updates.activate.show')->withHeaders(['Referrer-Policy' => 'no-referrer']);
         } catch (Throwable $exception) {
             report($exception);
 
-            return redirect('/admin/update-centre')->withErrors([
+            return to_route('filament.admin.pages.update-centre')->withErrors([
                 'install' => 'The update is still waiting for a completed verified safety backup, or continuation failed safely.',
             ]);
         }

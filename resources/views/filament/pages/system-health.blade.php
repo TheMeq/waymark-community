@@ -21,7 +21,7 @@
             <p class="mt-1 text-sm text-gray-600">Leave the passphrase blank for a private unencrypted backup, or supply one for portable encrypted recovery.</p>
             <x-filament::input.wrapper class="mt-3"><x-filament::input wire:model="backupPassphrase" type="password" autocomplete="new-password" aria-label="Optional backup encryption passphrase" /></x-filament::input.wrapper>
             <x-filament::button class="mt-3" wire:click="createBackup" wire:loading.attr="disabled">Create backup</x-filament::button>
-            <a class="ml-3 underline" href="/admin/backup-restore">Guided restore</a>
+            <a class="ml-3 underline" href="{{ route('filament.admin.pages.backup-restore') }}">Guided restore</a>
             <div class="mt-4 space-y-2">
                 @forelse ($this->backups() as $backup)
                     <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">

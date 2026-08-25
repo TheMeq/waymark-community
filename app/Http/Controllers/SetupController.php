@@ -27,7 +27,7 @@ final class SetupController
         $progress = new SetupProgress($request->session());
 
         if (! $progress->canVisit($requestedStep)) {
-            return redirect($progress->current()->path());
+            return $this->redirectToStep($progress->current());
         }
 
         $data = $progress->data($requestedStep->value);
@@ -50,7 +50,7 @@ final class SetupController
     {
         $next = (new SetupProgress($request->session()))->advanceFrom(SetupStep::Welcome);
 
-        return redirect($next->path());
+        return $this->redirectToStep($next);
     }
 
     public function store(Request $request, string $step): RedirectResponse
@@ -59,20 +59,20 @@ final class SetupController
         $progress = new SetupProgress($request->session());
 
         if (! $progress->canVisit($requestedStep)) {
-            return redirect($progress->current()->path());
+            return $this->redirectToStep($progress->current());
         }
 
         $submission = $this->submitStep->handle($requestedStep, $request, $progress);
 
         if (! $submission->successful) {
-            return redirect($requestedStep->path())
+            return $this->redirectToStep($requestedStep)
                 ->withErrors($submission->errors)
                 ->withInput($submission->oldInput);
         }
 
         if ($requestedStep === SetupStep::Install) {
             if ($this->submitStep->preflight($request)->blocked()) {
-                return redirect($requestedStep->path())
+                return $this->redirectToStep($requestedStep)
                     ->withErrors(['hosting' => 'Resolve the blocking server and hosting security checks before installing.']);
             }
 
@@ -80,7 +80,7 @@ final class SetupController
             $requiredSections = ['database', 'group-details', 'branding', 'first-administrator', 'mail', 'modules', 'advanced'];
 
             if (array_diff($requiredSections, array_keys($setupData)) !== []) {
-                return redirect($requestedStep->path())
+                return $this->redirectToStep($requestedStep)
                     ->withErrors(['install' => 'Some setup details are missing. Return to the earlier steps and save each one before installing.']);
             }
 
@@ -92,7 +92,7 @@ final class SetupController
                     $request->session()->put('waymark.setup.environment_instructions', $attempt->environment->instructions);
                 }
 
-                return redirect($requestedStep->path())->withErrors([
+                return $this->redirectToStep($requestedStep)->withErrors([
                     $attempt->environment->written ? 'install' : 'environment' => $attempt->message,
                 ]);
             }
@@ -102,16 +102,23 @@ final class SetupController
 
         if ($requestedStep === SetupStep::HealthCheck) {
             if (! $request->session()->get('waymark.setup.installed') || ! $this->setupHealth->ready($request->root())) {
-                return redirect($requestedStep->path())
+                return $this->redirectToStep($requestedStep)
                     ->withErrors(['health' => 'Resolve the failed health checks before finishing setup.']);
             }
 
             $this->installationState->complete();
             $progress->clear();
 
-            return redirect('/admin');
+            return to_route('filament.admin.pages.dashboard');
         }
 
-        return redirect($progress->advanceFrom($requestedStep)->path());
+        return $this->redirectToStep($progress->advanceFrom($requestedStep));
+    }
+
+    private function redirectToStep(SetupStep $step): RedirectResponse
+    {
+        return $step === SetupStep::Welcome
+            ? to_route('setup')
+            : to_route('setup.step', $step->value);
     }
 }

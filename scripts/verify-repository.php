@@ -90,6 +90,12 @@ $developerProfilePatterns = [
     '#(?<![A-Za-z0-9_.-])/Users/[A-Za-z0-9][A-Za-z0-9._-]*/#',
     '#(?<![A-Za-z0-9_.-])/home/[A-Za-z0-9][A-Za-z0-9._-]*/#',
 ];
+$rootRelativeUrlPatterns = [
+    '#\b(?:href|action|src)\s*=\s*["\']/[A-Za-z0-9]#i',
+    '#\bredirect\s*\(\s*["\']/[A-Za-z0-9]#i',
+    '#\b(?:fetch|register)\s*\(\s*["\']/[A-Za-z0-9]#i',
+    '#\b(?:window\.)?location(?:\.href)?\s*=\s*["\']/[A-Za-z0-9]#i',
+];
 
 foreach ($tracked as $path) {
     $normalized = str_replace('\\', '/', trim($path));
@@ -126,6 +132,15 @@ foreach ($tracked as $path) {
         if (preg_match($pattern, $contents) === 1) {
             $errors[] = "Developer-local absolute path is tracked: {$normalized}";
             break;
+        }
+    }
+
+    if (preg_match('#^(?:app/Http|app/Filament|resources/views|resources/js)/#', $normalized) === 1) {
+        foreach ($rootRelativeUrlPatterns as $pattern) {
+            if (preg_match($pattern, $contents) === 1) {
+                $errors[] = "Root-relative application URL is tracked: {$normalized}";
+                break;
+            }
         }
     }
 }

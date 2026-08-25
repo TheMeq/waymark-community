@@ -80,7 +80,7 @@ final class BackupRestore extends Page
     {
         try {
             if (app(ContinueGuidedRestore::class)->handle()) {
-                return redirect('/admin/system-health');
+                return to_route('filament.admin.pages.system-health');
             }
             Notification::make()->title('Safety backup advanced — more work remains')->success()->send();
 

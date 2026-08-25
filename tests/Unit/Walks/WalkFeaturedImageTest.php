@@ -3,19 +3,22 @@
 namespace Tests\Unit\Walks;
 
 use App\Domain\Walks\Data\WalkFeaturedImage;
+use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
 final class WalkFeaturedImageTest extends TestCase
 {
     public function test_resolves_an_existing_demo_image_to_safe_public_presentation_data(): void
     {
+        URL::forceRootUrl('https://example.org/demo-site/ndwg');
+        URL::forceScheme('https');
         $image = WalkFeaturedImage::resolve('/images/demo/hero-walkers.png');
 
         $this->assertNotNull($image);
-        $this->assertSame('/images/demo/hero-walkers.png', $image->url);
+        $this->assertSame('/demo-site/ndwg/images/demo/hero-walkers.png', $image->url);
         $this->assertSame('A group walking together across open moorland', $image->alt);
         $this->assertSame([
-            'url' => '/images/demo/hero-walkers.png',
+            'url' => '/demo-site/ndwg/images/demo/hero-walkers.png',
             'alt' => 'A group walking together across open moorland',
         ], $image->toArray());
     }

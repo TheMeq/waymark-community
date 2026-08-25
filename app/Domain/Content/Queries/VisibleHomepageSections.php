@@ -3,6 +3,7 @@
 namespace App\Domain\Content\Queries;
 
 use App\Domain\Content\Models\HomepageSection;
+use App\Domain\Content\Presentation\PublicUrl;
 use App\Domain\Content\Support\PublicContentCache;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -18,7 +19,11 @@ final class VisibleHomepageSections
             fn (): array => $this->query()->map(fn (HomepageSection $section): array => $section->getAttributes())->all(),
         );
 
-        return HomepageSection::hydrate($attributes);
+        return HomepageSection::hydrate($attributes)->each(function (HomepageSection $section): void {
+            if (filled($section->cta_url)) {
+                $section->setAttribute('cta_url', PublicUrl::resolve($section->cta_url));
+            }
+        });
     }
 
     /** @return Collection<int, HomepageSection> */

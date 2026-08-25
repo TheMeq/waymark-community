@@ -2,6 +2,8 @@
 
 namespace App\Domain\Walks\Data;
 
+use App\Domain\Content\Presentation\PublicUrl;
+
 final readonly class WalkFeaturedImage
 {
     private function __construct(
@@ -17,7 +19,7 @@ final readonly class WalkFeaturedImage
             return null;
         }
 
-        return new self($reference, self::altFor($matches[1]));
+        return new self(PublicUrl::asset($reference), self::altFor($matches[1]));
     }
 
     /** @return array{url: string, alt: string} */

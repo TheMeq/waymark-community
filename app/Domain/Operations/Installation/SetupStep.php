@@ -42,9 +42,4 @@ enum SetupStep: string
     {
         return self::cases()[$this->number()] ?? null;
     }
-
-    public function path(): string
-    {
-        return $this === self::Welcome ? '/setup' : '/setup/'.$this->value;
-    }
 }

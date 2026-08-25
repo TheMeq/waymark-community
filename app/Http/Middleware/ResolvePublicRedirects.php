@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Domain\Content\Models\PublicRedirect;
+use App\Domain\Content\Presentation\PublicUrl;
 use App\Domain\Operations\Analytics\CampaignParameterFilter;
 use App\Domain\Operations\Installation\InstallationState;
 use Closure;
@@ -31,6 +32,7 @@ final readonly class ResolvePublicRedirects
 
                 if (str_starts_with($target, '/') && ! str_starts_with($target, '//')) {
                     $campaign = $this->campaignParameters->from($request->query());
+                    $target = PublicUrl::resolve($target) ?? $target;
                     if ($campaign !== []) {
                         $target .= '?'.http_build_query($campaign, '', '&', PHP_QUERY_RFC3986);
                     }

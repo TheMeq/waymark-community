@@ -3,6 +3,7 @@
 namespace App\Domain\Content\Queries;
 
 use App\Domain\Content\Models\NavigationItem;
+use App\Domain\Content\Presentation\PublicUrl;
 use App\Domain\Content\Support\PublicContentCache;
 use App\Domain\Operations\Models\SiteProfile;
 use Illuminate\Support\Collection;
@@ -29,6 +30,8 @@ final class PublicNavigationItems
                 ->all();
         });
 
-        return NavigationItem::hydrate($attributes);
+        return NavigationItem::hydrate($attributes)->each(
+            fn (NavigationItem $item): NavigationItem => $item->setAttribute('url', PublicUrl::resolve($item->url)),
+        );
     }
 }
