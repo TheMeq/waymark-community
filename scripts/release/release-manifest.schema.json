@@ -4,10 +4,12 @@
     "title": "Waymark Community release manifest",
     "type": "object",
     "additionalProperties": false,
-    "required": ["format", "version", "build", "requirements", "database", "files", "deletes"],
+    "required": ["format", "version", "layout", "application_file_count", "build", "requirements", "database", "files", "deletes"],
     "properties": {
         "format": { "const": 1 },
         "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$" },
+        "layout": { "enum": ["standard", "public-html"] },
+        "application_file_count": { "type": "integer", "minimum": 1 },
         "build": {
             "type": "object",
             "additionalProperties": false,

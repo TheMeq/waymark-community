@@ -6,30 +6,45 @@ declare(strict_types=1);
 use Waymark\Release\GitCommitResolver;
 use Waymark\Release\ReleaseArchiveBuilder;
 use Waymark\Release\ReleaseArchiveVerifier;
+use Waymark\Release\ReleaseSourcePreparer;
 use Waymark\Release\RuntimePathFilter;
 use Waymark\Release\VerificationEnvironment;
 
 require_once __DIR__.'/release/GitCommitResolver.php';
 require_once __DIR__.'/release/ReleaseArchiveBuilder.php';
 require_once __DIR__.'/release/ReleaseArchiveVerifier.php';
+require_once __DIR__.'/release/ReleaseSourcePreparer.php';
 require_once __DIR__.'/release/RuntimePathFilter.php';
 require_once __DIR__.'/release/VerificationEnvironment.php';
 
-$options = getopt('', ['version:', 'commit::', 'output::', 'plan']);
+$options = getopt('', ['version:', 'commit::', 'output::', 'formats::', 'plan']);
 $version = is_string($options['version'] ?? null) ? trim($options['version']) : '';
 $requestedCommit = is_string($options['commit'] ?? null) ? trim($options['commit']) : 'HEAD';
+$requestedFormats = is_string($options['formats'] ?? null) ? trim($options['formats']) : 'all';
+$formats = $requestedFormats === 'all' ? ['standard', 'public-html'] : array_values(array_filter(array_map('trim', explode(',', $requestedFormats))));
 if (preg_match('/\A\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\z/', $version) !== 1) {
-    fwrite(STDERR, "Usage: php scripts/build-release.php --version=<semver> [--commit=<40-char-sha>] [--output=<directory>] [--plan]\n");
+    fwrite(STDERR, "Usage: php scripts/build-release.php --version=<semver> [--commit=<40-char-sha>] [--output=<directory>] [--formats=all|standard|public-html] [--plan]\n");
     exit(1);
 }
 if ($requestedCommit !== 'HEAD' && preg_match('/\A[a-f0-9]{40}\z/', $requestedCommit) !== 1) {
     fwrite(STDERR, "Release source commit must be HEAD or an exact 40-character SHA.\n");
     exit(1);
 }
+if ($formats === [] || array_diff($formats, ['standard', 'public-html']) !== []) {
+    fwrite(STDERR, "Release formats must be all, standard, public-html, or a comma-separated selection.\n");
+    exit(1);
+}
+
+$artifacts = [
+    'standard' => "waymark-community-{$version}-shared-hosting.zip",
+    'public-html' => "waymark-community-{$version}-public-html.zip",
+];
 
 $plan = [
     'version' => $version,
-    'archive' => "waymark-community-{$version}-shared-hosting.zip",
+    'archive' => $artifacts['standard'],
+    'formats' => $formats,
+    'artifacts' => array_intersect_key($artifacts, array_flip($formats)),
     'source' => 'git clone + detached checkout '.$requestedCommit,
     'build' => [
         'composer install --no-interaction --prefer-dist',
@@ -52,11 +67,13 @@ $plan = [
     ],
     'package' => [
         'composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader',
+        'generate production-safe .env.example and operator README',
+        'protect the internal application beneath the public web root',
         'write release-manifest.json',
         'write SHA-256 checksum',
         'verify the completed shared-hosting ZIP',
     ],
-    'excludes' => ['.git', '.env', 'node_modules', 'tests', 'runtime storage', 'backups', 'logs', 'caches', 'reports', 'developer reference assets'],
+    'excludes' => ['.git', '.env', 'node_modules', 'tests', 'runtime storage', 'backups', 'logs', 'caches', 'reports', 'developer reference assets', 'Waymark developer and contributor files'],
 ];
 
 if (array_key_exists('plan', $options)) {
@@ -78,6 +95,7 @@ $commit = (new GitCommitResolver)->resolve($root, $requestedCommit);
 $temporaryRoot = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'waymark-release-'.bin2hex(random_bytes(8));
 $source = $temporaryRoot.DIRECTORY_SEPARATOR.'source';
 $application = $temporaryRoot.DIRECTORY_SEPARATOR.'application';
+$publicHtmlApplication = $temporaryRoot.DIRECTORY_SEPARATOR.'public-html-application';
 
 try {
     mkdir($temporaryRoot, 0700, true);
@@ -95,9 +113,16 @@ try {
         runCommand($command, $source);
     }
 
-    copyApplicationSource($source, $application);
+    (new ReleaseSourcePreparer)->prepare(
+        $source,
+        $application,
+        $version,
+        template('.env.production.example'),
+        template('shared-hosting-README.md'),
+    );
     copyGeneratedDirectory($source, $application, 'public/build');
     file_put_contents($application.DIRECTORY_SEPARATOR.'VERSION', $version."\n", LOCK_EX);
+    file_put_contents($application.DIRECTORY_SEPARATOR.'DEPLOYMENT-LAYOUT', "standard\n", LOCK_EX);
     runCommand($plan['package'][0], $application);
     RuntimePathFilter::purge($application);
 
@@ -105,17 +130,31 @@ try {
     $outputDirectory = is_string($options['output'] ?? null) && trim($options['output']) !== ''
         ? absolutePath($root, trim($options['output']))
         : $root.DIRECTORY_SEPARATOR.'dist';
-    $outputPath = $outputDirectory.DIRECTORY_SEPARATOR.$plan['archive'];
-    $result = (new ReleaseArchiveBuilder)->build($application, $outputPath, [
+    $metadata = [
         'version' => $version,
         'commit' => $commit,
         'built_at' => gmdate('Y-m-d\TH:i:s\Z'),
         'minimum_php' => '8.3.0',
         'schema' => $schema,
-    ]);
-    $result['verification'] = (new ReleaseArchiveVerifier)->verify($outputPath);
+    ];
+    $results = [];
+    if (in_array('standard', $formats, true)) {
+        $outputPath = $outputDirectory.DIRECTORY_SEPARATOR.$artifacts['standard'];
+        $results['standard'] = (new ReleaseArchiveBuilder)->build($application, $outputPath, [...$metadata, 'layout' => 'standard']);
+        $results['standard']['verification'] = (new ReleaseArchiveVerifier)->verify($outputPath);
+    }
+    if (in_array('public-html', $formats, true)) {
+        copyPreparedApplication($application, $publicHtmlApplication);
+        file_put_contents($publicHtmlApplication.DIRECTORY_SEPARATOR.'DEPLOYMENT-LAYOUT', "public-html\n", LOCK_EX);
+        file_put_contents($publicHtmlApplication.DIRECTORY_SEPARATOR.'.htaccess', template('public-html-application.htaccess'), LOCK_EX);
+        file_put_contents($publicHtmlApplication.DIRECTORY_SEPARATOR.'public'.DIRECTORY_SEPARATOR.'index.php', template('public-html-index.php'), LOCK_EX);
+        file_put_contents($publicHtmlApplication.DIRECTORY_SEPARATOR.'public'.DIRECTORY_SEPARATOR.'README.md', str_replace('{{VERSION}}', $version, template('public-html-README.md')), LOCK_EX);
+        $outputPath = $outputDirectory.DIRECTORY_SEPARATOR.$artifacts['public-html'];
+        $results['public-html'] = (new ReleaseArchiveBuilder)->build($publicHtmlApplication, $outputPath, [...$metadata, 'layout' => 'public-html']);
+        $results['public-html']['verification'] = (new ReleaseArchiveVerifier)->verify($outputPath);
+    }
 
-    fwrite(STDOUT, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n");
+    fwrite(STDOUT, json_encode(['version' => $version, 'commit' => $commit, 'artifacts' => $results], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n");
 } catch (Throwable $exception) {
     fail($exception->getMessage());
 } finally {
@@ -164,49 +203,6 @@ function capture(string $command, string $directory): string
     return implode("\n", $lines);
 }
 
-function copyApplicationSource(string $source, string $destination): void
-{
-    mkdir($destination, 0700, true);
-    $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::SELF_FIRST,
-    );
-    foreach ($iterator as $item) {
-        $relative = str_replace('\\', '/', substr($item->getPathname(), strlen($source) + 1));
-        if (excludedSourcePath($relative)) {
-            continue;
-        }
-        $target = $destination.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $relative);
-        if ($item->isDir()) {
-            if (! is_dir($target)) {
-                mkdir($target, 0700, true);
-            }
-        } elseif ($item->isFile()) {
-            if (! is_dir(dirname($target))) {
-                mkdir(dirname($target), 0700, true);
-            }
-            if (! copy($item->getPathname(), $target)) {
-                throw new RuntimeException("The release source file could not be copied: {$relative}");
-            }
-        }
-    }
-}
-
-function excludedSourcePath(string $path): bool
-{
-    $normalized = strtolower($path);
-
-    return preg_match('#\A(\.git|\.github|node_modules|vendor|tests|scripts|test-results|playwright-report|coverage|dist|releases)(/|\z)#', $normalized) === 1
-        || RuntimePathFilter::excludes($path)
-        || ($normalized !== '.env.example' && preg_match('/\A\.env(?:\.|\z)/', $normalized) === 1)
-        || (str_starts_with($normalized, 'docs/') && ! str_starts_with($normalized, 'docs/deployment/'))
-        || in_array($normalized, [
-            '.gitattributes', '.gitignore', 'agents.md', 'start-here-for-codex.md', 'phpunit.xml',
-            'playwright.config.ts', 'playwright.installer.config.ts', 'package.json', 'package-lock.json', 'vite.config.js',
-        ], true)
-        || str_starts_with($normalized, 'public/build/');
-}
-
 function copyGeneratedDirectory(string $source, string $destination, string $relative): void
 {
     $from = $source.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $relative);
@@ -229,6 +225,35 @@ function copyGeneratedDirectory(string $source, string $destination, string $rel
             copy($item->getPathname(), $target);
         }
     }
+}
+
+function copyPreparedApplication(string $source, string $destination): void
+{
+    if (! mkdir($destination, 0700, true) && ! is_dir($destination)) {
+        throw new RuntimeException('The public-html application workspace could not be created.');
+    }
+    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::SELF_FIRST);
+    foreach ($iterator as $item) {
+        $suffix = substr($item->getPathname(), strlen($source) + 1);
+        $target = $destination.DIRECTORY_SEPARATOR.$suffix;
+        if ($item->isDir()) {
+            if (! is_dir($target) && ! mkdir($target, 0700, true) && ! is_dir($target)) {
+                throw new RuntimeException('The public-html application directory could not be copied.');
+            }
+        } elseif (! copy($item->getPathname(), $target)) {
+            throw new RuntimeException('The public-html application file could not be copied.');
+        }
+    }
+}
+
+function template(string $name): string
+{
+    $contents = file_get_contents(__DIR__.DIRECTORY_SEPARATOR.'release'.DIRECTORY_SEPARATOR.'templates'.DIRECTORY_SEPARATOR.$name);
+    if (! is_string($contents)) {
+        throw new RuntimeException("Release template is missing: {$name}");
+    }
+
+    return $contents;
 }
 
 function latestMigration(string $application): string

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Waymark\Release;
 
 require_once __DIR__.'/RuntimePathFilter.php';
+require_once __DIR__.'/ReleasePackagePolicy.php';
 
 use FilesystemIterator;
 use RecursiveDirectoryIterator;
@@ -15,8 +16,8 @@ use ZipArchive;
 final class ReleaseArchiveBuilder
 {
     /**
-     * @param  array{version: string, commit: string, built_at: string, minimum_php: string, schema: string}  $metadata
-     * @return array{path: string, checksum_path: string, sha256: string, size_bytes: int, file_count: int}
+     * @param  array{version: string, commit: string, built_at: string, minimum_php: string, schema: string, layout?: string}  $metadata
+     * @return array{path: string, checksum_path: string, sha256: string, size_bytes: int, application_file_count: int, archive_entry_count: int}
      */
     public function build(string $applicationDirectory, string $outputPath, array $metadata): array
     {
@@ -25,8 +26,10 @@ final class ReleaseArchiveBuilder
             throw new RuntimeException('The prepared release application directory is unavailable.');
         }
 
-        $files = $this->files($root);
         $this->assertMetadata($metadata);
+        $layout = $metadata['layout'] ?? 'standard';
+        $this->assertApplicationContracts($root, $metadata['version'], $layout);
+        $files = $this->files($root);
         if (! is_dir(dirname($outputPath)) && ! mkdir(dirname($outputPath), 0700, true) && ! is_dir(dirname($outputPath))) {
             throw new RuntimeException('The release output directory could not be created.');
         }
@@ -39,6 +42,8 @@ final class ReleaseArchiveBuilder
         $manifest = [
             'format' => 1,
             'version' => $metadata['version'],
+            'layout' => $layout,
+            'application_file_count' => count($files),
             'build' => [
                 'commit' => $metadata['commit'],
                 'built_at' => $metadata['built_at'],
@@ -63,7 +68,7 @@ final class ReleaseArchiveBuilder
                 throw new RuntimeException('The release manifest could not be archived.');
             }
             foreach ($files as $file) {
-                if (! $archive->addFile($file['source'], 'application/'.$file['path'])) {
+                if (! $archive->addFile($file['source'], $this->archiveEntry($file['path'], $layout))) {
                     throw new RuntimeException('A release application file could not be archived.');
                 }
             }
@@ -84,7 +89,8 @@ final class ReleaseArchiveBuilder
             'checksum_path' => $checksumPath,
             'sha256' => $sha256,
             'size_bytes' => filesize($outputPath),
-            'file_count' => count($files),
+            'application_file_count' => count($files),
+            'archive_entry_count' => count($files) + 1,
         ];
     }
 
@@ -117,11 +123,12 @@ final class ReleaseArchiveBuilder
     {
         $normalized = strtolower($path);
 
-        return ($normalized !== '.env.example' && preg_match('/\A\.env(?:\.|\z)/', $normalized) === 1)
+        return ! ReleasePackagePolicy::safeApplicationPath($path)
+            || ($normalized !== '.env.example' && preg_match('/\A\.env(?:\.|\z)/', $normalized) === 1)
             || preg_match('#(^|/)(\.git|node_modules|tests|test-results|playwright-report|coverage)(/|$)#', $normalized) === 1
             || RuntimePathFilter::excludes($path)
             || preg_match('#\Adatabase/.+\.sqlite(?:3)?$#', $normalized) === 1
-            || in_array($normalized, ['phpunit.xml', 'playwright.config.ts', 'playwright.installer.config.ts', 'release-manifest.json'], true);
+            || $normalized === 'release-manifest.json';
     }
 
     /** @param array<string, string> $metadata */
@@ -134,5 +141,35 @@ final class ReleaseArchiveBuilder
             || preg_match('/\A\d{4}_\d{2}_\d{2}_\d{6}\z/', $metadata['schema'] ?? '') !== 1) {
             throw new RuntimeException('The release build metadata is invalid.');
         }
+        if (! in_array($metadata['layout'] ?? 'standard', ['standard', 'public-html'], true)) {
+            throw new RuntimeException('The release build layout is invalid.');
+        }
+    }
+
+    private function assertApplicationContracts(string $root, string $version, string $layout): void
+    {
+        $environment = file_get_contents($root.DIRECTORY_SEPARATOR.'.env.example');
+        $readme = file_get_contents($root.DIRECTORY_SEPARATOR.'README.md');
+        if (! is_string($environment)) {
+            throw new RuntimeException('The release configuration template is missing.');
+        }
+        if (! is_string($readme)) {
+            throw new RuntimeException('The release operator README is missing.');
+        }
+        ReleasePackagePolicy::assertEnvironmentTemplate($environment);
+        ReleasePackagePolicy::assertOperatorReadme($readme, $version);
+        $marker = file_get_contents($root.DIRECTORY_SEPARATOR.'DEPLOYMENT-LAYOUT');
+        if (! is_string($marker) || trim($marker) !== $layout) {
+            throw new RuntimeException('The release deployment layout marker does not match the archive layout.');
+        }
+    }
+
+    private function archiveEntry(string $path, string $layout): string
+    {
+        if ($layout === 'public-html' && str_starts_with($path, 'public/')) {
+            return substr($path, strlen('public/'));
+        }
+
+        return 'application/'.$path;
     }
 }

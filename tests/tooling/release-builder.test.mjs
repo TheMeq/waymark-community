@@ -16,6 +16,10 @@ test('shared-hosting builder plan uses a clean commit, locked dependencies, full
     const plan = JSON.parse(result.stdout);
     assert.equal(plan.version, '1.0.0');
     assert.equal(plan.archive, 'waymark-community-1.0.0-shared-hosting.zip');
+    assert.deepEqual(plan.artifacts, {
+        standard: 'waymark-community-1.0.0-shared-hosting.zip',
+        'public-html': 'waymark-community-1.0.0-public-html.zip',
+    });
     assert.equal(plan.source, 'git clone + detached checkout HEAD');
     assert.deepEqual(plan.verification, [
         'composer validate --strict',
@@ -38,6 +42,22 @@ test('shared-hosting builder plan uses a clean commit, locked dependencies, full
     assert.ok(plan.excludes.includes('.env'));
     assert.ok(plan.excludes.includes('node_modules'));
     assert.ok(plan.excludes.includes('tests'));
+    assert.ok(plan.excludes.includes('Waymark developer and contributor files'));
+    assert.ok(plan.package.includes('generate production-safe .env.example and operator README'));
+});
+
+test('builder can select the public-html artifact with protected root layout', () => {
+    const result = spawnSync('php', ['scripts/build-release.php', '--version=1.0.0', '--formats=public-html', '--plan'], {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        env: process.env,
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const plan = JSON.parse(result.stdout);
+    assert.deepEqual(plan.formats, ['public-html']);
+    assert.equal(plan.artifacts['public-html'], 'waymark-community-1.0.0-public-html.zip');
+    assert.ok(plan.package.includes('protect the internal application beneath the public web root'));
 });
 
 test('builder can produce an exact prior-commit release candidate for upgrade testing', () => {
@@ -50,15 +70,4 @@ test('builder can produce an exact prior-commit release candidate for upgrade te
     const plan = JSON.parse(result.stdout);
     assert.equal(plan.source, `git clone + detached checkout ${commit}`);
     assert.equal(plan.archive, 'waymark-community-0.9.0-shared-hosting.zip');
-});
-
-test('exact-commit workspace preserves all tracked review files without packaging Git metadata', async () => {
-    const source = await import('node:fs/promises').then(({ readFile }) => readFile(resolve(repositoryRoot, 'scripts/build-release.php'), 'utf8'));
-
-    assert.match(source, /git clone --quiet --no-hardlinks --no-checkout/);
-    assert.match(source, /git checkout --quiet --detach/);
-    assert.match(source, /\\\.git\|\\\.github/);
-    assert.match(source, /normalized !== '\.env\.example'/);
-    assert.match(source, /RuntimePathFilter::excludes\(\$path\)/);
-    assert.match(source, /RuntimePathFilter::purge\(\$application\)/);
 });

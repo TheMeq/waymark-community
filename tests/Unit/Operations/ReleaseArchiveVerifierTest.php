@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Operations;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Waymark\Release\ReleaseArchiveBuilder;
@@ -47,7 +48,13 @@ final class ReleaseArchiveVerifierTest extends TestCase
             };
             $this->write($path, $contents);
         }
-        foreach (['VERSION' => "1.0.0\n", 'artisan' => 'artisan', '.env.example' => 'APP_KEY='] as $path => $contents) {
+        foreach ([
+            'DEPLOYMENT-LAYOUT' => "standard\n",
+            'VERSION' => "1.0.0\n",
+            'artisan' => 'artisan',
+            '.env.example' => "APP_ENV=production\nAPP_KEY=\nAPP_DEBUG=false\nAPP_URL=https://your-domain.example\nLOG_LEVEL=warning\nDB_PASSWORD=\nMAIL_PASSWORD=\nTURNSTILE_SECRET_KEY=\n",
+            'README.md' => "# Waymark Community 1.0.0\n\nPoint the document root at public, then visit /setup. PHP 8.3+ and MySQL 8.4 or MariaDB 11.4 are required. Composer and Node.js are not required at runtime. See docs/deployment and SECURITY.md.\n",
+        ] as $path => $contents) {
             $this->write($path, $contents);
         }
     }
@@ -68,8 +75,96 @@ final class ReleaseArchiveVerifierTest extends TestCase
         $this->assertSame(str_repeat('b', 40), $result['commit']);
         $this->assertSame('8.3.0', $result['minimum_php']);
         $this->assertSame('2026_08_24_130000', $result['latest_migration']);
-        $this->assertSame(22, $result['file_count']);
+        $this->assertSame('standard', $result['layout']);
+        $this->assertSame(24, $result['application_file_count']);
+        $this->assertSame(25, $result['archive_entry_count']);
         $this->assertSame(hash_file('sha256', $archive), $result['sha256']);
+    }
+
+    #[DataProvider('waymarkDevelopmentFiles')]
+    public function test_verifier_rejects_a_manifest_declared_waymark_development_file(string $path): void
+    {
+        $archive = $this->package();
+        $this->declareExtraFile($archive, $path, 'developer-only');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('verification failed');
+        (new ReleaseArchiveVerifier)->verify($archive);
+    }
+
+    public static function waymarkDevelopmentFiles(): array
+    {
+        return ReleaseArchiveBuilderTest::waymarkDevelopmentFiles();
+    }
+
+    public function test_verifier_rejects_unsafe_environment_defaults_even_when_manifest_hashes_match(): void
+    {
+        $archive = $this->package();
+        $this->replaceDeclaredFile($archive, '.env.example', "APP_ENV=local\nAPP_KEY=secret\nAPP_DEBUG=true\nLOG_LEVEL=debug\n");
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('verification failed');
+        (new ReleaseArchiveVerifier)->verify($archive);
+    }
+
+    public function test_verifier_rejects_a_source_development_readme_even_when_manifest_hashes_match(): void
+    {
+        $archive = $this->package();
+        $this->replaceDeclaredFile($archive, 'README.md', "# Source checkout\ncomposer install\nnpm ci\nPhase 10 acceptance\n");
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('verification failed');
+        (new ReleaseArchiveVerifier)->verify($archive);
+    }
+
+    public function test_verifier_accepts_the_protected_public_html_layout_and_reports_exact_root_evidence(): void
+    {
+        $this->write('DEPLOYMENT-LAYOUT', "public-html\n");
+        $this->write('.htaccess', "Options -Indexes\nRequire all denied\nDeny from all\n");
+        $this->write('public/.htaccess', "Options -Indexes\nRewriteEngine On\nRewriteRule ^ index.php [L]\n");
+        $this->write('public/index.php', "<?php require __DIR__.'/application/vendor/autoload.php'; \$app->usePublicPath(__DIR__);");
+        $this->write('public/README.md', "# Waymark Community 1.0.0 public_html\n\nExtract into the document root and visit /setup. PHP 8.3+, MySQL and MariaDB are supported. Composer and Node are not required at runtime. See docs/deployment and SECURITY.md.\n");
+
+        $archive = $this->package('public-html');
+        $result = (new ReleaseArchiveVerifier)->verify($archive);
+
+        $this->assertSame('public-html', $result['layout']);
+        $this->assertSame($result['application_file_count'] + 1, $result['archive_entry_count']);
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($archive));
+        $this->assertNotFalse($zip->locateName('index.php'));
+        $this->assertNotFalse($zip->locateName('application/.htaccess'));
+        $this->assertFalse($zip->locateName('application/public/index.php'));
+        $zip->close();
+    }
+
+    public function test_verifier_rejects_public_html_without_internal_access_denial(): void
+    {
+        $this->write('DEPLOYMENT-LAYOUT', "public-html\n");
+        $this->write('.htaccess', "Options -Indexes\n");
+        $this->write('public/.htaccess', "Options -Indexes\nRewriteEngine On\nRewriteRule ^ index.php [L]\n");
+        $this->write('public/index.php', "<?php require __DIR__.'/application/vendor/autoload.php'; \$app->usePublicPath(__DIR__);");
+        $this->write('public/README.md', "# Waymark Community 1.0.0 public_html\n\nExtract into the document root and visit /setup. PHP 8.3+, MySQL and MariaDB are supported. Composer and Node are not required at runtime. See docs/deployment and SECURITY.md.\n");
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('verification failed');
+        (new ReleaseArchiveVerifier)->verify($this->package('public-html'));
+    }
+
+    public function test_verifier_rejects_a_layout_marker_that_does_not_match_manifest_layout(): void
+    {
+        $this->write('DEPLOYMENT-LAYOUT', "public-html\n");
+        $this->write('.htaccess', "Options -Indexes\nRequire all denied\nDeny from all\n");
+        $this->write('public/.htaccess', "Options -Indexes\nRewriteEngine On\nRewriteRule ^ index.php [L]\n");
+        $this->write('public/index.php', "<?php require __DIR__.'/application/vendor/autoload.php'; \$app->usePublicPath(__DIR__);");
+        $this->write('public/README.md', "# Waymark Community 1.0.0 public_html\n\nExtract into the document root and visit /setup. PHP 8.3+, MySQL and MariaDB are supported. Composer and Node are not required at runtime. See docs/deployment and SECURITY.md.\n");
+
+        $archive = $this->package('public-html');
+        $this->replaceDeclaredFile($archive, 'DEPLOYMENT-LAYOUT', "standard\n");
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('verification failed');
+        (new ReleaseArchiveVerifier)->verify($archive);
     }
 
     public function test_verifier_rejects_an_undeclared_secret_entry(): void
@@ -114,7 +209,7 @@ final class ReleaseArchiveVerifierTest extends TestCase
         (new ReleaseArchiveVerifier)->verify($archive);
     }
 
-    private function package(): string
+    private function package(string $layout = 'standard'): string
     {
         $path = $this->directory.'/release.zip';
         (new ReleaseArchiveBuilder)->build($this->directory.'/application', $path, [
@@ -123,6 +218,7 @@ final class ReleaseArchiveVerifierTest extends TestCase
             'built_at' => '2026-08-24T12:00:00Z',
             'minimum_php' => '8.3.0',
             'schema' => '2026_08_24_130000',
+            'layout' => $layout,
         ]);
 
         return $path;
@@ -135,6 +231,37 @@ final class ReleaseArchiveVerifierTest extends TestCase
             mkdir(dirname($target), 0700, true);
         }
         file_put_contents($target, $contents);
+    }
+
+    private function declareExtraFile(string $archivePath, string $path, string $contents): void
+    {
+        $archive = new ZipArchive;
+        $this->assertTrue($archive->open($archivePath));
+        $manifest = json_decode((string) $archive->getFromName('release-manifest.json'), true, flags: JSON_THROW_ON_ERROR);
+        $manifest['files'][] = ['path' => $path, 'sha256' => hash('sha256', $contents), 'size_bytes' => strlen($contents)];
+        $manifest['application_file_count']++;
+        $archive->addFromString('application/'.$path, $contents);
+        $archive->addFromString('release-manifest.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n");
+        $archive->close();
+        file_put_contents($archivePath.'.sha256', hash_file('sha256', $archivePath).'  '.basename($archivePath)."\n");
+    }
+
+    private function replaceDeclaredFile(string $archivePath, string $path, string $contents): void
+    {
+        $archive = new ZipArchive;
+        $this->assertTrue($archive->open($archivePath));
+        $manifest = json_decode((string) $archive->getFromName('release-manifest.json'), true, flags: JSON_THROW_ON_ERROR);
+        foreach ($manifest['files'] as &$file) {
+            if ($file['path'] === $path) {
+                $file['sha256'] = hash('sha256', $contents);
+                $file['size_bytes'] = strlen($contents);
+            }
+        }
+        unset($file);
+        $archive->addFromString('application/'.$path, $contents);
+        $archive->addFromString('release-manifest.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n");
+        $archive->close();
+        file_put_contents($archivePath.'.sha256', hash_file('sha256', $archivePath).'  '.basename($archivePath)."\n");
     }
 
     private function remove(string $path): void

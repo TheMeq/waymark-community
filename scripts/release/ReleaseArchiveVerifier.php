@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Waymark\Release;
 
+require_once __DIR__.'/ReleasePackagePolicy.php';
+
 use RuntimeException;
 use ZipArchive;
 
@@ -11,6 +13,7 @@ final class ReleaseArchiveVerifier
 {
     private const array REQUIRED_FILES = [
         '.env.example',
+        'README.md',
         'VERSION',
         'artisan',
         'bootstrap/app.php',
@@ -44,7 +47,7 @@ final class ReleaseArchiveVerifier
         'bootstrap/cache/services.php',
     ];
 
-    /** @return array{version: string, commit: string, minimum_php: string, latest_migration: string, file_count: int, size_bytes: int, sha256: string} */
+    /** @return array{version: string, commit: string, layout: string, minimum_php: string, latest_migration: string, application_file_count: int, archive_entry_count: int, size_bytes: int, sha256: string} */
     public function verify(string $archivePath): array
     {
         $checksumPath = $archivePath.'.sha256';
@@ -62,13 +65,14 @@ final class ReleaseArchiveVerifier
         }
 
         try {
-            $actualEntries = $this->actualEntries($archive);
             $manifestJson = $archive->getFromName('release-manifest.json');
             $manifest = is_string($manifestJson) ? json_decode($manifestJson, true) : null;
             if (! is_array($manifest)) {
                 throw $this->failure();
             }
             $this->verifyMetadata($manifest);
+            $layout = $manifest['layout'] ?? 'standard';
+            $actualEntries = $this->actualEntries($archive, $layout);
 
             $declaredEntries = ['release-manifest.json' => true];
             $declaredFiles = [];
@@ -82,7 +86,7 @@ final class ReleaseArchiveVerifier
                     || $file['size_bytes'] < 0) {
                     throw $this->failure();
                 }
-                $entry = 'application/'.$file['path'];
+                $entry = $this->archiveEntry($file['path'], $layout);
                 $declaredEntries[$entry] = true;
                 $declaredFiles[$file['path']] = true;
                 $this->verifyEntry($archive, $entry, $file['sha256'], $file['size_bytes']);
@@ -93,22 +97,42 @@ final class ReleaseArchiveVerifier
                     throw $this->failure();
                 }
             }
+            if (array_key_exists('layout', $manifest)) {
+                if (! isset($declaredFiles['DEPLOYMENT-LAYOUT'])
+                    || trim((string) $archive->getFromName($this->archiveEntry('DEPLOYMENT-LAYOUT', $layout))) !== $layout) {
+                    throw $this->failure();
+                }
+            }
+            if ($layout === 'public-html') {
+                foreach (['.htaccess', 'public/.htaccess', 'public/README.md'] as $required) {
+                    if (! isset($declaredFiles[$required])) {
+                        throw $this->failure();
+                    }
+                }
+                $this->verifyPublicHtmlProtection($archive, $declaredFiles);
+            }
             if (! $this->containsPath($declaredFiles, 'database/migrations/')) {
                 throw $this->failure();
             }
             if (array_diff_key($actualEntries, $declaredEntries) !== [] || array_diff_key($declaredEntries, $actualEntries) !== []) {
                 throw $this->failure();
             }
+            if (isset($manifest['application_file_count']) && $manifest['application_file_count'] !== count($declaredFiles)) {
+                throw $this->failure();
+            }
 
-            $version = trim((string) $archive->getFromName('application/VERSION'));
+            $version = trim((string) $archive->getFromName($this->archiveEntry('VERSION', $layout)));
             if ($version !== $manifest['version']) {
                 throw $this->failure();
             }
-            $buildManifest = json_decode((string) $archive->getFromName('application/public/build/manifest.json'), true);
-            $installed = json_decode((string) $archive->getFromName('application/vendor/composer/installed.json'), true);
+            $buildManifest = json_decode((string) $archive->getFromName($this->archiveEntry('public/build/manifest.json', $layout)), true);
+            $installed = json_decode((string) $archive->getFromName($this->archiveEntry('vendor/composer/installed.json', $layout)), true);
             if (! is_array($buildManifest) || ! is_array($installed)) {
                 throw $this->failure();
             }
+            ReleasePackagePolicy::assertEnvironmentTemplate((string) $archive->getFromName($this->archiveEntry('.env.example', $layout)));
+            $readmePath = $layout === 'public-html' ? 'public/README.md' : 'README.md';
+            ReleasePackagePolicy::assertOperatorReadme((string) $archive->getFromName($this->archiveEntry($readmePath, $layout)), $manifest['version']);
             foreach ($this->composerPackages($installed) as $package) {
                 if (in_array($package['name'] ?? null, ['phpunit/phpunit', 'laravel/pint', 'mockery/mockery', 'fakerphp/faker'], true)) {
                     throw $this->failure();
@@ -123,9 +147,11 @@ final class ReleaseArchiveVerifier
             return [
                 'version' => $manifest['version'],
                 'commit' => $manifest['build']['commit'],
+                'layout' => $layout,
                 'minimum_php' => $manifest['requirements']['minimum_php'],
                 'latest_migration' => $manifest['database']['latest_migration'],
-                'file_count' => count($declaredFiles),
+                'application_file_count' => count($declaredFiles),
+                'archive_entry_count' => count($actualEntries),
                 'size_bytes' => filesize($archivePath),
                 'sha256' => hash_file('sha256', $archivePath),
             ];
@@ -141,14 +167,14 @@ final class ReleaseArchiveVerifier
     }
 
     /** @return array<string, true> */
-    private function actualEntries(ZipArchive $archive): array
+    private function actualEntries(ZipArchive $archive, string $layout): array
     {
         $entries = [];
         for ($index = 0; $index < $archive->numFiles; $index++) {
             $entry = $archive->getNameIndex($index);
             if (! is_string($entry)
                 || isset($entries[$entry])
-                || ($entry !== 'release-manifest.json' && ! str_starts_with($entry, 'application/'))
+                || ($layout === 'standard' && $entry !== 'release-manifest.json' && ! str_starts_with($entry, 'application/'))
                 || str_ends_with($entry, '/')
                 || ! $this->safeArchiveEntry($entry)) {
                 throw $this->failure();
@@ -175,7 +201,9 @@ final class ReleaseArchiveVerifier
             || ! is_array($manifest['files'] ?? null)
             || ! array_is_list($manifest['files'])
             || ! is_array($manifest['deletes'] ?? null)
-            || ! array_is_list($manifest['deletes'])) {
+            || ! array_is_list($manifest['deletes'])
+            || ! in_array($manifest['layout'] ?? 'standard', ['standard', 'public-html'], true)
+            || (isset($manifest['application_file_count']) && (! is_int($manifest['application_file_count']) || $manifest['application_file_count'] < 1))) {
             throw $this->failure();
         }
     }
@@ -233,13 +261,40 @@ final class ReleaseArchiveVerifier
         }
         $normalized = strtolower($path);
 
-        return ($normalized === '.env.example' || preg_match('/\A\.env(?:\.|\z)/', $normalized) !== 1)
+        return ReleasePackagePolicy::safeApplicationPath($path)
+            && ($normalized === '.env.example' || preg_match('/\A\.env(?:\.|\z)/', $normalized) !== 1)
             && preg_match('#(^|/)(\.git|node_modules|tests|test-results|playwright-report|coverage)(/|$)#', $normalized) !== 1
             && (! str_starts_with($normalized, 'storage/') || in_array($normalized, self::STORAGE_PLACEHOLDERS, true))
             && (! str_starts_with($normalized, 'bootstrap/cache/') || in_array($normalized, self::BOOTSTRAP_CACHE_FILES, true))
             && preg_match('#\Adatabase/.+\.sqlite(?:3)?$#', $normalized) !== 1
             && preg_match('#\Avendor/(phpunit|laravel/pint|mockery|fakerphp)/#', $normalized) !== 1
-            && ! in_array($normalized, ['phpunit.xml', 'playwright.config.ts', 'playwright.installer.config.ts', 'package.json', 'package-lock.json', 'vite.config.js'], true);
+            && $normalized !== 'release-manifest.json';
+    }
+
+    /** @param array<string, true> $files */
+    private function verifyPublicHtmlProtection(ZipArchive $archive, array $files): void
+    {
+        $internalRules = (string) $archive->getFromName($this->archiveEntry('.htaccess', 'public-html'));
+        $publicRules = (string) $archive->getFromName($this->archiveEntry('public/.htaccess', 'public-html'));
+        $frontController = (string) $archive->getFromName($this->archiveEntry('public/index.php', 'public-html'));
+        if (! str_contains($internalRules, 'Options -Indexes')
+            || ! str_contains($internalRules, 'Require all denied')
+            || ! str_contains($internalRules, 'Deny from all')
+            || ! str_contains($publicRules, 'Options -Indexes')
+            || ! str_contains($publicRules, 'RewriteEngine On')
+            || ! str_contains($frontController, "__DIR__.'/application")
+            || ! str_contains($frontController, 'usePublicPath(__DIR__)')) {
+            throw $this->failure();
+        }
+    }
+
+    private function archiveEntry(string $path, string $layout): string
+    {
+        if ($layout === 'public-html' && str_starts_with($path, 'public/')) {
+            return substr($path, strlen('public/'));
+        }
+
+        return 'application/'.$path;
     }
 
     /** @param array<string, mixed> $installed
