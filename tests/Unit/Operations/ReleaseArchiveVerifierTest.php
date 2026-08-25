@@ -121,7 +121,7 @@ final class ReleaseArchiveVerifierTest extends TestCase
     {
         $this->write('DEPLOYMENT-LAYOUT', "public-html\n");
         $this->write('.htaccess', "Options -Indexes\nRequire all denied\nDeny from all\n");
-        $this->write('public/.htaccess', "Options -MultiViews -Indexes\nRewriteEngine On\nRewriteRule ^ index.php [L]\n");
+        $this->write('public/.htaccess', "Options -MultiViews -Indexes\n<FilesMatch \"^\\.\">\nRequire all denied\nDeny from all\n</FilesMatch>\nRewriteEngine On\nRewriteRule ^ index.php [L]\n");
         $this->write('public/index.php', "<?php require __DIR__.'/application/vendor/autoload.php'; \$app->usePublicPath(__DIR__);");
         $this->write('public/README.md', "# Waymark Community 1.0.0 public_html\n\nExtract into the document root and visit /setup. PHP 8.3+, MySQL and MariaDB are supported. Composer and Node are not required at runtime. See docs/deployment and SECURITY.md.\n");
 
@@ -151,11 +151,24 @@ final class ReleaseArchiveVerifierTest extends TestCase
         (new ReleaseArchiveVerifier)->verify($this->package('public-html'));
     }
 
-    public function test_verifier_rejects_a_layout_marker_that_does_not_match_manifest_layout(): void
+    public function test_verifier_rejects_public_html_without_web_root_dotfile_denial(): void
     {
         $this->write('DEPLOYMENT-LAYOUT', "public-html\n");
         $this->write('.htaccess', "Options -Indexes\nRequire all denied\nDeny from all\n");
         $this->write('public/.htaccess', "Options -Indexes\nRewriteEngine On\nRewriteRule ^ index.php [L]\n");
+        $this->write('public/index.php', "<?php require __DIR__.'/application/vendor/autoload.php'; \$app->usePublicPath(__DIR__);");
+        $this->write('public/README.md', "# Waymark Community 1.0.0 public_html\n\nExtract into the document root and visit /setup. PHP 8.3+, MySQL and MariaDB are supported. Composer and Node are not required at runtime. See docs/deployment and SECURITY.md.\n");
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('verification failed');
+        (new ReleaseArchiveVerifier)->verify($this->package('public-html'));
+    }
+
+    public function test_verifier_rejects_a_layout_marker_that_does_not_match_manifest_layout(): void
+    {
+        $this->write('DEPLOYMENT-LAYOUT', "public-html\n");
+        $this->write('.htaccess', "Options -Indexes\nRequire all denied\nDeny from all\n");
+        $this->write('public/.htaccess', "Options -Indexes\n<FilesMatch \"^\\.\">\nRequire all denied\nDeny from all\n</FilesMatch>\nRewriteEngine On\nRewriteRule ^ index.php [L]\n");
         $this->write('public/index.php', "<?php require __DIR__.'/application/vendor/autoload.php'; \$app->usePublicPath(__DIR__);");
         $this->write('public/README.md', "# Waymark Community 1.0.0 public_html\n\nExtract into the document root and visit /setup. PHP 8.3+, MySQL and MariaDB are supported. Composer and Node are not required at runtime. See docs/deployment and SECURITY.md.\n");
 

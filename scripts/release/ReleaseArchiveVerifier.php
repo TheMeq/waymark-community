@@ -281,6 +281,9 @@ final class ReleaseArchiveVerifier
             || ! str_contains($internalRules, 'Require all denied')
             || ! str_contains($internalRules, 'Deny from all')
             || ! str_contains($publicRules, '-Indexes')
+            || ! str_contains($publicRules, '<FilesMatch "^\\.">')
+            || ! str_contains($publicRules, 'Require all denied')
+            || ! str_contains($publicRules, 'Deny from all')
             || ! str_contains($publicRules, 'RewriteEngine On')
             || ! str_contains($frontController, "__DIR__.'/application")
             || ! str_contains($frontController, 'usePublicPath(__DIR__)')) {
