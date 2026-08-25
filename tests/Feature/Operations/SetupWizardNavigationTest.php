@@ -56,6 +56,9 @@ final class SetupWizardNavigationTest extends TestCase
 
         $this->assertSame('http://localhost/demo-site/ndwg/setup', route('setup.start'));
         $this->assertSame('http://localhost/demo-site/ndwg/setup/server-checks', route('setup.step.store', 'server-checks'));
+        $this->assertSame('http://localhost/demo-site/ndwg/setup/install/progress', route('setup.install.progress'));
+        $this->assertSame('http://localhost/demo-site/ndwg/setup/install/advance', route('setup.install.advance'));
+        $this->assertSame('http://localhost/demo-site/ndwg/setup/install/reset', route('setup.install.reset'));
         $this->assertSame(
             'http://localhost/demo-site/ndwg/setup/server-checks',
             app(SetupController::class)->start($request)->getTargetUrl(),

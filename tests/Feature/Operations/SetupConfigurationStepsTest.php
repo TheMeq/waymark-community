@@ -9,6 +9,7 @@ use App\Domain\Operations\Installation\DatabaseConnectionResult;
 use App\Domain\Operations\Installation\InstallationState;
 use App\Domain\Operations\Installation\MailConfiguration;
 use App\Domain\Operations\Installation\MailConnectionResult;
+use App\Domain\Operations\Installation\SetupProgress;
 use Tests\TestCase;
 
 final class SetupConfigurationStepsTest extends TestCase
@@ -168,5 +169,31 @@ final class SetupConfigurationStepsTest extends TestCase
             ->assertSuccessful()
             ->assertSee('Peak Pathfinders')
             ->assertSee('#445E3B');
+    }
+
+    public function test_incomplete_install_reset_preserves_reusable_answers_but_removes_every_submitted_secret(): void
+    {
+        session()->put('waymark.setup.current_step', 10);
+        session()->put('waymark.setup.data', [
+            'database' => ['driver' => 'mysql', 'host' => 'db.example.test', 'port' => 3306, 'database' => 'waymark', 'username' => 'waymark', 'password' => 'database-secret'],
+            'group-details' => ['group_name' => 'Peak Pathfinders'],
+            'first-administrator' => ['name' => 'Alex Morgan', 'email' => 'alex@example.test', 'password' => 'admin-secret'],
+            'mail' => ['mode' => 'configure', 'host' => 'smtp.example.test', 'username' => 'mailer', 'password' => 'smtp-secret'],
+            'advanced' => ['backup_disk' => 's3', 's3_access_key' => 'access-key', 's3_secret_key' => 'storage-secret', 'recovery_token' => 'recovery-secret'],
+        ]);
+
+        $progress = new SetupProgress(session()->driver());
+        $progress->resetAfterIncompleteInstallation();
+        $data = $progress->allData();
+
+        self::assertSame(3, session('waymark.setup.current_step'));
+        self::assertSame('Peak Pathfinders', $data['group-details']['group_name']);
+        self::assertSame('db.example.test', $data['database']['host']);
+        self::assertArrayNotHasKey('password', $data['database']);
+        self::assertSame('Alex Morgan', $data['first-administrator']['name']);
+        self::assertArrayNotHasKey('password', $data['first-administrator']);
+        self::assertArrayNotHasKey('password', $data['mail']);
+        self::assertArrayNotHasKey('s3_secret_key', $data['advanced']);
+        self::assertArrayNotHasKey('recovery_token', $data['advanced']);
     }
 }

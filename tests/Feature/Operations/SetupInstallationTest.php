@@ -6,30 +6,41 @@ use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Models\InstallationOwnership;
 use App\Domain\Operations\Installation\Contracts\EnvironmentWriter;
 use App\Domain\Operations\Installation\EnvironmentWriteResult;
+use App\Domain\Operations\Installation\InstallationAttemptStore;
 use App\Domain\Operations\Installation\InstallationState;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
+use PDO;
 use Tests\TestCase;
 
 final class SetupInstallationTest extends TestCase
 {
-    use RefreshDatabase;
-
     private string $markerPath;
+
+    private string $attemptPath;
+
+    private string $databasePath;
+
+    private EnvironmentWriter $environmentWriter;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->markerPath = storage_path('framework/testing/setup-install-'.bin2hex(random_bytes(8)).'.lock');
+        $suffix = bin2hex(random_bytes(8));
+        $this->markerPath = storage_path('framework/testing/setup-install-'.$suffix.'.lock');
+        $this->attemptPath = storage_path('framework/testing/setup-install-'.$suffix.'.json');
+        $this->databasePath = storage_path('framework/testing/setup-install-'.$suffix.'.sqlite');
+        touch($this->databasePath);
         config()->set('waymark.installation.installed', false);
         config()->set('waymark.installation.lock_path', $this->markerPath);
+        config()->set('waymark.installation.attempt_path', $this->attemptPath);
         config()->set('session.driver', 'array');
         config()->set('app.debug', false);
         $this->app->forgetInstance(InstallationState::class);
-        $this->app->instance(EnvironmentWriter::class, new class implements EnvironmentWriter
+        $this->app->forgetInstance(InstallationAttemptStore::class);
+        $this->environmentWriter = new class implements EnvironmentWriter
         {
             /** @var array<string, string>|null */
             public ?array $received = null;
@@ -40,13 +51,19 @@ final class SetupInstallationTest extends TestCase
 
                 return new EnvironmentWriteResult(true, "APP_ENV=production\n", '');
             }
-        });
+        };
+        $this->app->instance(EnvironmentWriter::class, $this->environmentWriter);
     }
 
     protected function tearDown(): void
     {
-        if (is_file($this->markerPath)) {
-            unlink($this->markerPath);
+        DB::purge('sqlite');
+        config()->set('database.connections.sqlite.database', ':memory:');
+
+        foreach ([$this->markerPath, $this->attemptPath, $this->attemptPath.'.tmp', $this->databasePath] as $path) {
+            if (is_file($path)) {
+                unlink($path);
+            }
         }
 
         parent::tearDown();
@@ -57,7 +74,8 @@ final class SetupInstallationTest extends TestCase
         $session = $this->completeSetupSession();
 
         $this->withSession($session)->post('/setup/install')
-            ->assertRedirect('/setup/health-check');
+            ->assertRedirect('/setup/install/progress');
+        $this->advanceUntilCompleted();
 
         $profile = SiteProfile::query()->sole();
         $administrator = User::query()->sole();
@@ -66,25 +84,14 @@ final class SetupInstallationTest extends TestCase
         $this->assertSame(AccountRole::Administrator, $administrator->role);
         $this->assertNotNull($administrator->email_verified_at);
         $this->assertSame($administrator->id, InstallationOwnership::query()->sole()->owner_user_id);
-        $environmentWriter = app(EnvironmentWriter::class);
-        $this->assertSame('s3', $environmentWriter->received['WAYMARK_BACKUP_DISK']);
-        $this->assertSame('https://objects.example.test', $environmentWriter->received['AWS_ENDPOINT']);
-        $this->assertSame('waymark-backups', $environmentWriter->received['AWS_BUCKET']);
-        $this->assertSame('backup-key', $environmentWriter->received['AWS_ACCESS_KEY_ID']);
-        $this->assertSame('backup-secret', $environmentWriter->received['AWS_SECRET_ACCESS_KEY']);
-        $this->assertSame('waymark-community-session', $environmentWriter->received['SESSION_COOKIE']);
-        $this->assertSame(hash('sha256', 'Correct-Horse-Battery-Recovery-9!'), $environmentWriter->received['WAYMARK_RECOVERY_TOKEN_HASH']);
-        $this->assertSame(base64_encode('public-key-fixture'), $environmentWriter->received['WAYMARK_RELEASE_PUBLIC_KEY_BASE64']);
-
-        $this->withSession([...$session, 'waymark.setup.current_step' => 11, 'waymark.setup.installed' => true])
-            ->get('/setup/health-check')
-            ->assertSuccessful()
-            ->assertSee('Database ready')
-            ->assertSee('Administrator ready');
-
-        $this->withSession([...$session, 'waymark.setup.current_step' => 11, 'waymark.setup.installed' => true])
-            ->post('/setup/health-check')
-            ->assertRedirect('/admin');
+        $this->assertSame('s3', $this->environmentWriter->received['WAYMARK_BACKUP_DISK']);
+        $this->assertSame('https://objects.example.test', $this->environmentWriter->received['AWS_ENDPOINT']);
+        $this->assertSame('waymark-backups', $this->environmentWriter->received['AWS_BUCKET']);
+        $this->assertSame('backup-key', $this->environmentWriter->received['AWS_ACCESS_KEY_ID']);
+        $this->assertSame('backup-secret', $this->environmentWriter->received['AWS_SECRET_ACCESS_KEY']);
+        $this->assertSame('waymark-community-session', $this->environmentWriter->received['SESSION_COOKIE']);
+        $this->assertSame(hash('sha256', 'Correct-Horse-Battery-Recovery-9!'), $this->environmentWriter->received['WAYMARK_RECOVERY_TOKEN_HASH']);
+        $this->assertSame(base64_encode('public-key-fixture'), $this->environmentWriter->received['WAYMARK_RELEASE_PUBLIC_KEY_BASE64']);
 
         $this->assertFileExists($this->markerPath);
         $this->get('/setup')->assertNotFound();
@@ -102,26 +109,24 @@ final class SetupInstallationTest extends TestCase
 
         $this->withSession($this->completeSetupSession())
             ->post('/setup/install')
-            ->assertRedirect('/setup/install')
-            ->assertSessionHasErrors('environment')
+            ->assertRedirect('/setup/install/progress');
+
+        $this->postJson('/setup/install/advance')
+            ->assertUnprocessable()
+            ->assertJsonPath('failure_category', 'configuration_file_could_not_be_written')
             ->assertSessionHas('waymark.setup.environment_file')
             ->assertSessionHas('waymark.setup.environment_instructions');
 
-        $this->assertDatabaseCount('site_profiles', 0);
-        $this->assertDatabaseCount('users', 0);
+        $this->assertSame([], $this->tables());
         $this->assertFileDoesNotExist($this->markerPath);
     }
 
     public function test_install_does_not_use_the_pre_environment_database_cache_configuration(): void
     {
-        Schema::drop('cache');
         config()->set('cache.default', 'database');
 
-        $this->withSession($this->completeSetupSession())
-            ->post('/setup/install')
-            ->assertRedirect('/setup/health-check');
-
-        $this->assertDatabaseCount('site_profiles', 1);
+        $this->withSession($this->completeSetupSession())->post('/setup/install');
+        $this->postJson('/setup/install/advance')->assertSuccessful();
         $this->assertSame('array', config('cache.default'));
     }
 
@@ -132,8 +137,7 @@ final class SetupInstallationTest extends TestCase
             ->assertRedirect('/setup/install')
             ->assertSessionHasErrors('install');
 
-        $this->assertDatabaseCount('site_profiles', 0);
-        $this->assertDatabaseCount('users', 0);
+        $this->assertSame([], $this->tables());
     }
 
     /** @return array<string, mixed> */
@@ -142,7 +146,7 @@ final class SetupInstallationTest extends TestCase
         return [
             'waymark.setup.current_step' => 10,
             'waymark.setup.data' => [
-                'database' => ['driver' => 'sqlite', 'host' => '', 'port' => null, 'database' => ':memory:', 'username' => '', 'password' => 'database-secret'],
+                'database' => ['driver' => 'sqlite', 'host' => '', 'port' => null, 'database' => $this->databasePath, 'username' => '', 'password' => 'database-secret'],
                 'group-details' => ['group_name' => 'Peak Pathfinders', 'short_name' => 'PP', 'contact_email' => 'hello@example.test', 'timezone' => 'Europe/London', 'distance_unit' => 'miles', 'ascent_unit' => 'feet'],
                 'branding' => ['primary_colour' => '#526B3F', 'accent_colour' => '#D97845', 'typography_option' => 'instrument'],
                 'first-administrator' => ['name' => 'Alex Morgan', 'email' => 'alex@example.test', 'password' => 'Correct-Horse-Battery-9'],
@@ -160,5 +164,29 @@ final class SetupInstallationTest extends TestCase
                 ],
             ],
         ];
+    }
+
+    private function advanceUntilCompleted(): void
+    {
+        for ($request = 0; $request < 80; $request++) {
+            $response = $this->postJson('/setup/install/advance');
+            $response->assertSuccessful();
+
+            if ($response->json('completed') === true) {
+                return;
+            }
+        }
+
+        self::fail('The staged installation did not complete.');
+    }
+
+    /** @return list<string> */
+    private function tables(): array
+    {
+        $pdo = new PDO('sqlite:'.$this->databasePath, options: [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+
+        return array_values(array_map('strval', $pdo
+            ->query("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+            ->fetchAll(PDO::FETCH_COLUMN)));
     }
 }

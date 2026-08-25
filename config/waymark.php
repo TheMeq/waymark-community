@@ -6,6 +6,7 @@ return [
     'installation' => [
         'installed' => env('WAYMARK_INSTALLED'),
         'lock_path' => env('WAYMARK_INSTALLATION_LOCK', storage_path('app/private/installed.lock')),
+        'attempt_path' => env('WAYMARK_INSTALLATION_ATTEMPT_PATH', storage_path('app/private/installation-attempt.json')),
         'legacy_application_key' => env('APP_KEY'),
     ],
     'scheduler' => [

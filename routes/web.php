@@ -66,6 +66,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/setup', [SetupController::class, 'show'])->name('setup');
 Route::post('/setup', [SetupController::class, 'start'])->name('setup.start');
+Route::get('/setup/install/progress', [SetupController::class, 'progress'])->name('setup.install.progress');
+Route::post('/setup/install/advance', [SetupController::class, 'advance'])->name('setup.install.advance');
+Route::post('/setup/install/reset', [SetupController::class, 'reset'])->name('setup.install.reset');
 Route::get('/setup/{step}', [SetupController::class, 'show'])
     ->whereIn('step', array_column(SetupStep::cases(), 'value'))
     ->name('setup.step');

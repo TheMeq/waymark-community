@@ -61,4 +61,29 @@ final readonly class SetupProgress
     {
         $this->session->forget([self::CURRENT_STEP_KEY, self::DATA_KEY]);
     }
+
+    public function resetAfterIncompleteInstallation(): void
+    {
+        $data = $this->allData();
+
+        foreach ([
+            ['database', 'password'],
+            ['first-administrator', 'password'],
+            ['first-administrator', 'password_confirmation'],
+            ['mail', 'password'],
+            ['advanced', 's3_secret_key'],
+            ['advanced', 'recovery_token'],
+            ['advanced', 'recovery_token_confirmation'],
+        ] as [$section, $key]) {
+            unset($data[$section][$key]);
+        }
+
+        $this->session->put(self::DATA_KEY, $data);
+        $this->session->put(self::CURRENT_STEP_KEY, SetupStep::Database->number());
+        $this->session->forget([
+            'waymark.setup.installed',
+            'waymark.setup.environment_file',
+            'waymark.setup.environment_instructions',
+        ]);
+    }
 }

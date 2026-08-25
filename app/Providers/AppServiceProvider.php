@@ -38,6 +38,7 @@ use App\Domain\Operations\Installation\Contracts\EnvironmentWriter;
 use App\Domain\Operations\Installation\Contracts\MailConnectionTester;
 use App\Domain\Operations\Installation\Contracts\PublicApplicationExposureProbe;
 use App\Domain\Operations\Installation\EnvironmentFileWriter;
+use App\Domain\Operations\Installation\InstallationAttemptStore;
 use App\Domain\Operations\Installation\InstallationState;
 use App\Domain\Operations\Installation\NativePublicApplicationExposureProbe;
 use App\Domain\Operations\Installation\PdoDatabaseConnectionTester;
@@ -87,6 +88,9 @@ class AppServiceProvider extends ServiceProvider
                 is_string($applicationKey) ? $applicationKey : null,
             );
         });
+        $this->app->singleton(InstallationAttemptStore::class, fn (): InstallationAttemptStore => new InstallationAttemptStore(
+            (string) config('waymark.installation.attempt_path'),
+        ));
         $this->app->bind(DatabaseConnectionTester::class, PdoDatabaseConnectionTester::class);
         $this->app->bind(MailConnectionTester::class, SymfonyMailConnectionTester::class);
         $this->app->bind(EnvironmentWriter::class, EnvironmentFileWriter::class);
