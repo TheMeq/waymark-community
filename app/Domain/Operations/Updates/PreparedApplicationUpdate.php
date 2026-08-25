@@ -12,12 +12,15 @@ final class PreparedApplicationUpdate
         private readonly string $rollbackDirectory,
         private readonly ?VerifiedReleasePackage $release,
         private readonly array $records,
+        private readonly ?string $publicRoot = null,
     ) {}
 
     /** @param list<array{path: string, existed: bool, permissions: int|null}> $records */
-    public static function resumeRollback(string $applicationRoot, string $rollbackDirectory, array $records): self
+    public static function resumeRollback(string $applicationRoot, string $rollbackDirectory, array $records, string $layout = 'standard', ?string $publicRoot = null): self
     {
-        return new self($applicationRoot, $rollbackDirectory, null, $records);
+        $release = new VerifiedReleasePackage('', '', [], [], $layout);
+
+        return new self($applicationRoot, $rollbackDirectory, $release, $records, $publicRoot);
     }
 
     public function apply(): void
@@ -75,7 +78,7 @@ final class PreparedApplicationUpdate
             } elseif (is_file($target) && ! unlink($target)) {
                 throw new RuntimeException('Application file rollback could not remove an added file.');
             } elseif (! $record['existed']) {
-                $this->removeEmptyParents(dirname($target));
+                $this->removeEmptyParents(dirname($target), $this->rootFor($record['path']));
             }
         }
     }
@@ -100,8 +103,9 @@ final class PreparedApplicationUpdate
 
     private function target(string $path): string
     {
-        $target = $this->applicationRoot;
-        foreach (explode('/', $path) as $segment) {
+        $publicPath = $this->release?->layout === 'public-html' && str_starts_with($path, 'public/');
+        $target = $publicPath ? (string) $this->publicRoot : $this->applicationRoot;
+        foreach (explode('/', $publicPath ? substr($path, strlen('public/')) : $path) as $segment) {
             $target .= DIRECTORY_SEPARATOR.$segment;
             if (is_link($target)) {
                 throw new RuntimeException('A release path traverses an application symbolic link.');
@@ -122,9 +126,16 @@ final class PreparedApplicationUpdate
         return null;
     }
 
-    private function removeEmptyParents(string $directory): void
+    private function rootFor(string $path): string
     {
-        while ($directory !== $this->applicationRoot && str_starts_with($directory, $this->applicationRoot.DIRECTORY_SEPARATOR)) {
+        return $this->release?->layout === 'public-html' && str_starts_with($path, 'public/')
+            ? (string) $this->publicRoot
+            : $this->applicationRoot;
+    }
+
+    private function removeEmptyParents(string $directory, string $root): void
+    {
+        while ($directory !== $root && str_starts_with($directory, $root.DIRECTORY_SEPARATOR)) {
             $entries = @scandir($directory);
             if ($entries === false || count($entries) > 2 || ! @rmdir($directory)) {
                 return;

@@ -12,6 +12,7 @@ final class VerifiedReleasePackage
         public readonly string $version,
         public readonly array $files,
         public readonly array $deletes,
+        public readonly string $layout = 'standard',
     ) {}
 
     public function applicationPath(string $path): string

@@ -38,9 +38,10 @@ The production distribution is generated from an exact clean commit:
 ```shell
 php scripts/build-release.php --version=1.0.0
 php scripts/verify-release.php dist/waymark-community-1.0.0-shared-hosting.zip
+php scripts/verify-release.php dist/waymark-community-1.0.0-public-html.zip
 ```
 
-The ZIP contains production Composer dependencies, compiled frontend assets, migrations and installer/update/recovery entry points. Runtime requirements are PHP 8.3+ with the documented extensions, MySQL or MariaDB, writable storage and a web server. The host does **not** need Git, Composer, Node.js, npm, Docker, Redis, developer tests or a resident worker. See the [shared-host installation guide](docs/deployment/shared-hosting.md) and [release packaging guide](docs/deployment/release-packaging.md).
+The standard ZIP is preferred when the host can point the domain at `application/public/`. The public-html ZIP extracts directly into a fixed web root and protects its internal `application/` directory. Both contain production Composer dependencies, compiled frontend assets, migrations and installer/update/recovery entry points. Runtime requirements are PHP 8.3+ with the documented extensions, MySQL or MariaDB, writable storage and a web server. The host does **not** need Git, Composer, Node.js, npm, Docker, Redis, developer tests or a resident worker. See the [shared-host installation guide](docs/deployment/shared-hosting.md) and [release packaging guide](docs/deployment/release-packaging.md).
 
 ## Repository map
 

@@ -12,7 +12,7 @@ final readonly class ReleaseApplicationExtractor
 {
     public function __construct(private ReleaseArchiveVerifier $verifier = new ReleaseArchiveVerifier) {}
 
-    /** @return array{version: string, commit: string, minimum_php: string, latest_migration: string, file_count: int, size_bytes: int, sha256: string} */
+    /** @return array{version: string, commit: string, layout: string, minimum_php: string, latest_migration: string, application_file_count: int, archive_entry_count: int, size_bytes: int, sha256: string} */
     public function extract(string $archivePath, string $destination): array
     {
         if (is_dir($destination) && (new FilesystemIterator($destination))->valid()) {
@@ -32,11 +32,14 @@ final readonly class ReleaseApplicationExtractor
             $manifest = json_decode((string) $archive->getFromName('release-manifest.json'), true, flags: JSON_THROW_ON_ERROR);
             foreach ($manifest['files'] as $file) {
                 $path = $file['path'];
-                $target = $destination.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $path);
+                $public = $result['layout'] === 'public-html' && str_starts_with($path, 'public/');
+                $relativeTarget = $public ? substr($path, strlen('public/')) : ($result['layout'] === 'public-html' ? 'application/'.$path : $path);
+                $archiveEntry = $public ? substr($path, strlen('public/')) : 'application/'.$path;
+                $target = $destination.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $relativeTarget);
                 if (! is_dir(dirname($target)) && ! mkdir(dirname($target), 0700, true) && ! is_dir(dirname($target))) {
                     throw new RuntimeException('A release install directory could not be created.');
                 }
-                $input = $archive->getStream('application/'.$path);
+                $input = $archive->getStream($archiveEntry);
                 $output = fopen($target, 'wb');
                 try {
                     if ($input === false || $output === false || stream_copy_to_stream($input, $output) === false) {

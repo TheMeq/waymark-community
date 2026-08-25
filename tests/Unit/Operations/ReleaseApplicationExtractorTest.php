@@ -19,8 +19,10 @@ final class ReleaseApplicationExtractorTest extends TestCase
         parent::setUp();
         $this->directory = sys_get_temp_dir().'/waymark-release-extractor-'.bin2hex(random_bytes(8));
         foreach ([
-            '.env.example' => 'APP_KEY=',
+            '.env.example' => "APP_ENV=production\nAPP_KEY=\nAPP_DEBUG=false\nAPP_URL=https://walks.example\nLOG_LEVEL=warning\n",
+            'README.md' => $this->operatorReadme(),
             'VERSION' => "1.0.0\n",
+            'DEPLOYMENT-LAYOUT' => "standard\n",
             'artisan' => 'artisan',
             'bootstrap/app.php' => 'bootstrap',
             'bootstrap/cache/.gitignore' => '',
@@ -71,7 +73,26 @@ final class ReleaseApplicationExtractorTest extends TestCase
         (new ReleaseApplicationExtractor)->extract($archive, $this->directory.'/installed');
     }
 
-    private function package(): string
+    public function test_public_html_extractor_places_public_files_at_web_root_and_internals_under_application(): void
+    {
+        file_put_contents($this->directory.'/application/DEPLOYMENT-LAYOUT', "public-html\n");
+        file_put_contents($this->directory.'/application/.htaccess', "Options -Indexes\nRequire all denied\nDeny from all\n");
+        file_put_contents($this->directory.'/application/public/.htaccess', "Options -Indexes\nRewriteEngine On\n");
+        file_put_contents($this->directory.'/application/public/index.php', "<?php __DIR__.'/application'; usePublicPath(__DIR__);");
+        file_put_contents($this->directory.'/application/public/README.md', $this->operatorReadme());
+        $destination = $this->directory.'/public-html';
+
+        $result = (new ReleaseApplicationExtractor)->extract($this->package('public-html'), $destination);
+
+        $this->assertSame('public-html', $result['layout']);
+        $this->assertFileExists($destination.'/index.php');
+        $this->assertFileExists($destination.'/.htaccess');
+        $this->assertFileExists($destination.'/application/vendor/autoload.php');
+        $this->assertFileDoesNotExist($destination.'/application/public/index.php');
+        $this->assertFileDoesNotExist($destination.'/release-manifest.json');
+    }
+
+    private function package(string $layout = 'standard'): string
     {
         $path = $this->directory.'/release.zip';
         (new ReleaseArchiveBuilder)->build($this->directory.'/application', $path, [
@@ -80,9 +101,15 @@ final class ReleaseApplicationExtractorTest extends TestCase
             'built_at' => '2026-08-24T12:00:00Z',
             'minimum_php' => '8.3.0',
             'schema' => '2026_08_24_130000',
+            'layout' => $layout,
         ]);
 
         return $path;
+    }
+
+    private function operatorReadme(): string
+    {
+        return 'Waymark Community 1.0.0 requires PHP 8.3, MySQL or MariaDB. Configure the document root, visit /setup, and see docs/deployment plus security guidance. Composer and Node are not required.';
     }
 
     private function remove(string $path): void

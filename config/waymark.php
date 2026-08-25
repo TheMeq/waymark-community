@@ -2,6 +2,7 @@
 
 return [
     'version' => env('WAYMARK_VERSION', is_file(base_path('VERSION')) ? trim((string) file_get_contents(base_path('VERSION'))) : 'development'),
+    'deployment_layout' => env('WAYMARK_DEPLOYMENT_LAYOUT', is_file(base_path('DEPLOYMENT-LAYOUT')) ? trim((string) file_get_contents(base_path('DEPLOYMENT-LAYOUT'))) : 'standard'),
     'installation' => [
         'installed' => env('WAYMARK_INSTALLED'),
         'lock_path' => env('WAYMARK_INSTALLATION_LOCK', storage_path('app/private/installed.lock')),

@@ -42,7 +42,7 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::BODY_START,
-                fn () => SystemHealthPage::canAccess() && app(HealthService::class)->report(request()->secure())->serious()
+                fn () => SystemHealthPage::canAccess() && app(HealthService::class)->report(request()->secure(), request()->root())->serious()
                     ? view('admin.health-alert')
                     : '',
             )

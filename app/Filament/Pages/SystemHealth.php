@@ -42,7 +42,7 @@ final class SystemHealth extends Page
 
     public function healthChecks(): array
     {
-        return app(HealthService::class)->report(request()->secure())->checks;
+        return app(HealthService::class)->report(request()->secure(), request()->root())->checks;
     }
 
     public function repairs(): array

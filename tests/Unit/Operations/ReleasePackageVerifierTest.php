@@ -82,16 +82,40 @@ final class ReleasePackageVerifierTest extends TestCase
         (new ReleasePackageVerifier)->stage($unsafe, $this->metadata($unsafe), $this->directory.DIRECTORY_SEPARATOR.'unsafe-stage');
     }
 
+    public function test_public_html_release_stages_root_public_entries_as_layout_aware_application_files(): void
+    {
+        $package = $this->package([
+            'VERSION' => "1.2.0\n",
+            'DEPLOYMENT-LAYOUT' => "public-html\n",
+            'artisan' => 'release-artisan',
+            'bootstrap/app.php' => 'release-bootstrap',
+            'public/index.php' => 'public-html-front-controller',
+            'vendor/autoload.php' => 'release-autoload',
+            'public/build/manifest.json' => '{}',
+            'app-marker.txt' => 'new internal application',
+        ], 'public-html');
+
+        $verified = (new ReleasePackageVerifier)->stage($package, $this->metadata($package), $this->directory.DIRECTORY_SEPARATOR.'public-html-stage');
+
+        $this->assertSame('public-html', $verified->layout);
+        $this->assertSame('public-html-front-controller', file_get_contents($verified->applicationPath('public/index.php')));
+        $this->assertSame('new internal application', file_get_contents($verified->applicationPath('app-marker.txt')));
+        $verified->cleanup();
+    }
+
     /** @param array<string, string> $files */
-    private function package(array $files): string
+    private function package(array $files, string $layout = 'standard'): string
     {
         $path = $this->directory.DIRECTORY_SEPARATOR.'release-'.bin2hex(random_bytes(4)).'.zip';
-        $manifest = ['format' => 1, 'version' => '1.2.0', 'files' => [], 'deletes' => ['obsolete.txt']];
+        $manifest = ['format' => 1, 'version' => '1.2.0', 'layout' => $layout, 'files' => [], 'deletes' => ['obsolete.txt']];
         $archive = new ZipArchive;
         $archive->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
         foreach ($files as $file => $contents) {
             $manifest['files'][] = ['path' => $file, 'sha256' => hash('sha256', $contents), 'size_bytes' => strlen($contents)];
-            $archive->addFromString('application/'.$file, $contents);
+            $entry = $layout === 'public-html' && str_starts_with($file, 'public/')
+                ? substr($file, strlen('public/'))
+                : 'application/'.$file;
+            $archive->addFromString($entry, $contents);
         }
         $archive->addFromString('release-manifest.json', json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         $archive->close();

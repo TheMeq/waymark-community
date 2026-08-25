@@ -6,11 +6,12 @@ import { basename, resolve } from 'node:path';
 
 const plan = {
     source: 'verified release ZIP only',
-    runtime_tools: ['php'],
+    runtime_tools: ['php', 'web server'],
     composer_at_runtime: false,
     node_at_runtime: false,
+    layouts: ['standard', 'public-html'],
     databases: ['mysql', 'mariadb'],
-    smoke: ['web installer', 'public homepage', 'admin login', 'site media upload'],
+    smoke: ['web installer', 'public homepage', 'admin login', 'site media upload', 'installer lockout', 'internal application protection'],
 };
 if (process.argv.includes('--plan')) {
     process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
@@ -31,14 +32,22 @@ const database = {
 };
 if (!plan.databases.includes(database.driver)) throw new Error('PHASE10_INSTALL_DB_DRIVER must be mysql or mariadb.');
 
-const evidenceRoot = resolve(`test-results/phase10-clean-install-${database.driver}`);
-const applicationRoot = resolve(evidenceRoot, 'application');
+const archiveName = basename(archivePath);
+const requestedLayout = archiveName.endsWith('-public-html.zip') ? 'public-html' : 'standard';
+const evidenceRoot = resolve(`test-results/phase10-clean-install-${requestedLayout}-${database.driver}`);
+const installRoot = process.env.PHASE10_INSTALL_DESTINATION === undefined
+    ? resolve(evidenceRoot, requestedLayout === 'public-html' ? 'web-root' : 'application')
+    : resolve(process.env.PHASE10_INSTALL_DESTINATION);
 const appPort = Number(process.env.PHASE10_INSTALL_APP_PORT ?? (database.driver === 'mysql' ? 8030 : 8031));
 const smtpPort = Number(process.env.PHASE10_INSTALL_SMTP_PORT ?? (database.driver === 'mysql' ? 8040 : 8041));
 rmSync(evidenceRoot, { recursive: true, force: true });
 mkdirSync(evidenceRoot, { recursive: true });
 
-runTool('php', ['scripts/extract-release.php', archivePath, applicationRoot], { cwd: root, env: process.env, stdio: 'inherit' });
+runTool('php', ['scripts/extract-release.php', archivePath, installRoot], { cwd: root, env: process.env, stdio: 'inherit' });
+const applicationRoot = requestedLayout === 'public-html' ? resolve(installRoot, 'application') : installRoot;
+const publicRoot = requestedLayout === 'public-html' ? installRoot : resolve(applicationRoot, 'public');
+const actualLayout = readFileSync(resolve(applicationRoot, 'DEPLOYMENT-LAYOUT'), 'utf8').trim();
+if (actualLayout !== requestedLayout) throw new Error(`Release layout mismatch: expected ${requestedLayout}, found ${actualLayout}.`);
 for (const forbidden of ['.git', '.env', 'node_modules', 'tests', 'package.json']) {
     if (existsSync(resolve(applicationRoot, forbidden))) throw new Error(`Release install tree contains forbidden path: ${forbidden}`);
 }
@@ -53,28 +62,37 @@ await new Promise((resolveListening, reject) => {
 });
 
 const phpScan = process.env.PHP_INI_SCAN_DIR === undefined ? {} : { PHP_INI_SCAN_DIR: process.env.PHP_INI_SCAN_DIR };
-const php = spawn('php', [
-    '-S', `127.0.0.1:${appPort}`,
-    resolve(applicationRoot, 'vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php'),
-], {
-    cwd: resolve(applicationRoot, 'public'),
-    env: {
-        ...process.env,
-        ...phpScan,
-        APP_ENV: 'production',
-        APP_DEBUG: 'false',
-        WAYMARK_INSTALLED: 'false',
-        WAYMARK_CRON_AVAILABLE: 'false',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
-});
+const serverEnvironment = {
+    ...process.env,
+    ...phpScan,
+    APP_ENV: 'production',
+    APP_DEBUG: 'false',
+    WAYMARK_INSTALLED: 'false',
+    WAYMARK_CRON_AVAILABLE: 'false',
+};
+const containerName = `waymark-public-html-${database.driver}-${process.pid}`;
+const server = requestedLayout === 'public-html'
+    ? spawn('docker', [
+        'run', '--rm', '--name', containerName,
+        '-p', `${appPort}:80`,
+        '-e', 'APP_ENV=production',
+        '-e', 'APP_DEBUG=false',
+        '-e', 'WAYMARK_INSTALLED=false',
+        '-e', 'WAYMARK_CRON_AVAILABLE=false',
+        '-v', `${installRoot}:/var/www/html`,
+        process.env.PHASE10_INSTALL_APACHE_IMAGE ?? 'waymark-php83-apache:local',
+    ], { cwd: root, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] })
+    : spawn('php', [
+        '-S', `127.0.0.1:${appPort}`,
+        resolve(applicationRoot, 'vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php'),
+    ], { cwd: publicRoot, env: serverEnvironment, stdio: ['ignore', 'pipe', 'pipe'] });
 let serverOutput = '';
-php.stdout.on('data', (chunk) => { serverOutput += chunk.toString(); });
-php.stderr.on('data', (chunk) => { serverOutput += chunk.toString(); });
+server.stdout.on('data', (chunk) => { serverOutput += chunk.toString(); });
+server.stderr.on('data', (chunk) => { serverOutput += chunk.toString(); });
 
 const browser = await chromium.launch();
 try {
-    await waitForHttp(`http://127.0.0.1:${appPort}/setup`, php, () => serverOutput);
+    await waitForHttp(`http://127.0.0.1:${appPort}/setup`, server, () => serverOutput);
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await page.goto(`http://127.0.0.1:${appPort}/setup`);
     await page.getByRole('button', { name: 'Begin setup' }).click();
@@ -100,7 +118,7 @@ try {
     await page.getByLabel('Confirm password').fill('WaymarkRelease10!');
     await page.getByRole('button', { name: 'Continue' }).click();
 
-    await page.getByLabel('SMTP host').fill('127.0.0.1');
+    await page.getByLabel('SMTP host').fill(process.env.PHASE10_INSTALL_SMTP_HOST ?? (requestedLayout === 'public-html' ? 'host.docker.internal' : '127.0.0.1'));
     await page.getByLabel('Port').fill(String(smtpPort));
     await page.getByLabel('Encryption').selectOption('');
     await page.getByLabel('From address').fill('waymark@example.test');
@@ -143,8 +161,19 @@ try {
         throw new Error('Installed release tree did not satisfy the runtime file-state contract.');
     }
 
+    const protectedPaths = requestedLayout === 'public-html'
+        ? ['/application/.env.example', '/application/.env', '/application/vendor/autoload.php', '/application/storage/logs/laravel.log', '/.env']
+        : ['/.env'];
+    const protectionStatuses = {};
+    for (const path of protectedPaths) {
+        const response = await page.request.get(`http://127.0.0.1:${appPort}${path}`);
+        protectionStatuses[path] = response.status();
+        if (response.status() < 400) throw new Error(`Protected path was publicly retrievable (${response.status()}): ${path}`);
+    }
+
     const result = {
-        archive: basename(archivePath),
+        archive: archiveName,
+        layout: requestedLayout,
         version: readFileSync(resolve(applicationRoot, 'VERSION'), 'utf8').trim(),
         database: `${database.driver}@${database.host}:${database.port}/${database.name}`,
         started_without_environment_file: true,
@@ -154,15 +183,18 @@ try {
         admin_login: 'passed',
         site_media_upload: 'passed',
         installer_locked_status: setupResponse.status(),
+        protected_paths: protectionStatuses,
     };
     writeFileSync(resolve(evidenceRoot, 'result.json'), `${JSON.stringify(result, null, 2)}\n`);
     process.stdout.write(`${JSON.stringify(result)}\n`);
 } finally {
     await browser.close();
     await new Promise((resolveClosed) => smtp.close(resolveClosed));
-    php.kill();
-    if (process.platform === 'win32' && php.pid !== undefined) {
-        try { execFileSync('taskkill', ['/pid', String(php.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already stopped */ }
+    server.kill();
+    if (requestedLayout === 'public-html') {
+        try { execFileSync('docker', ['rm', '-f', containerName], { stdio: 'ignore' }); } catch { /* already stopped */ }
+    } else if (process.platform === 'win32' && server.pid !== undefined) {
+        try { execFileSync('taskkill', ['/pid', String(server.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already stopped */ }
     }
 }
 
@@ -198,7 +230,7 @@ function runTool(name, args, options) {
 
 async function waitForHttp(url, process, output) {
     for (let attempt = 0; attempt < 120; attempt++) {
-        if (process.exitCode !== null) throw new Error(`PHP server exited before setup was ready.\n${output()}`);
+        if (process.exitCode !== null) throw new Error(`Release web server exited before setup was ready.\n${output()}`);
         try { const response = await fetch(url); if (response.ok) return; } catch { /* starting */ }
         await new Promise((resolveWait) => setTimeout(resolveWait, 250));
     }

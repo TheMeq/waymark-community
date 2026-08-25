@@ -11,7 +11,7 @@ require_once __DIR__.'/release/ReleaseApplicationExtractor.php';
 $archive = $argv[1] ?? null;
 $destination = $argv[2] ?? null;
 if (! is_string($archive) || $archive === '' || ! is_string($destination) || $destination === '') {
-    fwrite(STDERR, "Usage: php scripts/extract-release.php <shared-hosting.zip> <empty-destination>\n");
+    fwrite(STDERR, "Usage: php scripts/extract-release.php <release.zip> <empty-application-or-web-root>\n");
     exit(1);
 }
 

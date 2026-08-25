@@ -4,6 +4,7 @@ namespace App\Domain\Operations\Health;
 
 use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Domain\Operations\Health\Models\MissingMediaRepair;
+use App\Domain\Operations\Installation\Contracts\PublicApplicationExposureProbe;
 use App\Domain\Operations\Scheduling\SchedulerHeartbeat;
 use App\Domain\Operations\Updates\UpdateStateStore;
 use Illuminate\Support\Facades\DB;
@@ -11,9 +12,13 @@ use Throwable;
 
 final readonly class SystemHealth
 {
-    public function __construct(private SchedulerHeartbeat $scheduler, private UpdateStateStore $updateState) {}
+    public function __construct(
+        private SchedulerHeartbeat $scheduler,
+        private UpdateStateStore $updateState,
+        private PublicApplicationExposureProbe $exposureProbe,
+    ) {}
 
-    public function report(bool $https): SystemHealthReport
+    public function report(bool $https, ?string $baseUrl = null): SystemHealthReport
     {
         $checks = [
             new HealthCheck('platform', 'Platform', 'healthy', 'Waymark Community '.config('waymark.version', 'development').' is running.'),
@@ -29,7 +34,22 @@ final readonly class SystemHealth
             $this->missingMedia(),
         ];
 
+        if (config('waymark.deployment_layout') === 'public-html') {
+            $checks[] = $this->applicationProtection($baseUrl ?? (string) config('app.url'));
+        }
+
         return new SystemHealthReport($checks);
+    }
+
+    private function applicationProtection(string $baseUrl): HealthCheck
+    {
+        $protected = $this->exposureProbe->protected($baseUrl);
+
+        return match ($protected) {
+            true => new HealthCheck('application-protection', 'Internal application protection', 'healthy', 'Internal application files are blocked from public requests.'),
+            false => new HealthCheck('application-protection', 'Internal application protection', 'critical', 'Internal application files are publicly accessible. Correct the web-server protection immediately.'),
+            null => new HealthCheck('application-protection', 'Internal application protection', 'warning', 'Internal application protection could not be confirmed.'),
+        };
     }
 
     private function database(): HealthCheck

@@ -36,8 +36,10 @@ use App\Domain\Operations\Environment\StagingMode;
 use App\Domain\Operations\Installation\Contracts\DatabaseConnectionTester;
 use App\Domain\Operations\Installation\Contracts\EnvironmentWriter;
 use App\Domain\Operations\Installation\Contracts\MailConnectionTester;
+use App\Domain\Operations\Installation\Contracts\PublicApplicationExposureProbe;
 use App\Domain\Operations\Installation\EnvironmentFileWriter;
 use App\Domain\Operations\Installation\InstallationState;
+use App\Domain\Operations\Installation\NativePublicApplicationExposureProbe;
 use App\Domain\Operations\Installation\PdoDatabaseConnectionTester;
 use App\Domain\Operations\Installation\SymfonyMailConnectionTester;
 use App\Domain\Operations\Maintenance\MaintenanceManager;
@@ -88,6 +90,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(DatabaseConnectionTester::class, PdoDatabaseConnectionTester::class);
         $this->app->bind(MailConnectionTester::class, SymfonyMailConnectionTester::class);
         $this->app->bind(EnvironmentWriter::class, EnvironmentFileWriter::class);
+        $this->app->bind(PublicApplicationExposureProbe::class, NativePublicApplicationExposureProbe::class);
         $this->app->bind(FallbackWorkload::class, WaymarkFallbackWorkload::class);
         $this->app->singleton(SchedulerHeartbeat::class, fn (): SchedulerHeartbeat => new SchedulerHeartbeat(
             (string) config('waymark.scheduler.heartbeat_path'),

@@ -50,6 +50,10 @@ final class ReleasePackageVerifier
                     || ! is_array($manifest['deletes'] ?? null) || ! array_is_list($manifest['deletes'])) {
                     throw $this->failure();
                 }
+                $layout = $manifest['layout'] ?? 'standard';
+                if (! in_array($layout, ['standard', 'public-html'], true)) {
+                    throw $this->failure();
+                }
 
                 $declaredEntries = ['release-manifest.json' => true];
                 $files = [];
@@ -60,10 +64,10 @@ final class ReleasePackageVerifier
                         || ! is_int($component['size_bytes'] ?? null) || $component['size_bytes'] < 0) {
                         throw $this->failure();
                     }
-                    $entry = 'application/'.$path;
+                    $entry = $this->archiveEntry($path, $layout);
                     $declaredEntries[$entry] = true;
                     $files[$path] = true;
-                    $target = $destination.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $entry);
+                    $target = $destination.DIRECTORY_SEPARATOR.'application'.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $path);
                     if (! is_dir(dirname($target)) && ! mkdir(dirname($target), 0700, true) && ! is_dir(dirname($target))) {
                         throw $this->failure();
                     }
@@ -101,6 +105,12 @@ final class ReleasePackageVerifier
                         throw $this->failure();
                     }
                 }
+                if ($layout === 'public-html') {
+                    if (! isset($files['DEPLOYMENT-LAYOUT'])
+                        || trim((string) file_get_contents($destination.DIRECTORY_SEPARATOR.'application'.DIRECTORY_SEPARATOR.'DEPLOYMENT-LAYOUT')) !== 'public-html') {
+                        throw $this->failure();
+                    }
+                }
                 if (trim((string) file_get_contents($destination.DIRECTORY_SEPARATOR.'application'.DIRECTORY_SEPARATOR.'VERSION')) !== $metadata->version) {
                     throw $this->failure();
                 }
@@ -125,7 +135,7 @@ final class ReleasePackageVerifier
                     throw $this->failure();
                 }
 
-                return new VerifiedReleasePackage($destination, $metadata->version, array_keys($files), array_keys($deletes));
+                return new VerifiedReleasePackage($destination, $metadata->version, array_keys($files), array_keys($deletes), $layout);
             } finally {
                 $archive->close();
             }
@@ -162,5 +172,14 @@ final class ReleasePackageVerifier
     private function failure(): RuntimeException
     {
         return new RuntimeException('Release package verification failed. No application files were changed.');
+    }
+
+    private function archiveEntry(string $path, string $layout): string
+    {
+        if ($layout === 'public-html' && str_starts_with($path, 'public/')) {
+            return substr($path, strlen('public/'));
+        }
+
+        return 'application/'.$path;
     }
 }

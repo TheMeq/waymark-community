@@ -24,6 +24,10 @@ final class ProductionReleasePackageMatrixTest extends TestCase
 
     private string $currentArchive;
 
+    private string $applicationRoot;
+
+    private string $layout;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -55,8 +59,8 @@ final class ProductionReleasePackageMatrixTest extends TestCase
         $pdo = new PDO('sqlite:'.$database);
         $this->assertSame('Release matrix group', $pdo->query('SELECT group_name FROM site_profiles')->fetchColumn());
         $this->assertSame('portability_export_runs', $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='portability_export_runs'")->fetchColumn());
-        $this->assertSame('retained media', file_get_contents($this->root.'/storage/app/private/site-media/release-matrix.txt'));
-        $this->assertSame('1.0.0', trim((string) file_get_contents($this->root.'/VERSION')));
+        $this->assertSame('retained media', file_get_contents($this->applicationRoot.'/storage/app/private/site-media/release-matrix.txt'));
+        $this->assertSame('1.0.0', trim((string) file_get_contents($this->applicationRoot.'/VERSION')));
 
         $transaction->cleanup();
         $release->cleanup();
@@ -76,8 +80,8 @@ final class ProductionReleasePackageMatrixTest extends TestCase
         $pdo = new PDO('sqlite:'.$database);
         $this->assertSame('Release matrix group', $pdo->query('SELECT group_name FROM site_profiles')->fetchColumn());
         $this->assertFalse($pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='portability_export_runs'")->fetchColumn());
-        $this->assertSame('retained media', file_get_contents($this->root.'/storage/app/private/site-media/release-matrix.txt'));
-        $this->assertSame('0.9.0', trim((string) file_get_contents($this->root.'/VERSION')));
+        $this->assertSame('retained media', file_get_contents($this->applicationRoot.'/storage/app/private/site-media/release-matrix.txt'));
+        $this->assertSame('0.9.0', trim((string) file_get_contents($this->applicationRoot.'/VERSION')));
         $this->runArtisan('about', '--only=environment');
 
         $transaction->cleanup();
@@ -86,11 +90,13 @@ final class ProductionReleasePackageMatrixTest extends TestCase
 
     private function preparePriorInstallation(): string
     {
-        (new ReleaseApplicationExtractor)->extract($this->previousArchive, $this->root);
-        $database = $this->root.'/database/database.sqlite';
+        $evidence = (new ReleaseApplicationExtractor)->extract($this->previousArchive, $this->root);
+        $this->layout = $evidence['layout'];
+        $this->applicationRoot = $this->layout === 'public-html' ? $this->root.'/application' : $this->root;
+        $database = $this->applicationRoot.'/database/database.sqlite';
         touch($database);
         $key = 'base64:'.base64_encode(random_bytes(32));
-        file_put_contents($this->root.'/.env', implode("\n", [
+        file_put_contents($this->applicationRoot.'/.env', implode("\n", [
             'APP_NAME="Waymark Community"',
             'APP_ENV=production',
             'APP_KEY='.$key,
@@ -110,8 +116,8 @@ final class ProductionReleasePackageMatrixTest extends TestCase
         $statement = $pdo->prepare('INSERT INTO site_profiles (group_name, created_at, updated_at) VALUES (?, ?, ?)');
         $timestamp = gmdate('Y-m-d H:i:s');
         $statement->execute(['Release matrix group', $timestamp, $timestamp]);
-        mkdir($this->root.'/storage/app/private/site-media', 0700, true);
-        file_put_contents($this->root.'/storage/app/private/site-media/release-matrix.txt', 'retained media');
+        mkdir($this->applicationRoot.'/storage/app/private/site-media', 0700, true);
+        file_put_contents($this->applicationRoot.'/storage/app/private/site-media/release-matrix.txt', 'retained media');
 
         return $database;
     }
@@ -120,6 +126,7 @@ final class ProductionReleasePackageMatrixTest extends TestCase
     private function applyCurrentPackage(): array
     {
         $evidence = (new ReleaseArchiveVerifier)->verify($this->currentArchive);
+        $this->assertSame($this->layout, $evidence['layout'], 'The production upgrade matrix requires matching deployment layouts.');
         $metadata = new ReleaseMetadata(
             $evidence['version'],
             '2026-08-24T12:00:00Z',
@@ -132,7 +139,12 @@ final class ProductionReleasePackageMatrixTest extends TestCase
             ['php' => $evidence['minimum_php'], 'extensions' => [], 'database' => ['mysql' => '8.4', 'mariadb' => '11.4'], 'disk_free_bytes' => 1],
         );
         $release = (new ReleasePackageVerifier)->stage($this->currentArchive, $metadata, $this->root.'/.update-staging');
-        $transaction = (new ApplicationFileTransaction)->prepare($release, $this->root, $this->root.'/.file-rollback');
+        $transaction = (new ApplicationFileTransaction)->prepare(
+            $release,
+            $this->applicationRoot,
+            $this->root.'/.file-rollback',
+            $this->layout === 'public-html' ? $this->root : null,
+        );
         $transaction->apply();
 
         return [$transaction, $release];
@@ -140,7 +152,7 @@ final class ProductionReleasePackageMatrixTest extends TestCase
 
     private function runArtisan(string ...$arguments): void
     {
-        $process = new Process([PHP_BINARY, 'artisan', ...$arguments], $this->root, $this->phpEnvironment());
+        $process = new Process([PHP_BINARY, 'artisan', ...$arguments], $this->applicationRoot, $this->phpEnvironment());
         $process->setTimeout(120);
         $process->run();
         $this->assertTrue($process->isSuccessful(), $process->getErrorOutput().$process->getOutput());
@@ -152,7 +164,7 @@ final class ProductionReleasePackageMatrixTest extends TestCase
         $environment = [
             'APP_ENV' => 'production',
             'DB_CONNECTION' => 'sqlite',
-            'DB_DATABASE' => $this->root.'/database/database.sqlite',
+            'DB_DATABASE' => $this->applicationRoot.'/database/database.sqlite',
             'WAYMARK_INSTALLED' => 'true',
         ];
         $scan = getenv('PHP_INI_SCAN_DIR');

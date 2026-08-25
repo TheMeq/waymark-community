@@ -13,6 +13,8 @@ test('production package matrix is archive-gated and covers success plus control
     assert.match(source, /ReleaseApplicationExtractor/);
     assert.match(source, /ReleasePackageVerifier/);
     assert.match(source, /ApplicationFileTransaction/);
+    assert.match(source, /public-html/);
+    assert.match(source, /matching deployment layouts/);
     assert.match(source, /test_real_prior_package_upgrades_with_migrations_data_and_media_retained/);
     assert.match(source, /test_controlled_activation_failure_rolls_real_package_files_and_database_back_to_prior_release/);
 });

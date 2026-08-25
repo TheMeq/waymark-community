@@ -74,6 +74,10 @@ final readonly class ApplyUpdate
             $packagePath = $operationDirectory.DIRECTORY_SEPARATOR.'release.zip';
             $this->downloader->download($check->metadata->packageUrl, $packagePath);
             $release = $this->packages->stage($packagePath, $check->metadata, $operationDirectory.DIRECTORY_SEPARATOR.'verified');
+            $installedLayout = $this->deploymentLayout($applicationRoot);
+            if ($release->layout !== $installedLayout) {
+                throw new RuntimeException('The release package layout does not match this Waymark installation.');
+            }
 
             // Deliberately unconditional: security releases use the same mandatory rollback boundary.
             $backup = $this->backups->start('pre-update');
@@ -84,6 +88,7 @@ final readonly class ApplyUpdate
                 'application_root' => $applicationRoot,
                 'operation_directory' => $operationDirectory,
                 'release_directory' => $release->stagingDirectory,
+                'release_layout' => $release->layout,
                 'release_files' => array_map(fn (string $path): array => [
                     'path' => $path,
                     'sha256' => hash_file('sha256', $release->applicationPath($path)),
@@ -120,7 +125,12 @@ final readonly class ApplyUpdate
         $transaction = null;
         $pendingActivation = false;
         try {
-            $transaction = $this->files->prepare($release, $pending['application_root'], $pending['operation_directory'].DIRECTORY_SEPARATOR.'file-rollback');
+            $transaction = $this->files->prepare(
+                $release,
+                $pending['application_root'],
+                $pending['operation_directory'].DIRECTORY_SEPARATOR.'file-rollback',
+                $release->layout === 'public-html' ? dirname($pending['application_root']) : null,
+            );
             $maintenanceWasActive = $this->maintenance->active();
             if (! $maintenanceWasActive) {
                 $this->maintenance->enable('Waymark is applying a verified update.');
@@ -173,7 +183,8 @@ final readonly class ApplyUpdate
         if (! is_string($root) || dirname($root) === $root
             || ! is_file($root.DIRECTORY_SEPARATOR.'artisan')
             || ! is_file($root.DIRECTORY_SEPARATOR.'bootstrap'.DIRECTORY_SEPARATOR.'app.php')
-            || ! is_file($root.DIRECTORY_SEPARATOR.'public'.DIRECTORY_SEPARATOR.'index.php')) {
+            || ($this->deploymentLayout($root) === 'standard' && ! is_file($root.DIRECTORY_SEPARATOR.'public'.DIRECTORY_SEPARATOR.'index.php'))
+            || ($this->deploymentLayout($root) === 'public-html' && (! is_file(dirname($root).DIRECTORY_SEPARATOR.'index.php') || ! is_file($root.DIRECTORY_SEPARATOR.'.htaccess')))) {
             throw new RuntimeException('The configured application root is not a safe Waymark installation.');
         }
 
@@ -195,6 +206,7 @@ final readonly class ApplyUpdate
             || ! str_starts_with($operationDirectory, rtrim($stagingRoot, '\\/').DIRECTORY_SEPARATOR)
             || ! str_starts_with($releaseDirectory, $operationDirectory.DIRECTORY_SEPARATOR)
             || ! is_int($state['backup_id'] ?? null) || ! is_string($state['pending_version'] ?? null)
+            || ! in_array($state['release_layout'] ?? 'standard', ['standard', 'public-html'], true)
             || ! is_array($state['release_files'] ?? null) || ! is_array($state['release_deletes'] ?? null)) {
             throw new RuntimeException('The pending update safety-backup state is invalid.');
         }
@@ -227,7 +239,21 @@ final readonly class ApplyUpdate
             $deletes[] = $path;
         }
 
-        return new VerifiedReleasePackage($state['release_directory'], $state['pending_version'], $files, $deletes);
+        return new VerifiedReleasePackage($state['release_directory'], $state['pending_version'], $files, $deletes, $state['release_layout'] ?? 'standard');
+    }
+
+    private function deploymentLayout(string $applicationRoot): string
+    {
+        $marker = $applicationRoot.DIRECTORY_SEPARATOR.'DEPLOYMENT-LAYOUT';
+        if (! is_file($marker)) {
+            return 'standard';
+        }
+        $layout = trim((string) file_get_contents($marker));
+        if (! in_array($layout, ['standard', 'public-html'], true)) {
+            throw new RuntimeException('The installed Waymark deployment layout marker is invalid.');
+        }
+
+        return $layout;
     }
 
     private function verifyBackup(BackupRun $backup): void

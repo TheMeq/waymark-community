@@ -39,6 +39,8 @@ final readonly class FinalizeUpdate
             $pending['application_root'],
             $pending['rollback_directory'],
             $pending['rollback_records'],
+            $pending['release_layout'] ?? 'standard',
+            ($pending['release_layout'] ?? 'standard') === 'public-html' ? dirname($pending['application_root']) : null,
         );
         try {
             $this->runtime->activate($version, $pending['application_root']);
@@ -114,6 +116,7 @@ final readonly class FinalizeUpdate
             || ! str_starts_with($operationDirectory, rtrim($stagingRoot, '\\/').DIRECTORY_SEPARATOR)
             || ! is_string($rollbackDirectory) || ! str_starts_with($rollbackDirectory, $operationDirectory.DIRECTORY_SEPARATOR)
             || ! is_array($records) || ! is_int($state['backup_id'] ?? null)
+            || ! in_array($state['release_layout'] ?? 'standard', ['standard', 'public-html'], true)
             || ! is_string($state['pending_version'] ?? null) || ! is_bool($state['maintenance_was_active'] ?? null)
             || ! is_string($state['initiating_runtime_id'] ?? null) || strlen($state['initiating_runtime_id']) !== 64) {
             throw new RuntimeException('The pending update activation state is invalid.');

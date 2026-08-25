@@ -39,7 +39,7 @@ final class SetupController
             'preflight' => $requestedStep === SetupStep::ServerChecks
                 ? $this->submitStep->preflight($request)
                 : null,
-            'healthChecks' => $requestedStep === SetupStep::HealthCheck ? $this->setupHealth->checks() : [],
+            'healthChecks' => $requestedStep === SetupStep::HealthCheck ? $this->setupHealth->checks($request->root()) : [],
             'environmentFile' => $request->session()->get('waymark.setup.environment_file'),
             'environmentInstructions' => $request->session()->get('waymark.setup.environment_instructions'),
             'groupDetails' => $progress->data('group-details'),
@@ -101,7 +101,7 @@ final class SetupController
         }
 
         if ($requestedStep === SetupStep::HealthCheck) {
-            if (! $request->session()->get('waymark.setup.installed') || ! $this->setupHealth->ready()) {
+            if (! $request->session()->get('waymark.setup.installed') || ! $this->setupHealth->ready($request->root())) {
                 return redirect($requestedStep->path())
                     ->withErrors(['health' => 'Resolve the failed health checks before finishing setup.']);
             }

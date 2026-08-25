@@ -13,13 +13,16 @@ Shared hosting is an official target, not a fallback.
 
 PHP must provide `ctype`, `curl`, `dom`, `exif`, `fileinfo`, `filter`, `gd`, `hash`, `intl`, `json`, `mbstring`, `openssl`, `pdo`, `pdo_mysql`, `session`, `tokenizer`, `xml` and `zip`.
 
-## Install from the release ZIP
+## Choose a release ZIP
 
-1. Verify the downloaded ZIP against its adjacent SHA-256 and retain both files.
-2. Extract the ZIP and move the contents of `application/` into the private application directory; do not deploy from a source checkout.
-3. Choose one of the document-root layouts below, make `storage/` and `bootstrap/cache/` writable, and create an empty MySQL/MariaDB database with a least-privilege account.
-4. Visit `/setup`. The installer checks PHP/extensions, paths, sensitive-file exposure, database and mail, writes the private environment, runs migrations and creates the installation owner.
-5. Remove or protect the downloaded archive, sign in, confirm setup is locked, configure cron, and complete homepage/admin/media/email/System-health smoke checks.
+Waymark provides two packages generated from the same exact source commit:
+
+- `waymark-community-1.0.0-shared-hosting.zip` is preferred when the domain document root can point at the application's `public/` directory.
+- `waymark-community-1.0.0-public-html.zip` is the drop-in option when the hosting document root is fixed.
+
+Verify the selected ZIP against its adjacent SHA-256 and retain both files. Do not deploy from a source checkout.
+
+For either layout, create an empty MySQL/MariaDB database with a least-privilege account, visit `/setup`, and follow the wizard. The installer checks PHP/extensions, paths, sensitive-file exposure, database and mail, writes the private environment, runs migrations and creates the installation owner. After setup, remove the downloaded archive, confirm setup is locked, and complete homepage/admin/media/email/System-health smoke checks.
 
 Never copy an existing `.env` between hosts. Use new secrets and database credentials, and keep the recovery token in the group's password manager.
 
@@ -34,15 +37,13 @@ Never copy an existing `.env` between hosts. Use new secrets and database creden
 - permanent queue worker
 - developer tests
 
-## Preferred layout
+## Preferred configurable-document-root package
 
-Application internals and `.env` live outside the public document root. Domain points to Laravel `public/` where host allows. Where document root cannot be changed, release/setup guidance should support a safe split layout where only public assets/entry point are web-accessible.
+Application internals and `.env` live outside the public document root. Extract the `application/` directory from `waymark-community-1.0.0-shared-hosting.zip` into a private application location, make `storage/` and `bootstrap/cache/` writable, then point the domain at its `public/` directory.
 
 Setup must check that `.env` and internals are not publicly retrievable.
 
-### Configurable document root
-
-In the hosting control panel, unpack the release into an application directory outside the public document root. Configure the domain's document root as that application's `public` directory. A generic layout is:
+A generic layout is:
 
 ```text
 account-root/
@@ -53,19 +54,19 @@ account-root/
 
 Do not copy `.env`, `vendor`, `storage`, `bootstrap`, `config`, or application source into another publicly served directory.
 
-### Fixed `public_html` document root
+## Drop-in fixed-document-root package
 
-Some hosts do not allow the domain document root to change. Keep the release in a private application directory, copy only the contents of its `public` directory into `public_html`, and set `WAYMARK_APPLICATION_ROOT` to the absolute private application directory using the host's environment-variable facility. The bundled front controller uses that setting for `vendor`, `bootstrap`, `storage`, maintenance, and update paths.
+When the document root cannot be changed, upload `waymark-community-1.0.0-public-html.zip` and extract every file directly into an empty `public_html`, `htdocs`, `www`, or equivalent directory. Do not move files, copy a nested public directory, or edit `index.php`. Make `application/storage/` and `application/bootstrap/cache/` writable, then visit the domain.
 
 ```text
-account-root/
-├── applications/waymark/       private application root and .env
-└── public_html/                 copied public entry point and compiled assets only
+public_html/
+├── index.php                    public front controller
+├── .htaccess                    routing and directory-listing protection
+├── build/, images/, ...         public assets
+└── application/                 protected application, vendor, storage and private .env
 ```
 
-If the host cannot configure an environment variable, edit only the deployed `public_html/index.php` application-root assignment to point to the private application directory. Never put that host-specific path into the source repository or `.env` inside `public_html`.
-
-Before installation can finish, the setup wizard checks that the detected document root does not contain the application or `.env`, and that production debug output is disabled. Treat a warning that the configured and detected public paths differ as a prompt to verify the split layout in the file manager.
+This layout depends on Apache-compatible `.htaccess` overrides denying all requests to `/application/`. Before installation can finish, Waymark requests representative internal paths and blocks setup unless they are inaccessible. System Health continues to report this protection. If it reports exposure, stop using the site, ask the host to enable `.htaccess` overrides, or switch to the preferred package with a private application root.
 
 ## Scheduler and cron
 
@@ -75,4 +76,4 @@ When cron is unavailable, Waymark may run at most one deferred-photo job and one
 
 ## Release artifact
 
-Normal administrators install a prebuilt Shared Hosting Release ZIP with production PHP dependencies and compiled frontend assets already present.
+Both prebuilt ZIPs contain production PHP dependencies, compiled assets, installer, updater and recovery support. Neither requires Composer or Node at runtime.
