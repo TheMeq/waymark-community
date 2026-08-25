@@ -121,7 +121,7 @@ final class ReleaseArchiveVerifierTest extends TestCase
     {
         $this->write('DEPLOYMENT-LAYOUT', "public-html\n");
         $this->write('.htaccess', "Options -Indexes\nRequire all denied\nDeny from all\n");
-        $this->write('public/.htaccess', "Options -Indexes\nRewriteEngine On\nRewriteRule ^ index.php [L]\n");
+        $this->write('public/.htaccess', "Options -MultiViews -Indexes\nRewriteEngine On\nRewriteRule ^ index.php [L]\n");
         $this->write('public/index.php', "<?php require __DIR__.'/application/vendor/autoload.php'; \$app->usePublicPath(__DIR__);");
         $this->write('public/README.md', "# Waymark Community 1.0.0 public_html\n\nExtract into the document root and visit /setup. PHP 8.3+, MySQL and MariaDB are supported. Composer and Node are not required at runtime. See docs/deployment and SECURITY.md.\n");
 

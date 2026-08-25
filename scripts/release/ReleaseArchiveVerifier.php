@@ -280,7 +280,7 @@ final class ReleaseArchiveVerifier
         if (! str_contains($internalRules, 'Options -Indexes')
             || ! str_contains($internalRules, 'Require all denied')
             || ! str_contains($internalRules, 'Deny from all')
-            || ! str_contains($publicRules, 'Options -Indexes')
+            || ! str_contains($publicRules, '-Indexes')
             || ! str_contains($publicRules, 'RewriteEngine On')
             || ! str_contains($frontController, "__DIR__.'/application")
             || ! str_contains($frontController, 'usePublicPath(__DIR__)')) {
