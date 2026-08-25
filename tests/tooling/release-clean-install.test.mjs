@@ -78,3 +78,9 @@ test('prefixed clean install audits generated application URLs and persisted app
     assert.match(harness, /readEnvironmentValue\(.*'APP_URL'/s);
     assert.match(harness, /logout_location/);
 });
+
+test('real-server setup submissions wait for navigation before the next step', () => {
+    const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
+
+    assert.match(harness, /async function submitSetupStep[\s\S]*?Promise\.all\(\[[\s\S]*?page\.waitForURL\(/);
+});
