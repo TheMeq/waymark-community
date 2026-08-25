@@ -32,6 +32,12 @@ const database = {
     password: process.env.PHASE10_INSTALL_DB_PASSWORD ?? 'waymark-test-password',
 };
 if (!plan.databases.includes(database.driver)) throw new Error('PHASE10_INSTALL_DB_DRIVER must be mysql or mariadb.');
+const emailMode = process.env.PHASE10_INSTALL_EMAIL_MODE ?? 'configured';
+if (!['configured', 'later'].includes(emailMode)) throw new Error('PHASE10_INSTALL_EMAIL_MODE must be configured or later.');
+const databaseScenario = process.env.PHASE10_INSTALL_DB_SCENARIO ?? 'empty';
+if (!['empty', 'exact-partial', 'generic-partial', 'ambiguous'].includes(databaseScenario)) {
+    throw new Error('PHASE10_INSTALL_DB_SCENARIO is unsupported.');
+}
 
 const archiveName = basename(archivePath);
 const requestedLayout = archiveName.endsWith('-public-html.zip') ? 'public-html' : 'standard';
@@ -42,7 +48,7 @@ if (requestedLayout !== 'public-html' && urlPrefix !== '/') {
 }
 const deploymentSegments = urlPrefix.split('/').filter(Boolean);
 const evidenceSuffix = urlPrefix === '/' ? 'root' : `prefix-${deploymentSegments.join('-')}`;
-const evidenceRoot = resolve(`test-results/phase10-clean-install-${requestedLayout}-${database.driver}-${evidenceSuffix}`);
+const evidenceRoot = resolve(`test-results/phase10-clean-install-${requestedLayout}-${database.driver}-${evidenceSuffix}-${emailMode}-${databaseScenario}`);
 const configuredInstallRoot = process.env.PHASE10_INSTALL_DESTINATION === undefined
     ? null
     : resolve(process.env.PHASE10_INSTALL_DESTINATION);
@@ -62,6 +68,19 @@ const browserBaseUrl = `${browserOrigin}${urlPrefix === '/' ? '' : urlPrefix.sli
 const applicationUrl = (path = '/') => `${browserBaseUrl}${path === '/' ? '/' : `/${path.replace(/^\/+/, '')}`}`;
 rmSync(evidenceRoot, { recursive: true, force: true });
 mkdirSync(evidenceRoot, { recursive: true });
+
+if (databaseScenario !== 'empty') {
+    runTool('php', [
+        'tests/tooling/prepare-installer-database.php',
+        database.driver,
+        database.host,
+        database.port,
+        database.name,
+        database.username,
+        database.password,
+        databaseScenario,
+    ], { cwd: root, env: process.env, stdio: 'inherit' });
+}
 
 runTool('php', ['scripts/extract-release.php', archivePath, installRoot], { cwd: root, env: process.env, stdio: 'inherit' });
 const applicationRoot = requestedLayout === 'public-html' ? resolve(installRoot, 'application') : installRoot;
@@ -125,12 +144,41 @@ try {
     await submitSetupStep(page, 'Continue', browserBaseUrl, urlPrefix);
 
     await page.getByLabel('Database type').selectOption(database.driver);
-    await page.getByLabel('Host').fill(database.host);
+    await page.getByLabel('Database host').fill(database.host);
     await page.getByLabel('Port').fill(database.port);
     await page.getByLabel('Database name').fill(database.name);
     await page.getByLabel('Username').fill(database.username);
     await page.getByLabel('Password').fill(database.password);
-    await submitSetupStep(page, 'Test connection and continue', browserBaseUrl, urlPrefix);
+
+    if (databaseScenario === 'ambiguous') {
+        await page.getByRole('button', { name: 'Verify database and continue' }).click();
+        await expect(page.getByText('This database already contains data that Waymark cannot safely use')).toBeVisible();
+        const result = {
+            archive: archiveName,
+            layout: requestedLayout,
+            deployment_prefix: urlPrefix,
+            database_scenario: databaseScenario,
+            non_empty_database_blocked: true,
+            composer_at_runtime: false,
+            node_at_runtime: false,
+        };
+        writeFileSync(resolve(evidenceRoot, 'result.json'), `${JSON.stringify(result, null, 2)}\n`);
+        process.stdout.write(`${JSON.stringify(result)}\n`);
+    } else {
+        if (['exact-partial', 'generic-partial'].includes(databaseScenario)) {
+            await page.getByRole('button', { name: 'Verify database and continue' }).click();
+            await expect(page.getByRole('heading', { name: 'Incomplete Waymark installation detected' })).toBeVisible();
+            await page.getByLabel(/Type RESET WAYMARK INSTALLATION/).fill('RESET WAYMARK INSTALLATION');
+            await submitSetupStep(page, 'Reset incomplete installation and retry', browserBaseUrl, urlPrefix);
+            await expect(page.getByText('The incomplete Waymark installation was reset')).toBeVisible();
+            await page.getByLabel('Database type').selectOption(database.driver);
+            await page.getByLabel('Database host').fill(database.host);
+            await page.getByLabel('Port').fill(database.port);
+            await page.getByLabel('Database name').fill(database.name);
+            await page.getByLabel('Username').fill(database.username);
+            await page.getByLabel('Password').fill(database.password);
+        }
+        await submitSetupStep(page, 'Verify database and continue', browserBaseUrl, urlPrefix);
 
     await page.getByLabel('Group name').fill(`Release ${database.driver} Walking Group`);
     await page.getByLabel('Short name').fill(database.driver === 'mysql' ? 'RMG' : 'RDB');
@@ -144,25 +192,39 @@ try {
     await page.getByLabel('Confirm password').fill('WaymarkRelease10!');
     await submitSetupStep(page, 'Continue', browserBaseUrl, urlPrefix);
 
-    await page.getByLabel('SMTP host').fill(process.env.PHASE10_INSTALL_SMTP_HOST ?? (requestedLayout === 'public-html' ? 'host.docker.internal' : '127.0.0.1'));
-    await page.getByLabel('Port').fill(String(smtpPort));
-    await page.getByLabel('Encryption').selectOption('');
-    await page.getByLabel('From address').fill('waymark@example.test');
-    await page.getByLabel('Send test to').fill('owner@example.test');
-    await submitSetupStep(page, 'Send test and continue', browserBaseUrl, urlPrefix);
+    if (emailMode === 'later') {
+        await page.getByLabel('Set up email later').check();
+    } else {
+        await page.getByLabel('Configure email now').check();
+        await page.getByLabel('SMTP host').fill(process.env.PHASE10_INSTALL_SMTP_HOST ?? (requestedLayout === 'public-html' ? 'host.docker.internal' : '127.0.0.1'));
+        await page.getByLabel('Port').fill(String(smtpPort));
+        await page.getByLabel('Encryption').selectOption('');
+        await page.getByLabel('From address').fill('waymark@example.test');
+        await page.getByLabel('Send test to').fill('owner@example.test');
+    }
+    await submitSetupStep(page, 'Continue', browserBaseUrl, urlPrefix);
     await submitSetupStep(page, 'Continue', browserBaseUrl, urlPrefix);
 
-    const recoveryToken = 'Release-Recovery-Token-10!';
-    await page.getByLabel('Recovery token', { exact: true }).fill(recoveryToken);
-    await page.getByLabel('Confirm recovery token').fill(recoveryToken);
+    await page.getByRole('button', { name: 'Generate secure recovery key' }).click();
+    const recoveryKey = page.locator('#recovery-key');
+    await expect(recoveryKey).not.toHaveValue('');
+    await page.getByLabel(/I have saved the recovery key/).check();
     await submitSetupStep(page, 'Continue', browserBaseUrl, urlPrefix);
     await submitSetupStep(page, 'Install Waymark Community', browserBaseUrl, urlPrefix);
-    await page.getByRole('heading', { name: 'Final health check' }).waitFor();
-    await submitSetupStep(page, 'Finish setup', browserBaseUrl, urlPrefix);
+    await page.getByRole('heading', { name: 'Installation progress' }).waitFor();
+    const progressStageBeforeRefresh = await page.locator('#installation-status').getAttribute('data-stage');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading', { name: 'Installation progress' })).toBeVisible();
+    if (progressStageBeforeRefresh === null) throw new Error('Installation progress did not expose a persisted stage.');
+    await page.waitForURL(/\/admin\/login(?:\?.*)?$/, { timeout: 180_000 });
 
     const installedAppUrl = readEnvironmentValue(resolve(applicationRoot, '.env'), 'APP_URL');
     if (installedAppUrl !== browserBaseUrl) {
         throw new Error(`Installer persisted APP_URL=${installedAppUrl}; expected ${browserBaseUrl}.`);
+    }
+    const installedMailState = readEnvironmentValue(resolve(applicationRoot, '.env'), 'WAYMARK_MAIL_CONFIGURED');
+    if (installedMailState !== (emailMode === 'configured' ? 'true' : 'false')) {
+        throw new Error(`Installer persisted WAYMARK_MAIL_CONFIGURED=${installedMailState}; expected mode ${emailMode}.`);
     }
 
     await page.goto(applicationUrl('/login'));
@@ -235,6 +297,9 @@ try {
         archive: archiveName,
         layout: requestedLayout,
         deployment_prefix: urlPrefix,
+        email_mode: emailMode,
+        database_scenario: databaseScenario,
+        staged_install_refresh_resume: 'passed',
         version: readFileSync(resolve(applicationRoot, 'VERSION'), 'utf8').trim(),
         database: `${database.driver}@${database.host}:${database.port}/${database.name}`,
         started_without_environment_file: true,
@@ -250,6 +315,7 @@ try {
     };
     writeFileSync(resolve(evidenceRoot, 'result.json'), `${JSON.stringify(result, null, 2)}\n`);
     process.stdout.write(`${JSON.stringify(result)}\n`);
+    }
 } finally {
     await browser.close();
     for (const socket of smtpSockets) socket.destroy();

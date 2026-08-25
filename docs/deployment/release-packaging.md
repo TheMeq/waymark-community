@@ -37,7 +37,7 @@ PHASE10_INSTALL_DB_DRIVER=mysql npm run test:release-install -- --archive=dist/w
 PHASE10_INSTALL_DB_DRIVER=mariadb npm run test:release-install -- --archive=dist/waymark-community-1.0.0-public-html.zip --url-prefix=/demo-site/ndwg/
 ```
 
-The public-html matrix uses the repository's PHP 8.3 Apache fixture so real `.htaccess` routing, nested URL-prefix handling and `/application/` denial are exercised. The database connection variables use the `PHASE10_INSTALL_DB_` prefix documented by the script. Each run requires its own empty test database. Node, Playwright and Docker are external verification tools only; none is present in or required by the installed Waymark runtime.
+The public-html matrix uses the repository's PHP 8.3 Apache fixture so real `.htaccess` routing, nested URL-prefix handling and `/application/` denial are exercised. The database connection variables use the `PHASE10_INSTALL_DB_` prefix documented by the script. Set `PHASE10_INSTALL_EMAIL_MODE` to `configured` or `later`. Set `PHASE10_INSTALL_DB_SCENARIO` to `exact-partial`, `generic-partial`, or `ambiguous` to exercise controlled recovery/blocking; omit it for an empty-database installation. Each run requires its own empty test database before any optional fixture is applied. Node, Playwright and Docker are external verification tools only; none is present in or required by the installed Waymark runtime.
 
 ## Production-package upgrade matrix
 

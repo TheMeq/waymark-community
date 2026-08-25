@@ -86,3 +86,32 @@ test('real-server setup submissions wait for navigation before the next step', (
     assert.match(harness, /async function submitSetupStep[\s\S]*?Promise\.all\(\[[\s\S]*?page\.waitForURL\(/);
     assert.match(harness, /getByRole\('button',[\s\S]*?\.click\(\{ timeout: 60_000 \}\)/);
 });
+
+test('release install drives the persisted installer and verifies refresh resume', () => {
+    const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
+
+    assert.match(harness, /Installation progress/);
+    assert.match(harness, /progressStageBeforeRefresh/);
+    assert.match(harness, /page\.reload/);
+    assert.match(harness, /page\.waitForURL\(/);
+    assert.match(harness, /admin\\\/login/);
+    assert.doesNotMatch(harness, /Final health check/);
+});
+
+test('release install covers configured and deliberately skipped email modes', () => {
+    const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
+
+    assert.match(harness, /PHASE10_INSTALL_EMAIL_MODE/);
+    assert.match(harness, /Set up email later/);
+    assert.match(harness, /WAYMARK_MAIL_CONFIGURED/);
+});
+
+test('release install supports controlled partial and ambiguous database fixtures', () => {
+    const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
+
+    assert.match(harness, /PHASE10_INSTALL_DB_SCENARIO/);
+    assert.match(harness, /exact-partial/);
+    assert.match(harness, /generic-partial/);
+    assert.match(harness, /ambiguous/);
+    assert.match(harness, /Reset incomplete installation and retry/);
+});
