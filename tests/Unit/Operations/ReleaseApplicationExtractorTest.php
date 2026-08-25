@@ -77,7 +77,7 @@ final class ReleaseApplicationExtractorTest extends TestCase
     {
         file_put_contents($this->directory.'/application/DEPLOYMENT-LAYOUT', "public-html\n");
         file_put_contents($this->directory.'/application/.htaccess', "Options -Indexes\nRequire all denied\nDeny from all\n");
-        file_put_contents($this->directory.'/application/public/.htaccess', "Options -Indexes\nRewriteEngine On\n");
+        file_put_contents($this->directory.'/application/public/.htaccess', "Options -Indexes\n<FilesMatch \"^\\.\">\nRequire all denied\nDeny from all\n</FilesMatch>\nRewriteEngine On\n");
         file_put_contents($this->directory.'/application/public/index.php', "<?php __DIR__.'/application'; usePublicPath(__DIR__);");
         file_put_contents($this->directory.'/application/public/README.md', $this->operatorReadme());
         $destination = $this->directory.'/public-html';

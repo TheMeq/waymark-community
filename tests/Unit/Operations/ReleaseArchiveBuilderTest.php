@@ -131,7 +131,7 @@ final class ReleaseArchiveBuilderTest extends TestCase
     {
         file_put_contents($this->directory.'/application/DEPLOYMENT-LAYOUT', "public-html\n");
         file_put_contents($this->directory.'/application/.htaccess', "Options -Indexes\nRequire all denied\nDeny from all\n");
-        file_put_contents($this->directory.'/application/public/.htaccess', "Options -Indexes\nRewriteEngine On\nRewriteRule ^ index.php [L]\n");
+        file_put_contents($this->directory.'/application/public/.htaccess', "Options -Indexes\n<FilesMatch \"^\\.\">\nRequire all denied\nDeny from all\n</FilesMatch>\nRewriteEngine On\nRewriteRule ^ index.php [L]\n");
         mkdir($this->directory.'/application/public/images', 0700, true);
         file_put_contents($this->directory.'/application/public/images/icon.png', 'icon');
         file_put_contents($this->directory.'/application/public/index.php', "<?php require __DIR__.'/application/vendor/autoload.php'; \$app->usePublicPath(__DIR__);");
