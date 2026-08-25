@@ -1,0 +1,47 @@
+{
+    "payload": {
+        "schema": 1,
+        "channel": "stable",
+        "version": "1.0.0",
+        "published_at": "2026-08-25T08:20:01Z",
+        "security_release": false,
+        "summary": "Waymark Community 1.0.0 stable release for the drop-in public_html layout.",
+        "release_notes": [
+            "First stable Waymark Community release.",
+            "Use this feed when Waymark was extracted directly into public_html, htdocs or www.",
+            "The updater preserves the protected public_html application layout."
+        ],
+        "package_url": "https://themeq.github.io/waymark-community/downloads/1.0.0/waymark-community-1.0.0-public-html.zip",
+        "package_sha256": "78c01f501ab92513e318ab02ac6d6bd838259b990c31754a823b9933e43b94d8",
+        "package_size_bytes": 41332474,
+        "requirements": {
+            "php": "8.3.0",
+            "extensions": [
+                "ctype",
+                "curl",
+                "dom",
+                "exif",
+                "fileinfo",
+                "filter",
+                "gd",
+                "hash",
+                "intl",
+                "json",
+                "mbstring",
+                "openssl",
+                "pdo",
+                "pdo_mysql",
+                "session",
+                "tokenizer",
+                "xml",
+                "zip"
+            ],
+            "database": {
+                "mysql": "8.4.0",
+                "mariadb": "11.4.0"
+            },
+            "disk_free_bytes": 150000000
+        }
+    },
+    "signature": "XmHvSTbMyo/ybjCyYeGZFcR9rVoltar8Jq879axfDNyM/tgGkZ+h2/EURLOaL+y1cJzKXQyIGI1YbZumq6BP7PO84dv4/N01laIrBjD/Bfp5conL1qNpFFNPupilFDnwQMmZx2rw5GT9Yj/ZHM0mvta5Cju+U4JqOUrTZCF9jL26oNjjTmnYLurA7I+0wj0y5vmERN0Kcz1F3IaEs7iq4GQS1By2TBT0uc9C4Z+1M7Y/5izcNldApxyt/trJNUskbOMAN3gm2AjELw/VYzgCBZ+n9kzRTz5SEJnzl+5aVnk+0m/klINrFAGU9lwLArYAhpYLPFNGqVLPiUkUbg26c+LUyC4CUr7PswdcQ5BhEgtfmWcdzSPKIn007dCCM8bKT/xDsY/Bp0xA+yj4aYSYWWRTh2Hy4L7SdLa+QVhlDNyoFDsAP7TrfiNlWBcfA9uZsAQHSj3YZtF1meVUkAmXU8mOEEoAoUCYlDVPvijmbdxf2YMoYOJY5N6c+X1JMHVa"
+}

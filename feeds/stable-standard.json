@@ -1,0 +1,47 @@
+{
+    "payload": {
+        "schema": 1,
+        "channel": "stable",
+        "version": "1.0.0",
+        "published_at": "2026-08-25T08:20:01Z",
+        "security_release": false,
+        "summary": "Waymark Community 1.0.0 stable release for standard Shared Hosting.",
+        "release_notes": [
+            "First stable Waymark Community release.",
+            "Use this feed when the hosting document root points at application/public.",
+            "Includes production dependencies, compiled assets, setup, update, backup and recovery support."
+        ],
+        "package_url": "https://themeq.github.io/waymark-community/downloads/1.0.0/waymark-community-1.0.0-shared-hosting.zip",
+        "package_sha256": "a6d414b4b754e8373217f5e3ff97d6d5f872b3abf8ff385cd07f213612eb20d7",
+        "package_size_bytes": 41334134,
+        "requirements": {
+            "php": "8.3.0",
+            "extensions": [
+                "ctype",
+                "curl",
+                "dom",
+                "exif",
+                "fileinfo",
+                "filter",
+                "gd",
+                "hash",
+                "intl",
+                "json",
+                "mbstring",
+                "openssl",
+                "pdo",
+                "pdo_mysql",
+                "session",
+                "tokenizer",
+                "xml",
+                "zip"
+            ],
+            "database": {
+                "mysql": "8.4.0",
+                "mariadb": "11.4.0"
+            },
+            "disk_free_bytes": 150000000
+        }
+    },
+    "signature": "Weh3OpuiFr1svqBe+ihF7KI8eZmNfSyRzWzk1MHlThBA7Q8I384936h+PgZoyI8MBcLMOeDbCfepHkGBRaVYF5zXau8aUsir/zBgcHXjNH6gEvRwC0zfIWYJxjUhFVokg7rjSN3/wanFeDj+XPlS1xQI9Bh7y1kEGRvbtSs+Qz9HwoZSX4xDByaad7a7gi9hJRi+SeVJAAaDsIOUzLNNsp9+e3plGiaBiaXC0cXbORVhNUvp0esB5n9eEnlJTQPcRaFKcY8wniNJBirD99uyZZ7qBZ2XCOv/GIGuxKkITNpVCtGkxXkNifv1N9SkfDJMyLTrhjWq8iQDI6m2q2yhn4Gfw5LtiWWFQdPy1F9YgzYABTVpJhgTNtB34tdoCwxHgxuKVM7CSyNGED+tWWv03IUR7bOgbJnWMQF2f9C+h639i9TtQ6ZRviqRGCTtsJfV58WM1A65vb8bFXP/Oc3FEJW6BIxOj3QSC7XkBwtuvJ4ZiQR8H69jThxGkBrR14/k"
+}
