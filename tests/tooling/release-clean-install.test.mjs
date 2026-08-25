@@ -98,6 +98,13 @@ test('release install drives the persisted installer and verifies refresh resume
     assert.doesNotMatch(harness, /Final health check/);
 });
 
+test('release install locates the required administrator password without an obsolete exact label', () => {
+    const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
+
+    assert.match(harness, /getByLabel\(\/\^Password\\b\//);
+    assert.doesNotMatch(harness, /getByLabel\('Password', \{ exact: true \}\)/);
+});
+
 test('release install covers configured and deliberately skipped email modes', () => {
     const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
 

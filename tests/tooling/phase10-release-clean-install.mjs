@@ -188,7 +188,7 @@ try {
 
     await page.getByLabel('Name').fill('Installation Owner');
     await page.getByLabel('Email').fill('owner@example.test');
-    await page.getByLabel('Password', { exact: true }).fill('WaymarkRelease10!');
+    await page.getByLabel(/^Password\b/).fill('WaymarkRelease10!');
     await page.getByLabel('Confirm password').fill('WaymarkRelease10!');
     await submitSetupStep(page, 'Continue', browserBaseUrl, urlPrefix);
 
