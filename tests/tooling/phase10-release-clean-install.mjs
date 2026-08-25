@@ -61,7 +61,8 @@ if (!existsSync(resolve(publicRoot, 'build/manifest.json'))) {
     throw new Error('Release install tree is missing the compiled asset manifest.');
 }
 
-const smtp = createSmtpFixture();
+const smtpSockets = new Set();
+const smtp = createSmtpFixture(smtpSockets);
 const smtpBindHost = requestedLayout === 'public-html' ? '0.0.0.0' : '127.0.0.1';
 await new Promise((resolveListening, reject) => {
     smtp.once('error', reject);
@@ -196,7 +197,7 @@ try {
     process.stdout.write(`${JSON.stringify(result)}\n`);
 } finally {
     await browser.close();
-    smtp.closeAllConnections();
+    for (const socket of smtpSockets) socket.destroy();
     await new Promise((resolveClosed) => smtp.close(resolveClosed));
     server.kill();
     if (requestedLayout === 'public-html') {
@@ -206,8 +207,10 @@ try {
     }
 }
 
-function createSmtpFixture() {
+function createSmtpFixture(sockets) {
     return createServer((socket) => {
+        sockets.add(socket);
+        socket.once('close', () => sockets.delete(socket));
         let buffer = '';
         let acceptingData = false;
         socket.write('220 localhost Waymark test SMTP\r\n');

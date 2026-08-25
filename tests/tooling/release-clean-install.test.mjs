@@ -54,8 +54,8 @@ test('public-html clean-install uses a host name reachable by the Apache self-pr
     assert.match(harness, /waitForHttp\(`\$\{browserBaseUrl\}\/setup`/);
 });
 
-test('clean-install mail fixture closes active container connections during teardown', () => {
+test('clean-install mail fixture destroys active container connections during teardown', () => {
     const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
 
-    assert.match(harness, /smtp\.closeAllConnections\(\);\s+await new Promise\(\(resolveClosed\) => smtp\.close\(resolveClosed\)\);/);
+    assert.match(harness, /for \(const socket of smtpSockets\) socket\.destroy\(\);\s+await new Promise\(\(resolveClosed\) => smtp\.close\(resolveClosed\)\);/);
 });
