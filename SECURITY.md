@@ -1,20 +1,41 @@
 # Security Policy — Waymark Community
 
+## Reporting a security problem
+
+Thank you for taking the time to report a possible vulnerability responsibly. Please report it privately through [GitHub's private vulnerability reporting form](https://github.com/TheMeq/waymark-community/security/advisories/new). Do not open a public issue for a suspected security problem.
+
+A helpful report includes:
+
+- the affected Waymark version;
+- a clear description of the problem;
+- steps that reproduce it;
+- the likely impact; and
+- a suggested fix or mitigation, if you have one.
+
+Please do not include real member information unless it is essential and you have permission to share it. Do not test against a live walking-group installation without the owner's permission. We do not publish a guaranteed response or fix timetable, but private reports are the supported way to raise suspected vulnerabilities.
+
 ## Supported versions
 
-Before the first public v1 release, only the final reviewed release candidate is supported. After release, the current stable v1 patch line receives security fixes; older development snapshots and modified third-party deployments are not supported versions.
+The current stable v1 patch release receives security fixes. At present that release is `v1.0.0`.
 
-## Reporting a vulnerability
+Older development snapshots, superseded patch releases and independently modified deployments are not supported release versions. If you are unsure whether a problem comes from Waymark, the hosting account or a local modification, please still report it privately; that distinction can be worked out safely afterwards.
 
-Report vulnerabilities privately through the repository host's private security-advisory channel or directly to the maintainer contact published with the release. Do not open a public issue, include real member data, or test against a live group without written permission. Include affected version, impact, reproduction steps and any suggested mitigation. Receipt will be acknowledged privately and disclosure coordinated after a fix is available.
+## Running Waymark safely
 
-## Deployment boundary
+Start with an official release package and verify its SHA-256 checksum before installation. Keep PHP and the database on supported versions, use HTTPS, and run production installations with `APP_DEBUG=false`.
 
-- Never commit or send `.env`, passwords, keys, member exports, production databases, private documents, uploads, logs or backups.
-- Run with `APP_DEBUG=false`; keep `.env`, application source and private storage outside the public document root.
-- Use a supported PHP/database release, HTTPS, strong unique secrets, least-privilege database credentials and reliable off-host backups.
-- Complete the setup exposure checks, configure cron where possible, monitor System health and apply verified stable updates.
-- Privileged operations require fresh re-authentication and, when enabled, a fresh two-factor challenge.
-- Uploads are allowlisted, MIME inspected, safely named and published only as processed derivatives with EXIF removed.
+The preferred hosting layout keeps `.env`, application source and private storage outside the public document root. If the drop-in `public_html` package is used, its protected `application/` directory must not be publicly retrievable; the setup wizard and System Health check this boundary. Stop and correct the host configuration if either reports exposure.
 
-Operational support covers unmodified official Shared Hosting Release ZIPs on the documented runtime. Hosting-account compromise, custom code and unsupported server changes remain the deployer's responsibility, but suspected Waymark vulnerabilities should still be reported privately.
+Use strong, unique secrets and a least-privilege database account. Keep reliable off-host backups, protect the recovery token and any backup passphrases, configure cron where the host permits it, review System Health, and apply only updates accepted through the signed stable feed.
+
+Waymark asks for fresh re-authentication before sensitive administration. A fresh two-factor challenge is also required when the account has 2FA enabled. Do not weaken these controls in a custom deployment.
+
+Uploads should continue through Waymark's allow-listed, MIME-inspected processing path. Published photographs use safely generated names and processed derivatives with EXIF removed; do not bypass that path by placing member files directly in public storage.
+
+Never commit, send or publish `.env`, passwords, keys, member exports, production databases, private documents, uploads, logs or backups when asking for help.
+
+## What this policy covers
+
+Private reports about vulnerabilities in Waymark itself are welcome. Operational support applies to unmodified official Shared Hosting Release ZIPs on the documented runtime.
+
+A compromised hosting account, unsupported server configuration or insecure custom code may sit outside the Waymark codebase, but a reporter is not expected to diagnose that boundary before getting in touch. Report the suspected issue privately and include what you know without exposing member data.
