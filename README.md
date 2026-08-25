@@ -50,7 +50,7 @@ Start with the [shared-hosting installation guide](docs/deployment/shared-hostin
 
 ## Project status
 
-Waymark Community `v1.0.0` is the current stable public release. Both supported hosting packages and their checksums are available from the [GitHub release](https://github.com/TheMeq/waymark-community/releases/tag/v1.0.0).
+Waymark Community `v1.0.0` remains the current stable public release. The `v1.0.1` shared-host installer maintenance candidate is being prepared for independent acceptance and has not yet been published. Existing `v1.0.0` tags, packages and release history remain immutable.
 
 ## Source/developer checkout
 

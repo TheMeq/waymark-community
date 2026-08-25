@@ -4,9 +4,21 @@ All notable Waymark Community changes are recorded here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-25
+
+### Fixed
+
+- Improved real shared-host installation reliability, including setup beneath supported URL prefixes and subdirectories.
+- Made initial email delivery optional, with clear consequences and a supported way to configure and test it later.
+- Clarified required fields and recovery-key guidance, added secure recovery-key generation, and corrected module checkbox sizing and alignment.
+- Replaced the single long installation request with persisted, resumable stages and safe non-sensitive diagnostics.
+- Added database capability checks plus controlled detection, reset and retry for interrupted fresh installations without changing the migration-defined schema.
+
+## [1.0.0] - 2026-08-25
+
 ### Added
 
-- Initial Waymark Community v1 release candidate: shared-host installer, public walking-group site, administration, operations/recovery, portability and reproducible shared-hosting packaging.
+- Initial Waymark Community v1 release: shared-host installer, public walking-group site, administration, operations/recovery, portability and reproducible shared-hosting packaging.
 
 ## Release-note convention
 

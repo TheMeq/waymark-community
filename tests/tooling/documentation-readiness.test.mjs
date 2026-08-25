@@ -46,7 +46,7 @@ test('operator and release guides cover distinct install update backup and disas
     assert.match(documents[3], /off-host/i);
     assert.match(documents[4], /exact.*version/i);
     assert.match(documents[5], /verify-release\.php/);
-    assert.match(documents[0], /waymark-community-1\.0\.0-public-html\.zip/);
+    assert.match(documents[0], /waymark-community-1\.0\.1-public-html\.zip/);
     assert.match(documents[0], /extract.*directly.*public_html/is);
     assert.doesNotMatch(documents[0], /copy only the contents of its `public` directory/i);
     assert.match(documents[5], /runtime application.*operator documentation/is);

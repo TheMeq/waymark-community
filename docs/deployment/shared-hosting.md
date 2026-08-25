@@ -17,8 +17,8 @@ PHP must provide `ctype`, `curl`, `dom`, `exif`, `fileinfo`, `filter`, `gd`, `ha
 
 Waymark provides two packages generated from the same exact source commit:
 
-- `waymark-community-1.0.0-shared-hosting.zip` is preferred when the domain document root can point at the application's `public/` directory.
-- `waymark-community-1.0.0-public-html.zip` is the drop-in option when the hosting document root is fixed.
+- `waymark-community-1.0.1-shared-hosting.zip` is preferred when the domain document root can point at the application's `public/` directory.
+- `waymark-community-1.0.1-public-html.zip` is the drop-in option when the hosting document root is fixed.
 
 Verify the selected ZIP against its adjacent SHA-256 and retain both files. Do not deploy from a source checkout.
 
@@ -39,7 +39,7 @@ Never copy an existing `.env` between hosts. Use new secrets and database creden
 
 ## Preferred configurable-document-root package
 
-Application internals and `.env` live outside the public document root. Extract the `application/` directory from `waymark-community-1.0.0-shared-hosting.zip` into a private application location, make `storage/` and `bootstrap/cache/` writable, then point the domain at its `public/` directory.
+Application internals and `.env` live outside the public document root. Extract the `application/` directory from `waymark-community-1.0.1-shared-hosting.zip` into a private application location, make `storage/` and `bootstrap/cache/` writable, then point the domain at its `public/` directory.
 
 Setup must check that `.env` and internals are not publicly retrievable.
 
@@ -56,7 +56,7 @@ Do not copy `.env`, `vendor`, `storage`, `bootstrap`, `config`, or application s
 
 ## Drop-in fixed-document-root package
 
-When the document root cannot be changed, upload `waymark-community-1.0.0-public-html.zip` and extract every file directly into an empty `public_html`, `htdocs`, `www`, or equivalent directory. Do not move files, copy a nested public directory, or edit `index.php`. Make `application/storage/` and `application/bootstrap/cache/` writable, then visit the domain.
+When the document root cannot be changed, upload `waymark-community-1.0.1-public-html.zip` and extract every file directly into an empty `public_html`, `htdocs`, `www`, or equivalent directory. Do not move files, copy a nested public directory, or edit `index.php`. Make `application/storage/` and `application/bootstrap/cache/` writable, then visit the domain.
 
 ```text
 public_html/

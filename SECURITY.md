@@ -16,7 +16,7 @@ Please do not include real member information unless it is essential and you hav
 
 ## Supported versions
 
-The current stable v1 patch release receives security fixes. At present that release is `v1.0.0`.
+The current stable v1 patch release receives security fixes. At present that public release is `v1.0.0`; the `v1.0.1` maintenance candidate is not supported as a release until it is independently accepted and published.
 
 Older development snapshots, superseded patch releases and independently modified deployments are not supported release versions. If you are unsure whether a problem comes from Waymark, the hosting account or a local modification, please still report it privately; that distinction can be worked out safely afterwards.
 
