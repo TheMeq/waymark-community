@@ -21,6 +21,7 @@ test('release clean-install plan uses only the verified ZIP and runtime PHP', ()
     assert.equal(plan.node_at_runtime, false);
     assert.deepEqual(plan.layouts, ['standard', 'public-html']);
     assert.deepEqual(plan.databases, ['mysql', 'mariadb']);
+    assert.deepEqual(plan.deployment_prefixes, ['/', '/demo-site/ndwg/']);
     assert.deepEqual(plan.smoke, ['web installer', 'public homepage', 'admin login', 'site media upload', 'installer lockout', 'internal application protection']);
 });
 
@@ -50,12 +51,30 @@ test('public-html clean-install checks compiled assets in the public web root', 
 test('public-html clean-install uses a host name reachable by the Apache self-protection probe', () => {
     const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
 
-    assert.match(harness, /const browserBaseUrl = requestedLayout === 'public-html'\s+\? `http:\/\/host\.docker\.internal:\$\{appPort\}`/);
-    assert.match(harness, /waitForHttp\(`\$\{browserBaseUrl\}\/setup`/);
+    assert.match(harness, /const browserOrigin = requestedLayout === 'public-html'\s+\? `http:\/\/host\.docker\.internal:\$\{appPort\}`/);
+    assert.match(harness, /waitForHttp\(applicationUrl\('\/setup'\)/);
 });
 
 test('clean-install mail fixture destroys active container connections during teardown', () => {
     const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
 
     assert.match(harness, /for \(const socket of smtpSockets\) socket\.destroy\(\);\s+await new Promise\(\(resolveClosed\) => smtp\.close\(resolveClosed\)\);/);
+});
+
+test('public-html clean install can mount the package beneath a deployment prefix', () => {
+    const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
+
+    assert.match(harness, /--url-prefix=/);
+    assert.match(harness, /normalizeUrlPrefix/);
+    assert.match(harness, /resolve\(webRoot, \.\.\.deploymentSegments\)/);
+    assert.match(harness, /deployment_prefix: urlPrefix/);
+});
+
+test('prefixed clean install audits generated application URLs and persisted app url', () => {
+    const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
+
+    assert.match(harness, /assertApplicationDocumentUrls/);
+    assert.match(harness, /assertApplicationAssetResponses/);
+    assert.match(harness, /readEnvironmentValue\(.*'APP_URL'/s);
+    assert.match(harness, /logout_location/);
 });
