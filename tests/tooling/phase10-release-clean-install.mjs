@@ -196,6 +196,7 @@ try {
     process.stdout.write(`${JSON.stringify(result)}\n`);
 } finally {
     await browser.close();
+    smtp.closeAllConnections();
     await new Promise((resolveClosed) => smtp.close(resolveClosed));
     server.kill();
     if (requestedLayout === 'public-html') {

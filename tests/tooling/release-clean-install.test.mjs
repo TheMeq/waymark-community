@@ -53,3 +53,9 @@ test('public-html clean-install uses a host name reachable by the Apache self-pr
     assert.match(harness, /const browserBaseUrl = requestedLayout === 'public-html'\s+\? `http:\/\/host\.docker\.internal:\$\{appPort\}`/);
     assert.match(harness, /waitForHttp\(`\$\{browserBaseUrl\}\/setup`/);
 });
+
+test('clean-install mail fixture closes active container connections during teardown', () => {
+    const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
+
+    assert.match(harness, /smtp\.closeAllConnections\(\);\s+await new Promise\(\(resolveClosed\) => smtp\.close\(resolveClosed\)\);/);
+});
