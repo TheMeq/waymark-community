@@ -52,6 +52,8 @@ final class ProductionReleasePackageMatrixTest extends TestCase
     public function test_real_prior_package_upgrades_with_migrations_data_and_media_retained(): void
     {
         $database = $this->preparePriorInstallation();
+        $before = new PDO('sqlite:'.$database);
+        $migrationsBefore = $this->migrationNames($before);
         [$transaction, $release] = $this->applyCurrentPackage();
 
         $this->runArtisan('migrate', '--force');
@@ -59,8 +61,12 @@ final class ProductionReleasePackageMatrixTest extends TestCase
         $pdo = new PDO('sqlite:'.$database);
         $this->assertSame('Release matrix group', $pdo->query('SELECT group_name FROM site_profiles')->fetchColumn());
         $this->assertSame('portability_export_runs', $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='portability_export_runs'")->fetchColumn());
+        $this->assertSame($migrationsBefore, $this->migrationNames($pdo));
         $this->assertSame('retained media', file_get_contents($this->applicationRoot.'/storage/app/private/site-media/release-matrix.txt'));
-        $this->assertSame('1.0.0', trim((string) file_get_contents($this->applicationRoot.'/VERSION')));
+        $this->assertSame('installed release matrix', file_get_contents($this->applicationRoot.'/storage/app/private/installed.lock'));
+        $this->assertSame($this->layout, trim((string) file_get_contents($this->applicationRoot.'/DEPLOYMENT-LAYOUT')));
+        $this->assertSame('1.0.1', trim((string) file_get_contents($this->applicationRoot.'/VERSION')));
+        $this->runArtisan('about', '--only=environment');
 
         $transaction->cleanup();
         $release->cleanup();
@@ -69,6 +75,8 @@ final class ProductionReleasePackageMatrixTest extends TestCase
     public function test_controlled_activation_failure_rolls_real_package_files_and_database_back_to_prior_release(): void
     {
         $database = $this->preparePriorInstallation();
+        $before = new PDO('sqlite:'.$database);
+        $migrationsBefore = $this->migrationNames($before);
         $databaseBackup = $database.'.pre-update';
         copy($database, $databaseBackup);
         [$transaction, $release] = $this->applyCurrentPackage();
@@ -79,9 +87,12 @@ final class ProductionReleasePackageMatrixTest extends TestCase
 
         $pdo = new PDO('sqlite:'.$database);
         $this->assertSame('Release matrix group', $pdo->query('SELECT group_name FROM site_profiles')->fetchColumn());
-        $this->assertFalse($pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='portability_export_runs'")->fetchColumn());
+        $this->assertSame('portability_export_runs', $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='portability_export_runs'")->fetchColumn());
+        $this->assertSame($migrationsBefore, $this->migrationNames($pdo));
         $this->assertSame('retained media', file_get_contents($this->applicationRoot.'/storage/app/private/site-media/release-matrix.txt'));
-        $this->assertSame('0.9.0', trim((string) file_get_contents($this->applicationRoot.'/VERSION')));
+        $this->assertSame('installed release matrix', file_get_contents($this->applicationRoot.'/storage/app/private/installed.lock'));
+        $this->assertSame($this->layout, trim((string) file_get_contents($this->applicationRoot.'/DEPLOYMENT-LAYOUT')));
+        $this->assertSame('1.0.0', trim((string) file_get_contents($this->applicationRoot.'/VERSION')));
         $this->runArtisan('about', '--only=environment');
 
         $transaction->cleanup();
@@ -118,6 +129,7 @@ final class ProductionReleasePackageMatrixTest extends TestCase
         $statement->execute(['Release matrix group', $timestamp, $timestamp]);
         mkdir($this->applicationRoot.'/storage/app/private/site-media', 0700, true);
         file_put_contents($this->applicationRoot.'/storage/app/private/site-media/release-matrix.txt', 'retained media');
+        file_put_contents($this->applicationRoot.'/storage/app/private/installed.lock', 'installed release matrix');
 
         return $database;
     }
@@ -156,6 +168,12 @@ final class ProductionReleasePackageMatrixTest extends TestCase
         $process->setTimeout(120);
         $process->run();
         $this->assertTrue($process->isSuccessful(), $process->getErrorOutput().$process->getOutput());
+    }
+
+    /** @return list<string> */
+    private function migrationNames(PDO $pdo): array
+    {
+        return $pdo->query('SELECT migration FROM migrations ORDER BY migration')->fetchAll(PDO::FETCH_COLUMN);
     }
 
     /** @return array<string, string> */
