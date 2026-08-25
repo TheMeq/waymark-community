@@ -24,9 +24,21 @@ final class PublicUrl
         return str_starts_with($reference, '/') ? self::withApplicationPrefix($reference) : $reference;
     }
 
+    /**
+     * @param  array<string, mixed>  $parameters
+     */
+    public static function route(string $name, array $parameters = []): string
+    {
+        return self::withApplicationPrefix(route($name, $parameters, absolute: false));
+    }
+
     private static function withApplicationPrefix(string $path): string
     {
         $basePath = rtrim((string) parse_url(route('home', absolute: false), PHP_URL_PATH), '/');
+
+        if ($basePath !== '' && ($path === $basePath || str_starts_with($path, $basePath.'/'))) {
+            return $path;
+        }
 
         return $basePath.$path;
     }

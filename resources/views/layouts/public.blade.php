@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 @php($seoMetadata = $seo ?? null)
-@php($serviceWorkerScope = (rtrim((string) parse_url(route('home', absolute: false), PHP_URL_PATH), '/') ?: '').'/')
+@php($serviceWorkerUrl = \App\Domain\Content\Presentation\PublicUrl::route('pwa.service-worker'))
+@php($serviceWorkerScope = (rtrim(\App\Domain\Content\Presentation\PublicUrl::route('home'), '/') ?: '').'/')
+@php($manifestUrl = \App\Domain\Content\Presentation\PublicUrl::route('pwa.manifest'))
 <html
     lang="{{ str_replace('_', '-', app()->getLocale()) }}"
     style="@foreach ($theme->cssVariables() as $property => $value) {{ $property }}: {{ $value }}; @endforeach"
-    data-service-worker-url="{{ route('pwa.service-worker', absolute: false) }}"
+    data-service-worker-url="{{ $serviceWorkerUrl }}"
     data-service-worker-scope="{{ $serviceWorkerScope }}"
 >
     <head>
@@ -23,7 +25,7 @@
         @foreach($seoMetadata?->structuredData ?? [] as $structuredData)
             <script type="application/ld+json">{!! json_encode($structuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
         @endforeach
-        <link rel="manifest" href="{{ route('pwa.manifest', absolute: false) }}">
+        <link rel="manifest" href="{{ $manifestUrl }}">
         <meta name="theme-color" content="{{ $theme->primaryColour }}">
         @if ($branding['favicon_url'])<link rel="icon" href="{{ $branding['favicon_url'] }}">@endif
 

@@ -54,6 +54,8 @@ final class PublicUrlPresentationTest extends TestCase
         $this->assertSame('/demo-site/ndwg/walks?featured=1', app(VisibleHomepageSections::class)->get()->sole()->cta_url);
         $this->assertSame('/demo-site/ndwg/contact', PublicUrl::resolve('/contact'));
         $this->assertSame('https://external.example/contact', PublicUrl::resolve('https://external.example/contact'));
+        $this->assertSame('/demo-site/ndwg/manifest.webmanifest', PublicUrl::route('pwa.manifest'));
+        $this->assertSame('/demo-site/ndwg/service-worker.js', PublicUrl::route('pwa.service-worker'));
     }
 
     public function test_branding_cms_links_and_demo_assets_are_prefix_aware(): void
