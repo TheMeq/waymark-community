@@ -280,7 +280,7 @@ async function submitSetupStep(page, buttonName, browserBaseUrl, urlPrefix) {
     const previousUrl = page.url();
     await Promise.all([
         page.waitForURL((url) => url.href !== previousUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 }),
-        page.getByRole('button', { name: buttonName, exact: true }).click(),
+            page.getByRole('button', { name: buttonName, exact: true }).click({ timeout: 60_000 }),
     ]);
     if (!isApplicationUrl(page.url(), browserBaseUrl, urlPrefix)) {
         throw new Error(`Setup navigation escaped the mounted application: ${page.url()}`);
