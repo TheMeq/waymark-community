@@ -61,6 +61,7 @@ const installRoot = configuredInstallRoot ?? (requestedLayout === 'public-html'
 const portOffset = urlPrefix === '/' ? 0 : 2;
 const appPort = Number(process.env.PHASE10_INSTALL_APP_PORT ?? (database.driver === 'mysql' ? 8030 + portOffset : 8031 + portOffset));
 const smtpPort = Number(process.env.PHASE10_INSTALL_SMTP_PORT ?? (database.driver === 'mysql' ? 8040 + portOffset : 8041 + portOffset));
+const installationTimeout = requestedLayout === 'public-html' ? 600_000 : 180_000;
 const browserOrigin = requestedLayout === 'public-html'
     ? `http://host.docker.internal:${appPort}`
     : `http://127.0.0.1:${appPort}`;
@@ -216,7 +217,7 @@ try {
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Installation progress' })).toBeVisible();
     if (progressStageBeforeRefresh === null) throw new Error('Installation progress did not expose a persisted stage.');
-    await page.waitForURL(/\/admin\/login(?:\?.*)?$/, { timeout: 180_000 });
+    await page.waitForURL(/\/admin\/login(?:\?.*)?$/, { timeout: installationTimeout });
 
     const installedAppUrl = readEnvironmentValue(resolve(applicationRoot, '.env'), 'APP_URL');
     if (installedAppUrl !== browserBaseUrl) {

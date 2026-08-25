@@ -105,6 +105,13 @@ test('release install locates the required administrator password without an obs
     assert.doesNotMatch(harness, /getByLabel\('Password', \{ exact: true \}\)/);
 });
 
+test('public-html staged installation allows for a slow shared-host filesystem fixture', () => {
+    const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
+
+    assert.match(harness, /const installationTimeout = requestedLayout === 'public-html' \? 600_000 : 180_000;/);
+    assert.match(harness, /page\.waitForURL\(\/\\\/admin\\\/login[\s\S]*?timeout: installationTimeout/);
+});
+
 test('release install covers configured and deliberately skipped email modes', () => {
     const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
 
