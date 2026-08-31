@@ -28,6 +28,8 @@ final class FooterSectionResource extends Resource
 
     protected static ?string $navigationLabel = 'Footer';
 
+    protected static ?int $navigationSort = 60;
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([

@@ -25,9 +25,11 @@ final class CommitteeRoleResource extends Resource
 {
     protected static ?string $model = CommitteeRole::class;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Group';
+    protected static string|\UnitEnum|null $navigationGroup = 'People';
 
     protected static ?string $navigationLabel = 'Committee';
+
+    protected static ?int $navigationSort = 40;
 
     public static function form(Schema $schema): Schema
     {

@@ -86,6 +86,33 @@ final class WalkAdministrationTest extends TestCase
         $this->assertCount(1, collect($queries)->filter(fn (string $sql): bool => str_contains($sql, 'select "name", "id" from "users"')));
     }
 
+    public function test_create_walk_uses_the_guided_five_step_form(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+
+        $page = Livewire::actingAs($administrator)->test(CreateWalk::class)->instance();
+        $labels = collect($page->getSteps())->map(fn ($step): string => $step->getLabel())->all();
+
+        $this->assertSame([
+            'When and where',
+            'Walk details',
+            'Travel and practical information',
+            'Description, route and image',
+            'Leader and publishing',
+        ], $labels);
+    }
+
+    public function test_walk_list_exposes_an_obvious_add_walk_action(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+
+        $this->actingAs($administrator)
+            ->get('/admin/walks')
+            ->assertSuccessful()
+            ->assertSee('Add a walk')
+            ->assertSee('/admin/walks/create', false);
+    }
+
     public function test_direct_publish_setting_publishes_an_organisers_walk(): void
     {
         $organiser = User::factory()->create(['can_manage_walks' => true]);

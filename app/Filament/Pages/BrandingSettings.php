@@ -21,7 +21,9 @@ final class BrandingSettings extends Page
 {
     protected static ?string $title = 'Branding';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Configuration';
+    protected static string|\UnitEnum|null $navigationGroup = 'Group settings';
+
+    protected static ?int $navigationSort = 10;
 
     protected string $view = 'filament.pages.branding-settings';
 

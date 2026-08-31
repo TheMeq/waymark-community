@@ -20,9 +20,11 @@ final class GradeResource extends Resource
 {
     protected static ?string $model = Grade::class;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Configuration';
+    protected static string|\UnitEnum|null $navigationGroup = 'Group settings';
 
     protected static ?string $navigationLabel = 'Grading';
+
+    protected static ?int $navigationSort = 20;
 
     public static function form(Schema $schema): Schema
     {

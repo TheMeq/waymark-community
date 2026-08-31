@@ -30,6 +30,8 @@ final class HomepageSectionResource extends Resource
 
     protected static ?string $navigationLabel = 'Homepage';
 
+    protected static ?int $navigationSort = 20;
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([

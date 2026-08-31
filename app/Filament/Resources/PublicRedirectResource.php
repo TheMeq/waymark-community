@@ -27,6 +27,8 @@ final class PublicRedirectResource extends Resource
 
     protected static ?string $navigationLabel = 'Redirects';
 
+    protected static ?int $navigationSort = 70;
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([

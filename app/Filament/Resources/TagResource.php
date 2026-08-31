@@ -18,7 +18,9 @@ final class TagResource extends Resource
 {
     protected static ?string $model = Tag::class;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Configuration';
+    protected static string|\UnitEnum|null $navigationGroup = 'Group settings';
+
+    protected static ?int $navigationSort = 30;
 
     public static function form(Schema $schema): Schema
     {

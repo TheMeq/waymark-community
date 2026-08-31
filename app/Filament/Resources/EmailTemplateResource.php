@@ -21,9 +21,11 @@ final class EmailTemplateResource extends Resource
 {
     protected static ?string $model = EmailTemplate::class;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Communication';
+    protected static string|\UnitEnum|null $navigationGroup = 'Group settings';
 
     protected static ?string $navigationLabel = 'Email templates';
+
+    protected static ?int $navigationSort = 80;
 
     public static function form(Schema $schema): Schema
     {

@@ -23,6 +23,8 @@ final class BackupRestore extends Page
 
     protected static ?string $navigationLabel = 'Restore backup';
 
+    protected static ?int $navigationSort = 20;
+
     protected static string|array $routeMiddleware = ['sensitive.confirmed'];
 
     protected string $view = 'filament.pages.backup-restore';

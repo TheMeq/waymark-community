@@ -26,6 +26,8 @@ final class TestimonialResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Community';
 
+    protected static ?int $navigationSort = 50;
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([Textarea::make('quote')->required()->maxLength(5000), TextInput::make('display_name')->required(), Select::make('image_media_id')->relationship('imageMedia', 'alt_text')->searchable()->preload(), TextInput::make('member_since'), Toggle::make('active')->default(true), Toggle::make('featured'), TextInput::make('sort_order')->numeric()->required()]);

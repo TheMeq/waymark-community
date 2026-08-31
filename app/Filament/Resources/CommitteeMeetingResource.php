@@ -24,9 +24,11 @@ final class CommitteeMeetingResource extends Resource
 {
     protected static ?string $model = CommitteeMeeting::class;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Group';
+    protected static string|\UnitEnum|null $navigationGroup = 'Community';
 
     protected static ?string $navigationLabel = 'Meetings';
+
+    protected static ?int $navigationSort = 80;
 
     public static function form(Schema $schema): Schema
     {

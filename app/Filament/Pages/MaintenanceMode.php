@@ -16,6 +16,8 @@ final class MaintenanceMode extends Page
 
     protected static ?string $navigationLabel = 'Maintenance mode';
 
+    protected static ?int $navigationSort = 40;
+
     protected static string|array $routeMiddleware = ['sensitive.confirmed'];
 
     protected string $view = 'filament.pages.maintenance-mode';

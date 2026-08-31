@@ -26,7 +26,9 @@ final class NewsletterResource extends Resource
 {
     protected static ?string $model = Newsletter::class;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Communication';
+    protected static string|\UnitEnum|null $navigationGroup = 'Community';
+
+    protected static ?int $navigationSort = 60;
 
     public static function form(Schema $schema): Schema
     {

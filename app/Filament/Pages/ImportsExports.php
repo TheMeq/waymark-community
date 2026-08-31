@@ -28,6 +28,8 @@ final class ImportsExports extends Page
 
     protected static ?string $navigationLabel = 'Imports and exports';
 
+    protected static ?int $navigationSort = 50;
+
     protected static string|array $routeMiddleware = ['sensitive.confirmed'];
 
     protected string $view = 'filament.pages.imports-exports';

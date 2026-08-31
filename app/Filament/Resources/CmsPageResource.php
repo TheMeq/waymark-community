@@ -32,6 +32,8 @@ final class CmsPageResource extends Resource
 
     protected static ?string $navigationLabel = 'Pages';
 
+    protected static ?int $navigationSort = 10;
+
     public static function form(Schema $schema): Schema
     {
         $mediaOptions = fn (): array => SiteMedia::query()->where('processing_status', 'complete')->orderBy('alt_text')->pluck('alt_text', 'id')->all();

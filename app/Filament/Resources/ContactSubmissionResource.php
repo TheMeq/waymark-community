@@ -14,9 +14,11 @@ final class ContactSubmissionResource extends Resource
 {
     protected static ?string $model = ContactSubmission::class;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Group';
+    protected static string|\UnitEnum|null $navigationGroup = 'Community';
 
     protected static ?string $navigationLabel = 'Recent contact submissions';
+
+    protected static ?int $navigationSort = 70;
 
     public static function table(Table $table): Table
     {

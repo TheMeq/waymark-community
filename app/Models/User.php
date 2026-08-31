@@ -218,6 +218,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
             'membership_review_due_at' => 'date',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
+            'admin_onboarding_dismissed_at' => 'datetime',
         ];
     }
 

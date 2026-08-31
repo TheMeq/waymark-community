@@ -24,6 +24,8 @@ final class SystemHealth extends Page
 
     protected static ?string $navigationLabel = 'System health';
 
+    protected static ?int $navigationSort = 10;
+
     protected string $view = 'filament.pages.system-health';
 
     public string $backupPassphrase = '';

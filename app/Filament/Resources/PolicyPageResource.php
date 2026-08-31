@@ -22,9 +22,11 @@ final class PolicyPageResource extends Resource
 {
     protected static ?string $model = PolicyPage::class;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Communication';
+    protected static string|\UnitEnum|null $navigationGroup = 'Content';
 
     protected static ?string $navigationLabel = 'Policy pages';
+
+    protected static ?int $navigationSort = 80;
 
     public static function form(Schema $schema): Schema
     {

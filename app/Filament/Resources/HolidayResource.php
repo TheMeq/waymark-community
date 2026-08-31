@@ -27,6 +27,8 @@ final class HolidayResource extends Resource
 
     protected static ?string $navigationLabel = 'Holidays';
 
+    protected static ?int $navigationSort = 30;
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([

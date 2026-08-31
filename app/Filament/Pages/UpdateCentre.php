@@ -19,6 +19,8 @@ final class UpdateCentre extends Page
 
     protected static ?string $navigationLabel = 'Updates';
 
+    protected static ?int $navigationSort = 30;
+
     protected string $view = 'filament.pages.update-centre';
 
     public static function getSlug(?Panel $panel = null): string

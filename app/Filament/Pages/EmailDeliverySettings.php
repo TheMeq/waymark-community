@@ -18,9 +18,11 @@ final class EmailDeliverySettings extends Page
 {
     protected static ?string $title = 'Email delivery';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'System';
+    protected static string|\UnitEnum|null $navigationGroup = 'Group settings';
 
     protected static ?string $navigationLabel = 'Email delivery';
+
+    protected static ?int $navigationSort = 50;
 
     protected string $view = 'filament.pages.email-delivery-settings';
 

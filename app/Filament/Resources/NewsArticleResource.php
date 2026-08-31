@@ -29,9 +29,11 @@ final class NewsArticleResource extends Resource
 {
     protected static ?string $model = NewsArticle::class;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Content';
+    protected static string|\UnitEnum|null $navigationGroup = 'Community';
 
     protected static ?string $navigationLabel = 'News';
+
+    protected static ?int $navigationSort = 40;
 
     public static function form(Schema $schema): Schema
     {
