@@ -34,13 +34,13 @@ final class HomepageTest extends TestCase
     {
         $queries = [];
         DB::listen(function ($query) use (&$queries): void {
-            $queries[] = strtolower($query->sql);
+            $queries[] = str_replace(['"', '`'], '', strtolower($query->sql));
         });
 
         $this->get('/')->assertSuccessful();
 
         $this->assertCount(1, collect($queries)->filter(
-            fn (string $sql): bool => str_contains($sql, 'from "site_profiles"'),
+            fn (string $sql): bool => str_contains($sql, 'from site_profiles'),
         ));
     }
 

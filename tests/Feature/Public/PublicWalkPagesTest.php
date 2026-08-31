@@ -204,7 +204,7 @@ final class PublicWalkPagesTest extends TestCase
 
         $queries = [];
         DB::listen(function ($query) use (&$queries): void {
-            $queries[] = strtolower($query->sql);
+            $queries[] = str_replace(['"', '`'], '', strtolower($query->sql));
         });
 
         $response = $this->get('/walks')->assertOk();
@@ -214,7 +214,7 @@ final class PublicWalkPagesTest extends TestCase
             $response->getContent(),
         );
         $eventQueries = collect($queries)->filter(
-            fn (string $sql): bool => preg_match('/^select (?:count\(\*\) as "aggregate"|\*) from "events"/', $sql) === 1,
+            fn (string $sql): bool => preg_match('/^select (?:count\(\*\) as aggregate|\*) from events/', $sql) === 1,
         );
         $this->assertCount(2, $eventQueries, $eventQueries->implode("\n"));
     }
