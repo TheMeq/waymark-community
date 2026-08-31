@@ -5,6 +5,7 @@ namespace App\Domain\Content\Support;
 use App\Domain\Content\Models\FooterSection;
 use App\Domain\Content\Models\HomepageSection;
 use App\Domain\Content\Models\NavigationItem;
+use App\Domain\Content\Models\PublicRedirect;
 use App\Domain\Content\Models\Testimonial;
 use App\Domain\Operations\Models\SiteProfile;
 use Illuminate\Database\Eloquent\Model;
@@ -22,6 +23,8 @@ final class PublicContentCache
 
     public const TESTIMONIALS = 'waymark.public.testimonials.v1';
 
+    public const REDIRECTS = 'waymark.public.redirects.v1';
+
     public static function forgetFor(Model $model): void
     {
         $keys = match ($model::class) {
@@ -30,6 +33,7 @@ final class PublicContentCache
             FooterSection::class => [self::FOOTER],
             HomepageSection::class => [self::HOMEPAGE_SECTIONS],
             Testimonial::class => [self::TESTIMONIALS],
+            PublicRedirect::class => [self::REDIRECTS],
             default => [],
         };
 

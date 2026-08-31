@@ -3,7 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Domain\Operations\Environment\StagingMode;
-use App\Domain\Operations\Health\SystemHealth as HealthService;
+use App\Domain\Operations\Health\AdminHealthAlert;
 use App\Filament\Pages\SystemHealth as SystemHealthPage;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -42,7 +42,7 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::BODY_START,
-                fn () => SystemHealthPage::canAccess() && app(HealthService::class)->report(request()->secure(), request()->root())->serious()
+                fn () => SystemHealthPage::canAccess() && app(AdminHealthAlert::class)->serious(request()->secure())
                     ? view('admin.health-alert')
                     : '',
             )

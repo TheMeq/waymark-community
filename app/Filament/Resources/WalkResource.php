@@ -7,7 +7,7 @@ use App\Domain\Accounts\Queries\EligibleWalkLeadersQuery;
 use App\Domain\Walks\Models\Grade;
 use App\Domain\Walks\Models\Tag;
 use App\Domain\Walks\Models\Walk;
-use App\Domain\Walks\Models\WalkFieldSettings;
+use App\Domain\Walks\Queries\CurrentWalkFieldSettings;
 use App\Filament\Actions\DuplicateWalkAction;
 use App\Filament\Resources\WalkResource\Pages\CreateWalk;
 use App\Filament\Resources\WalkResource\Pages\EditWalk;
@@ -110,7 +110,7 @@ final class WalkResource extends Resource
 
     private static function optionalFieldEnabled(string $field): bool
     {
-        return WalkFieldSettings::current()->isEnabled($field);
+        return app(CurrentWalkFieldSettings::class)->get()->isEnabled($field);
     }
 
     public static function table(Table $table): Table

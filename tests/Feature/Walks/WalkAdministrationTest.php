@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Policies\WalkPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -63,6 +64,26 @@ final class WalkAdministrationTest extends TestCase
         $this->actingAs($walkLeader)
             ->get('/admin/walks')
             ->assertSuccessful();
+    }
+
+    public function test_create_form_loads_shared_walk_settings_and_leader_options_once(): void
+    {
+        $administrator = User::factory()->create(['is_admin' => true]);
+        User::factory()->walkLeader()->create();
+        $queries = [];
+        DB::listen(function ($query) use (&$queries): void {
+            $queries[] = strtolower($query->sql);
+        });
+
+        $this->actingAs($administrator);
+        Livewire::test(CreateWalk::class)
+            ->assertFormFieldVisible('terrain_notes')
+            ->assertFormFieldVisible('primary_leader_id')
+            ->assertFormFieldVisible('co_leader_ids');
+
+        $this->assertCount(1, collect($queries)->filter(fn (string $sql): bool => str_contains($sql, 'from "walk_field_settings"')));
+        $this->assertCount(1, collect($queries)->filter(fn (string $sql): bool => str_contains($sql, 'select distinct "role" from "role_capabilities"')));
+        $this->assertCount(1, collect($queries)->filter(fn (string $sql): bool => str_contains($sql, 'select "name", "id" from "users"')));
     }
 
     public function test_direct_publish_setting_publishes_an_organisers_walk(): void

@@ -12,6 +12,7 @@ use App\Domain\Walks\Models\Grade;
 use App\Domain\Walks\Models\Tag;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -201,12 +202,21 @@ final class PublicWalkPagesTest extends TestCase
             'co_leader_ids' => [$coLeader->id],
         ]);
 
+        $queries = [];
+        DB::listen(function ($query) use (&$queries): void {
+            $queries[] = strtolower($query->sql);
+        });
+
         $response = $this->get('/walks')->assertOk();
 
         $this->assertMatchesRegularExpression(
             '/<option value="'.$coLeader->id.'"[^>]*>Co-leader O\.<\/option>/',
             $response->getContent(),
         );
+        $eventQueries = collect($queries)->filter(
+            fn (string $sql): bool => preg_match('/^select (?:count\(\*\) as "aggregate"|\*) from "events"/', $sql) === 1,
+        );
+        $this->assertCount(2, $eventQueries, $eventQueries->implode("\n"));
     }
 
     public function test_leader_filter_does_not_duplicate_a_walk_with_multiple_leader_relationships(): void

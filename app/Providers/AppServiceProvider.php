@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Domain\Accounts\Models\InstallationOwnership;
+use App\Domain\Accounts\Queries\EligibleWalkLeadersQuery;
 use App\Domain\Communication\Contracts\NewsletterDelivery;
 use App\Domain\Communication\Services\MailNewsletterDelivery;
 use App\Domain\Content\Models\CmsPage;
@@ -10,6 +11,7 @@ use App\Domain\Content\Models\FooterSection;
 use App\Domain\Content\Models\HomepageSection;
 use App\Domain\Content\Models\NavigationItem;
 use App\Domain\Content\Models\NewsArticle;
+use App\Domain\Content\Models\PublicRedirect;
 use App\Domain\Content\Models\Testimonial;
 use App\Domain\Content\Observers\PublicContentCacheObserver;
 use App\Domain\Content\Observers\PublicSlugRedirectObserver;
@@ -34,6 +36,8 @@ use App\Domain\Operations\Backups\NativeRestoreHealthProbe;
 use App\Domain\Operations\Diagnostics\RequestDiagnostics;
 use App\Domain\Operations\Environment\StagingEnvironmentGuard;
 use App\Domain\Operations\Environment\StagingMode;
+use App\Domain\Operations\Health\NativeOpcodeCacheProbe;
+use App\Domain\Operations\Health\OpcodeCacheProbe;
 use App\Domain\Operations\Installation\Contracts\DatabaseConnectionTester;
 use App\Domain\Operations\Installation\Contracts\EnvironmentWriter;
 use App\Domain\Operations\Installation\Contracts\MailConnectionTester;
@@ -58,6 +62,7 @@ use App\Domain\Operations\Updates\NativeReleasePackageDownloader;
 use App\Domain\Operations\Updates\NativeUpdateEnvironment;
 use App\Domain\Operations\Updates\NativeUpdateRuntime;
 use App\Domain\Operations\Updates\UpdateRuntimeBoundary;
+use App\Domain\Walks\Queries\CurrentWalkFieldSettings;
 use App\Domain\Walks\RelatedContent\RelatedWalks;
 use App\Domain\Walks\RelatedContent\SignalRelatedWalks;
 use App\Http\Middleware\RequireSensitiveActionAssurance;
@@ -117,6 +122,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(UpdateRuntime::class, NativeUpdateRuntime::class);
         $this->app->singleton(UpdateRuntimeBoundary::class);
         $this->app->scoped(RequestDiagnostics::class);
+        $this->app->scoped(CurrentWalkFieldSettings::class);
+        $this->app->scoped(EligibleWalkLeadersQuery::class);
+        $this->app->bind(OpcodeCacheProbe::class, NativeOpcodeCacheProbe::class);
         $this->app->bind(BackupCapacityProbe::class, NativeBackupCapacityProbe::class);
         $this->app->bind(RestoreHealthProbe::class, NativeRestoreHealthProbe::class);
     }
@@ -131,7 +139,7 @@ class AppServiceProvider extends ServiceProvider
         foreach ([CmsPage::class, NewsArticle::class, Event::class, SpecialAlbum::class, Document::class] as $model) {
             $model::observe(PublicSlugRedirectObserver::class);
         }
-        foreach ([SiteProfile::class, NavigationItem::class, FooterSection::class, HomepageSection::class, Testimonial::class] as $model) {
+        foreach ([SiteProfile::class, NavigationItem::class, FooterSection::class, HomepageSection::class, Testimonial::class, PublicRedirect::class] as $model) {
             $model::observe(PublicContentCacheObserver::class);
         }
         RateLimiter::for('photo-upload', fn (Request $request) => [

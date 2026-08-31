@@ -15,7 +15,19 @@ final class PublicWalksQuery
     /** @return Builder<Event> */
     public function upcoming(): Builder
     {
-        return Event::query()
+        $query = Event::query();
+        $this->applyUpcomingVisibility($query);
+
+        return $query
+            ->with(['walk.grade', 'walk.primaryLeader'])
+            ->orderBy('starts_at')
+            ->orderBy('id');
+    }
+
+    /** @param Builder<Event> $query */
+    private function applyUpcomingVisibility(Builder $query): void
+    {
+        $query
             ->where('type', EventType::Walk)
             ->where('is_public', true)
             ->whereNotNull('published_at')
@@ -27,10 +39,7 @@ final class PublicWalksQuery
                 EventStatus::Postponed,
                 EventStatus::Cancelled,
             ])
-            ->whereHas('walk')
-            ->with(['walk.grade', 'walk.primaryLeader'])
-            ->orderBy('starts_at')
-            ->orderBy('id');
+            ->whereHas('walk');
     }
 
     /** @return Builder<Event> */
@@ -67,17 +76,16 @@ final class PublicWalksQuery
     /** @return Collection<int, User> */
     public function upcomingLeaders(): Collection
     {
-        return $this->upcoming()
-            ->with('walk.coLeaders')
-            ->get()
-            ->flatMap(fn (Event $event): array => [
-                $event->walk?->primaryLeader,
-                ...($event->walk?->coLeaders->all() ?? []),
-            ])
-            ->filter()
-            ->unique('id')
-            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
-            ->values();
+        return User::query()
+            ->where(function (Builder $users): void {
+                $users->whereHas('primaryLedWalks.event', function (Builder $events): void {
+                    $this->applyUpcomingVisibility($events);
+                })->orWhereHas('coLedWalks.event', function (Builder $events): void {
+                    $this->applyUpcomingVisibility($events);
+                });
+            })
+            ->orderBy('name')
+            ->get();
     }
 
     /** @return Builder<Event> */

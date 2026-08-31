@@ -15,6 +15,7 @@ use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\PhotoPolicyAcceptance;
 use App\Domain\Membership\Enums\AccountStatus;
 use App\Domain\Membership\Enums\MembershipStatus;
+use App\Domain\Walks\Models\Walk;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
@@ -22,6 +23,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -177,6 +179,18 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     public function photoPolicyAcceptances(): HasMany
     {
         return $this->hasMany(PhotoPolicyAcceptance::class);
+    }
+
+    /** @return HasMany<Walk, $this> */
+    public function primaryLedWalks(): HasMany
+    {
+        return $this->hasMany(Walk::class, 'primary_leader_id');
+    }
+
+    /** @return BelongsToMany<Walk, $this> */
+    public function coLedWalks(): BelongsToMany
+    {
+        return $this->belongsToMany(Walk::class, 'walk_co_leaders');
     }
 
     /** @return HasMany<PolicyConsent, $this> */

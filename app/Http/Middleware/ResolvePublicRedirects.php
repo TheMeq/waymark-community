@@ -2,13 +2,12 @@
 
 namespace App\Http\Middleware;
 
-use App\Domain\Content\Models\PublicRedirect;
 use App\Domain\Content\Presentation\PublicUrl;
+use App\Domain\Content\Queries\PublicRedirectLookup;
 use App\Domain\Operations\Analytics\CampaignParameterFilter;
 use App\Domain\Operations\Installation\InstallationState;
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\Response;
 
 final readonly class ResolvePublicRedirects
@@ -16,6 +15,7 @@ final readonly class ResolvePublicRedirects
     public function __construct(
         private CampaignParameterFilter $campaignParameters,
         private InstallationState $installation,
+        private PublicRedirectLookup $redirects,
     ) {}
 
     public function handle(Request $request, Closure $next): Response
@@ -24,11 +24,11 @@ final readonly class ResolvePublicRedirects
             return $next($request);
         }
 
-        if ($request->isMethodSafe() && Schema::hasTable('public_redirects')) {
+        if ($request->isMethodSafe()) {
             $path = '/'.ltrim($request->path(), '/');
-            $redirect = PublicRedirect::query()->where('enabled', true)->where('source_path', $path)->first();
-            if ($redirect instanceof PublicRedirect) {
-                $target = $redirect->target_url;
+            $redirect = $this->redirects->find($path);
+            if ($redirect !== null) {
+                $target = $redirect['target_url'];
 
                 if (str_starts_with($target, '/') && ! str_starts_with($target, '//')) {
                     $campaign = $this->campaignParameters->from($request->query());
@@ -38,7 +38,7 @@ final readonly class ResolvePublicRedirects
                     }
                 }
 
-                return redirect()->to($target, $redirect->status_code);
+                return redirect()->to($target, $redirect['status_code']);
             }
         }
 

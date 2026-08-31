@@ -39,6 +39,25 @@ final class PublicGalleryTest extends TestCase
         $this->get(route('gallery.photos.image', [$hidden, 'thumbnail']))->assertNotFound();
     }
 
+    public function test_public_photo_selection_does_not_recheck_an_already_constrained_event_for_every_photo(): void
+    {
+        $event = $this->publicEvent();
+        foreach (range(1, 6) as $index) {
+            $this->photo(['event_id' => $event->id, 'caption' => 'Photo '.$index]);
+        }
+        $queries = [];
+        DB::listen(function ($query) use (&$queries): void {
+            $queries[] = strtolower($query->sql);
+        });
+
+        $photos = app(PublicCommunityPhotos::class)->recent();
+
+        $this->assertCount(6, $photos->items);
+        $this->assertCount(0, collect($queries)->filter(
+            fn (string $sql): bool => str_contains($sql, 'select exists(select * from') && str_contains($sql, '"events"'),
+        ));
+    }
+
     public function test_future_scheduled_photo_is_not_public_until_its_publication_time(): void
     {
         $photo = $this->photo(['caption' => 'Future summit', 'published_at' => now()->addMinute()]);

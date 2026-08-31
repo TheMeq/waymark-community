@@ -13,6 +13,8 @@ Shared hosting is an official target, not a fallback.
 
 PHP must provide `ctype`, `curl`, `dom`, `exif`, `fileinfo`, `filter`, `gd`, `hash`, `intl`, `json`, `mbstring`, `openssl`, `pdo`, `pdo_mysql`, `session`, `tokenizer`, `xml` and `zip`.
 
+PHP OPcache is strongly recommended for responsive shared-host requests. It is not an installation requirement, but System Health warns when it is unavailable so the host can enable it without changing Waymark's application or cache drivers.
+
 ## Choose a release ZIP
 
 Waymark provides two packages generated from the same exact source commit:

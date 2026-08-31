@@ -4,8 +4,12 @@ namespace Tests\Feature\Operations;
 
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Operations\Health\Models\MissingMediaRepair;
+use App\Domain\Operations\Health\OpcodeCacheProbe;
+use App\Domain\Operations\Installation\Contracts\PublicApplicationExposureProbe;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Mockery;
 use Tests\TestCase;
 
 final class SystemHealthPageTest extends TestCase
@@ -54,6 +58,34 @@ final class SystemHealthPageTest extends TestCase
             ->assertSuccessful()
             ->assertSee('Email delivery is not configured.')
             ->assertSee('Configure email delivery');
+    }
+
+    public function test_system_health_strongly_recommends_opcache_when_it_is_unavailable(): void
+    {
+        $probe = Mockery::mock(OpcodeCacheProbe::class);
+        $probe->shouldReceive('enabled')->andReturnFalse();
+        $this->instance(OpcodeCacheProbe::class, $probe);
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator]);
+
+        $this->actingAs($administrator)
+            ->get('/admin/system-health')
+            ->assertSuccessful()
+            ->assertSee('OPcache')
+            ->assertSee('strongly recommended');
+    }
+
+    public function test_ordinary_admin_pages_do_not_run_the_public_application_exposure_probe(): void
+    {
+        config()->set('waymark.deployment_layout', 'public-html');
+        Cache::clear();
+        $probe = Mockery::mock(PublicApplicationExposureProbe::class);
+        $probe->shouldNotReceive('protected');
+        $this->instance(PublicApplicationExposureProbe::class, $probe);
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator]);
+
+        $this->actingAs($administrator)
+            ->get('/admin')
+            ->assertSuccessful();
     }
 
     public function test_serious_missing_media_creates_an_admin_banner_with_repair_link(): void
