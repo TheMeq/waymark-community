@@ -50,6 +50,7 @@ use App\Domain\Operations\Installation\PdoDatabaseConnectionTester;
 use App\Domain\Operations\Installation\SymfonyMailConnectionTester;
 use App\Domain\Operations\Maintenance\MaintenanceManager;
 use App\Domain\Operations\Models\SiteProfile;
+use App\Domain\Operations\Queries\CurrentSiteProfile;
 use App\Domain\Operations\Scheduling\Contracts\FallbackRunner;
 use App\Domain\Operations\Scheduling\Contracts\FallbackWorkload;
 use App\Domain\Operations\Scheduling\RunFallbackWork;
@@ -123,6 +124,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(UpdateRuntimeBoundary::class);
         $this->app->scoped(RequestDiagnostics::class);
         $this->app->scoped(CurrentWalkFieldSettings::class);
+        $this->app->scoped(CurrentSiteProfile::class);
         $this->app->scoped(EligibleWalkLeadersQuery::class);
         $this->app->bind(OpcodeCacheProbe::class, NativeOpcodeCacheProbe::class);
         $this->app->bind(BackupCapacityProbe::class, NativeBackupCapacityProbe::class);

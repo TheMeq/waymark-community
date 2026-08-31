@@ -13,7 +13,7 @@ use App\Domain\Content\Queries\VisibleTestimonials;
 use App\Domain\Gallery\Queries\HomepageCommunityPhotos;
 use App\Domain\Gallery\Queries\PublicCommunityPhotos;
 use App\Domain\Holidays\Queries\PublicHolidaysQuery;
-use App\Domain\Operations\Models\SiteProfile;
+use App\Domain\Operations\Queries\CurrentSiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Domain\SiteMedia\SiteMediaPresenter;
@@ -25,9 +25,9 @@ use Illuminate\Contracts\View\View;
 
 final class HomeController
 {
-    public function __invoke(PublicWalksQuery $walks, PublicHolidaysQuery $holidays, HomepageCommunityPhotos $photos, PublicCommunityPhotos $publicPhotos, VisibleHomepageSections $sections, VisibleTestimonials $testimonials, PublicCmsPages $pages, PublicBranding $branding, HomepageNews $news, SiteMediaPresenter $mediaPresenter): View
+    public function __invoke(PublicWalksQuery $walks, PublicHolidaysQuery $holidays, HomepageCommunityPhotos $photos, PublicCommunityPhotos $publicPhotos, VisibleHomepageSections $sections, VisibleTestimonials $testimonials, PublicCmsPages $pages, PublicBranding $branding, HomepageNews $news, SiteMediaPresenter $mediaPresenter, CurrentSiteProfile $currentProfile): View
     {
-        $siteProfile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
+        $siteProfile = $currentProfile->get();
         $homepageSections = $sections->get()->keyBy('section_key');
         $walkEvents = $walks->weekend()->limit(3)->get();
         $walkSection = $homepageSections->get('whats_on');

@@ -8,6 +8,7 @@ use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Models\User;
 use App\ViewModels\HomepageViewModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -27,6 +28,20 @@ final class HomepageTest extends TestCase
             ->assertOk()
             ->assertViewIs('home')
             ->assertViewHas('homepage', fn (HomepageViewModel $rendered): bool => $rendered->weekendWalks === [] && $rendered->gallery === []);
+    }
+
+    public function test_homepage_reuses_one_canonical_site_profile_read_per_request(): void
+    {
+        $queries = [];
+        DB::listen(function ($query) use (&$queries): void {
+            $queries[] = strtolower($query->sql);
+        });
+
+        $this->get('/')->assertSuccessful();
+
+        $this->assertCount(1, collect($queries)->filter(
+            fn (string $sql): bool => str_contains($sql, 'from "site_profiles"'),
+        ));
     }
 
     public function test_homepage_preserves_the_approved_section_hierarchy(): void

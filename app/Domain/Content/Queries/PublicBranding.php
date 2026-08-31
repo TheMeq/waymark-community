@@ -5,20 +5,18 @@ namespace App\Domain\Content\Queries;
 use App\Domain\Content\Presentation\PublicUrl;
 use App\Domain\Content\Support\PublicContentCache;
 use App\Domain\Operations\Models\SiteProfile;
+use App\Domain\Operations\Queries\CurrentSiteProfile;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Schema;
 
 final class PublicBranding
 {
+    public function __construct(private readonly CurrentSiteProfile $profile) {}
+
     /** @return array<string, mixed> */
     public function get(): array
     {
         return Cache::remember(PublicContentCache::BRANDING, (int) config('waymark.public_cache_seconds', 300), function (): array {
-            $profile = Schema::hasTable('site_profiles')
-                ? (SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile)
-                : new SiteProfile;
-
-            return $this->forProfile($profile);
+            return $this->forProfile($this->profile->get());
         });
     }
 
