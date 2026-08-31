@@ -31,6 +31,7 @@ use App\Domain\Operations\Backups\Contracts\BackupCapacityProbe;
 use App\Domain\Operations\Backups\Contracts\RestoreHealthProbe;
 use App\Domain\Operations\Backups\NativeBackupCapacityProbe;
 use App\Domain\Operations\Backups\NativeRestoreHealthProbe;
+use App\Domain\Operations\Diagnostics\RequestDiagnostics;
 use App\Domain\Operations\Environment\StagingEnvironmentGuard;
 use App\Domain\Operations\Environment\StagingMode;
 use App\Domain\Operations\Installation\Contracts\DatabaseConnectionTester;
@@ -115,6 +116,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ReleasePackageDownloader::class, NativeReleasePackageDownloader::class);
         $this->app->bind(UpdateRuntime::class, NativeUpdateRuntime::class);
         $this->app->singleton(UpdateRuntimeBoundary::class);
+        $this->app->scoped(RequestDiagnostics::class);
         $this->app->bind(BackupCapacityProbe::class, NativeBackupCapacityProbe::class);
         $this->app->bind(RestoreHealthProbe::class, NativeRestoreHealthProbe::class);
     }

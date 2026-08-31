@@ -12,6 +12,9 @@ return [
     'email' => [
         'configured' => (bool) env('WAYMARK_MAIL_CONFIGURED', false),
     ],
+    'request_diagnostics' => [
+        'enabled' => (bool) env('WAYMARK_REQUEST_DIAGNOSTICS', in_array(env('APP_ENV'), ['local', 'staging'], true)),
+    ],
     'scheduler' => [
         'heartbeat_path' => env('WAYMARK_SCHEDULER_HEARTBEAT_PATH', storage_path('app/private/scheduler-heartbeat.json')),
         'stale_after_minutes' => (int) env('WAYMARK_SCHEDULER_STALE_AFTER_MINUTES', 5),

@@ -3,6 +3,7 @@
 use App\Http\Middleware\CaptureCampaignParameters;
 use App\Http\Middleware\GuardUnconfiguredEmailWorkflows;
 use App\Http\Middleware\RecordAccountActivity;
+use App\Http\Middleware\RecordRequestDiagnostics;
 use App\Http\Middleware\RequireActiveAccount;
 use App\Http\Middleware\RequireSensitiveActionAssurance;
 use App\Http\Middleware\RequireSensitivePasswordConfirmation;
@@ -25,7 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->prepend([RequireWaymarkInstallation::class, ServeWaymarkMaintenance::class, ResolvePublicRedirects::class]);
+        $middleware->prepend([RecordRequestDiagnostics::class, RequireWaymarkInstallation::class, ServeWaymarkMaintenance::class, ResolvePublicRedirects::class]);
         $middleware->web(append: [GuardUnconfiguredEmailWorkflows::class, CaptureCampaignParameters::class, RecordAccountActivity::class, RequireActiveAccount::class, TriggerNonCriticalFallback::class]);
         $middleware->alias([
             'sensitive.confirmed' => RequireSensitiveActionAssurance::class,

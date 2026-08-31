@@ -81,6 +81,14 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'performance' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/waymark-performance.log'),
+            'level' => 'info',
+            'max_files' => 7,
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),
