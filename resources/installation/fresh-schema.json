@@ -1,6 +1,6 @@
 {
     "format": 1,
-    "migration_set_hash": "cf2004bb67cb3fb68b61466e32e3e9a56ffd0e75f2bf2322e8c89e82eb36fae0",
+    "migration_set_hash": "e073e78807069833761ad32354cdeeb886c5080766e51265cb4eb9c4d17e39d0",
     "migrations": [
         "0001_01_01_000000_create_users_table",
         "0001_01_01_000001_create_cache_table",
@@ -58,7 +58,8 @@
         "2026_08_24_100000_create_missing_media_repairs_table",
         "2026_08_24_110000_create_backup_runs_table",
         "2026_08_24_120000_add_progress_to_backup_runs_table",
-        "2026_08_24_130000_create_portability_export_runs_table"
+        "2026_08_24_130000_create_portability_export_runs_table",
+        "2026_08_31_090000_add_admin_onboarding_dismissal_to_users"
     ],
     "tables": {
         "account_administration_audits": [
@@ -806,6 +807,7 @@
         ],
         "users": [
             "account_status",
+            "admin_onboarding_dismissed_at",
             "can_manage_walks",
             "created_at",
             "display_name",
