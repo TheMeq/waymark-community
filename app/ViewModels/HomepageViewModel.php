@@ -9,7 +9,7 @@ final readonly class HomepageViewModel
 {
     /**
      * @param  array<string, string>  $site
-     * @param  array<string, string>  $hero
+     * @param  array<string, mixed>  $hero
      * @param  array<int, array<string, string>>  $benefits
      * @param  array<int, array<string, string>>  $weekendWalks
      * @param  array<string, string>  $holiday
@@ -43,6 +43,7 @@ final readonly class HomepageViewModel
                 'image_url' => PublicUrl::asset('/images/demo/hero-walkers-1536.webp'),
                 'image_srcset' => PublicUrl::asset('/images/demo/hero-walkers-768.webp').' 768w, '.PublicUrl::asset('/images/demo/hero-walkers-1536.webp').' 1536w',
                 'image_alt' => 'Friends walking together across open moorland',
+                'focal_position' => '68% 32%',
             ],
             benefits: [
                 ['symbol' => 'people', 'title' => 'Friendly community', 'detail' => 'Everyone welcome'],

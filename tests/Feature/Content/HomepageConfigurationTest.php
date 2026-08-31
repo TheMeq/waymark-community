@@ -160,7 +160,7 @@ final class HomepageConfigurationTest extends TestCase
         $author = User::factory()->create();
         $path = 'site-media/3f2504e0-4f89-41d3-9a0c-0305e82c3300/master.jpg';
         Storage::disk('local')->put($path, 'image');
-        $media = SiteMedia::query()->create(['created_by_user_id' => $author->id, 'storage_key' => '3f2504e0-4f89-41d3-9a0c-0305e82c3300', 'storage_disk' => 'local', 'processed_variants' => ['master' => $path], 'mime_type' => 'image/jpeg', 'width' => 1200, 'height' => 800, 'file_size_bytes' => 5, 'alt_text' => 'Members on a summit', 'is_decorative' => false, 'focal_point_x' => .5, 'focal_point_y' => .5, 'processing_status' => 'complete', 'health_status' => 'healthy']);
+        $media = SiteMedia::query()->create(['created_by_user_id' => $author->id, 'storage_key' => '3f2504e0-4f89-41d3-9a0c-0305e82c3300', 'storage_disk' => 'local', 'processed_variants' => ['master' => $path], 'mime_type' => 'image/jpeg', 'width' => 1200, 'height' => 800, 'file_size_bytes' => 5, 'alt_text' => 'Members on a summit', 'is_decorative' => false, 'focal_point_x' => .74, 'focal_point_y' => .28, 'processing_status' => 'complete', 'health_status' => 'healthy']);
         $page = CmsPage::query()->create(['title' => 'Become a member', 'slug' => 'become-a-member', 'blocks' => [['type' => 'rich_text', 'content' => '<p>Welcome.</p>']], 'publication_state' => 'published', 'publish_at' => now()]);
         $testimonial = Testimonial::query()->create(['quote' => 'Pinned member voice', 'display_name' => 'Alex', 'active' => true, 'sort_order' => 20]);
 
@@ -171,6 +171,7 @@ final class HomepageConfigurationTest extends TestCase
         $this->get('/')->assertOk()
             ->assertSee(route('site-media.stream', [$media, 'master']), false)
             ->assertSee('alt="Members on a summit"', false)
+            ->assertSee('style="object-position: 74% 28%"', false)
             ->assertSeeText('Become a member')
             ->assertSee(route('cms.show', $page->slug), false)
             ->assertSeeText('Pinned member voice');

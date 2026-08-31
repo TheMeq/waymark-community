@@ -12,6 +12,10 @@ test('homepage matches the approved responsive visual foundation', async ({ page
     }
     await waitForPageImages(page);
 
+    const heroImage = page.locator('[data-homepage-section="hero"] > img');
+    await expect(heroImage).toHaveCSS('object-fit', 'cover');
+    await expect(heroImage).toHaveCSS('object-position', '68% 32%');
+
     await expect(page).toHaveScreenshot(`homepage-${testInfo.project.name}.png`, {
         fullPage: true,
     });

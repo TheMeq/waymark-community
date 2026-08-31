@@ -92,6 +92,7 @@ final class HomeController
             if ($presentation !== null) {
                 $heroOverrides['image_url'] = $presentation->url;
                 $heroOverrides['image_alt'] = $presentation->alt;
+                $heroOverrides['focal_position'] = $presentation->objectPosition();
             }
         }
         $testimonialSection = $homepageSections->get('testimonial');

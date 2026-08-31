@@ -12,7 +12,8 @@
     @if ($homepageSections->has('hero'))
     <section data-homepage-section="hero" data-layout="{{ $homepageSections['hero']->layout_variant }}" class="wm-hero wm-home-layout-{{ $homepageSections['hero']->layout_variant }} relative isolate overflow-hidden bg-surface-raised" style="order: {{ $homepageSections['hero']->sort_order }}">
         <img
-            class="absolute inset-0 -z-20 size-full object-cover object-[68%_center]"
+            class="absolute inset-0 -z-20 size-full object-cover"
+            style="object-position: {{ $homepage->hero['focal_position'] }}"
             src="{{ $homepage->hero['image_url'] }}"
             @if(filled($homepage->hero['image_srcset'] ?? null)) srcset="{{ $homepage->hero['image_srcset'] }}" sizes="100vw" @endif
             alt="{{ $homepage->hero['image_alt'] }}"
