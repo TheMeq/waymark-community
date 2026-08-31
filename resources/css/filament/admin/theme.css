@@ -2,3 +2,8 @@
 
 @source '../../../../app/Filament/**/*.php';
 @source '../../../views/filament/**/*.blade.php';
+
+.fi-color-danger {
+    --color-500: #991b1b;
+    --color-600: #b91c1c;
+}
