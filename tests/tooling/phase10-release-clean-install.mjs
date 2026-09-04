@@ -207,9 +207,14 @@ try {
     await submitSetupStep(page, 'Continue', browserBaseUrl, urlPrefix);
     await submitSetupStep(page, 'Continue', browserBaseUrl, urlPrefix);
 
-    await page.getByRole('button', { name: 'Generate secure recovery key' }).click();
+    const generatedRecoveryResponse = page.waitForResponse(
+        (response) => response.url() === applicationUrl('/setup/recovery-key') && response.request().method() === 'POST',
+        { timeout: interactionTimeout },
+    );
+    await page.getByRole('button', { name: 'Generate secure recovery key' }).click({ timeout: interactionTimeout });
+    await generatedRecoveryResponse;
     const recoveryKey = page.locator('#recovery-key');
-    await expect(recoveryKey).not.toHaveValue('');
+    await expect(recoveryKey).not.toHaveValue('', { timeout: interactionTimeout });
     await page.getByLabel(/I have saved the recovery key/).check();
     await submitSetupStep(page, 'Continue', browserBaseUrl, urlPrefix);
     await submitSetupStep(page, 'Install Waymark Community', browserBaseUrl, urlPrefix);

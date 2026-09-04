@@ -122,6 +122,14 @@ test('public-html post-install sign in allows for a bounded cold admin boot', ()
     assert.match(harness, /getByRole\('button', \{ name: 'Sign in' \}\)\.click\(\{ timeout: interactionTimeout \}\)/);
 });
 
+test('release install waits for slow recovery-key generation before asserting the value', () => {
+    const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
+
+    assert.match(harness, /const generatedRecoveryResponse = page\.waitForResponse\([\s\S]*?timeout: interactionTimeout/);
+    assert.match(harness, /await generatedRecoveryResponse;/);
+    assert.match(harness, /expect\(recoveryKey\)\.not\.toHaveValue\('', \{ timeout: interactionTimeout \}\)/);
+});
+
 test('release install covers configured and deliberately skipped email modes', () => {
     const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
 
