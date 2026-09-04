@@ -9,7 +9,7 @@ const repositoryRoot = resolve(import.meta.dirname, '../..');
 test('release clean-install plan uses only the verified ZIP and runtime PHP', () => {
     const result = spawnSync('node', [
         'tests/tooling/phase10-release-clean-install.mjs',
-        '--archive=dist/waymark-community-1.0.1-shared-hosting.zip',
+        '--archive=dist/waymark-community-1.0.2-shared-hosting.zip',
         '--plan',
     ], { cwd: repositoryRoot, encoding: 'utf8', env: process.env });
 

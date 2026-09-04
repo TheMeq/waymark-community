@@ -65,7 +65,7 @@ final class ProductionReleasePackageMatrixTest extends TestCase
         $this->assertSame('retained media', file_get_contents($this->applicationRoot.'/storage/app/private/site-media/release-matrix.txt'));
         $this->assertSame('installed release matrix', file_get_contents($this->applicationRoot.'/storage/app/private/installed.lock'));
         $this->assertSame($this->layout, trim((string) file_get_contents($this->applicationRoot.'/DEPLOYMENT-LAYOUT')));
-        $this->assertSame('1.0.1', trim((string) file_get_contents($this->applicationRoot.'/VERSION')));
+        $this->assertSame('1.0.2', trim((string) file_get_contents($this->applicationRoot.'/VERSION')));
         $this->runArtisan('about', '--only=environment');
 
         $transaction->cleanup();
@@ -92,7 +92,7 @@ final class ProductionReleasePackageMatrixTest extends TestCase
         $this->assertSame('retained media', file_get_contents($this->applicationRoot.'/storage/app/private/site-media/release-matrix.txt'));
         $this->assertSame('installed release matrix', file_get_contents($this->applicationRoot.'/storage/app/private/installed.lock'));
         $this->assertSame($this->layout, trim((string) file_get_contents($this->applicationRoot.'/DEPLOYMENT-LAYOUT')));
-        $this->assertSame('1.0.0', trim((string) file_get_contents($this->applicationRoot.'/VERSION')));
+        $this->assertSame('1.0.1', trim((string) file_get_contents($this->applicationRoot.'/VERSION')));
         $this->runArtisan('about', '--only=environment');
 
         $transaction->cleanup();

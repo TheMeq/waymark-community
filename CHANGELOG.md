@@ -4,6 +4,22 @@ All notable Waymark Community changes are recorded here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-09-04
+
+### Added
+
+- Added a volunteer-oriented administration dashboard, task-focused navigation, dismissible first-run guidance and a five-step Add Walk workflow using the existing Walk permissions and save process.
+- Added bounded local/staging request diagnostics and OPcache visibility in System Health to support shared-host troubleshooting without making OPcache mandatory.
+
+### Changed
+
+- Reduced repeated application work for public configuration, navigation, redirects, gallery presentation, leader options and health summaries using request-scoped and shared-host-safe caching.
+
+### Fixed
+
+- Kept failure details and retry actions out of healthy automatic installer progress, while preserving resumable no-JavaScript and interrupted-connection recovery.
+- Applied stored homepage hero focal points and an intentional packaged default crop so the image remains useful across desktop, tablet and mobile layouts.
+
 ## [1.0.1] - 2026-08-25
 
 ### Fixed

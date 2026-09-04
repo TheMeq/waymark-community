@@ -7,7 +7,7 @@ Build from an exact clean commit after the required acceptance authority. Do not
 
    ```shell
    php scripts/build-release.php
-   php scripts/verify-release.php dist/waymark-community-1.0.1-shared-hosting.zip
+   php scripts/verify-release.php dist/waymark-community-1.0.2-shared-hosting.zip
    ```
 
 3. Run ZIP-only clean installs on empty MySQL and MariaDB databases. The extracted runtime must not borrow Composer, Node, tests or source files.
