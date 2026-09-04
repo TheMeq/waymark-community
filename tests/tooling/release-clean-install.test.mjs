@@ -44,6 +44,13 @@ test('public-html clean-install copies the exact package onto the native Apache 
     assert.match(harness, /syncContainerRuntimeFile\(containerName, containerApplicationRoot, applicationRoot, 'storage\/app\/private\/installed\.lock'\)/);
 });
 
+test('public-html clean-install allows for the bounded native Apache copy before setup is ready', () => {
+    const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
+
+    assert.match(harness, /for \(let attempt = 0; attempt < 480; attempt\+\+\)/);
+    assert.match(harness, /setTimeout\(resolveWait, 250\)/);
+});
+
 test('public-html clean-install mail fixture is reachable from the Apache container', () => {
     const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
 

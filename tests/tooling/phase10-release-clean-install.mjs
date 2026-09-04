@@ -469,7 +469,7 @@ function runTool(name, args, options) {
 }
 
 async function waitForHttp(url, process, output) {
-    for (let attempt = 0; attempt < 120; attempt++) {
+    for (let attempt = 0; attempt < 480; attempt++) {
         if (process.exitCode !== null) throw new Error(`Release web server exited before setup was ready.\n${output()}`);
         try { const response = await fetch(url); if (response.ok) return; } catch { /* starting */ }
         await new Promise((resolveWait) => setTimeout(resolveWait, 250));
