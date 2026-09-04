@@ -62,6 +62,7 @@ const portOffset = urlPrefix === '/' ? 0 : 2;
 const appPort = Number(process.env.PHASE10_INSTALL_APP_PORT ?? (database.driver === 'mysql' ? 8030 + portOffset : 8031 + portOffset));
 const smtpPort = Number(process.env.PHASE10_INSTALL_SMTP_PORT ?? (database.driver === 'mysql' ? 8040 + portOffset : 8041 + portOffset));
 const installationTimeout = requestedLayout === 'public-html' ? 900_000 : 180_000;
+const interactionTimeout = requestedLayout === 'public-html' ? 120_000 : 60_000;
 const browserOrigin = requestedLayout === 'public-html'
     ? `http://host.docker.internal:${appPort}`
     : `http://127.0.0.1:${appPort}`;
@@ -232,8 +233,8 @@ try {
     await page.getByLabel('Email address').fill('owner@example.test');
     await page.getByLabel('Password').fill('WaymarkRelease10!');
     await Promise.all([
-        page.waitForURL(applicationUrl('/admin')),
-        page.getByRole('button', { name: 'Sign in' }).click(),
+        page.waitForURL(applicationUrl('/admin'), { timeout: interactionTimeout }),
+        page.getByRole('button', { name: 'Sign in' }).click({ timeout: interactionTimeout }),
     ]);
     await page.getByRole('heading', { name: 'Dashboard' }).waitFor();
     await assertApplicationDocumentUrls(page, browserBaseUrl, urlPrefix);

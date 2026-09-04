@@ -114,6 +114,14 @@ test('public-html staged installation allows for a slow shared-host filesystem f
     assert.match(harness, /page\.waitForURL\(\/\\\/admin\\\/login[\s\S]*?timeout: installationTimeout/);
 });
 
+test('public-html post-install sign in allows for a bounded cold admin boot', () => {
+    const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
+
+    assert.match(harness, /const interactionTimeout = requestedLayout === 'public-html' \? 120_000 : 60_000;/);
+    assert.match(harness, /page\.waitForURL\(applicationUrl\('\/admin'\), \{ timeout: interactionTimeout \}\)/);
+    assert.match(harness, /getByRole\('button', \{ name: 'Sign in' \}\)\.click\(\{ timeout: interactionTimeout \}\)/);
+});
+
 test('release install covers configured and deliberately skipped email modes', () => {
     const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
 
