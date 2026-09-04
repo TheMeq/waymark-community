@@ -2,7 +2,7 @@ import { chromium, expect } from '@playwright/test';
 import { execFileSync, spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { basename, resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 
 const plan = {
     source: 'verified release ZIP only',
@@ -47,6 +47,8 @@ if (requestedLayout !== 'public-html' && urlPrefix !== '/') {
     throw new Error('A non-root URL prefix is only available to the real Apache public-html harness.');
 }
 const deploymentSegments = urlPrefix.split('/').filter(Boolean);
+const containerInstallRoot = ['/var/www/html', ...deploymentSegments].join('/');
+const containerApplicationRoot = `${containerInstallRoot}/application`;
 const evidenceSuffix = urlPrefix === '/' ? 'root' : `prefix-${deploymentSegments.join('-')}`;
 const evidenceRoot = resolve(`test-results/phase10-clean-install-${requestedLayout}-${database.driver}-${evidenceSuffix}-${emailMode}-${databaseScenario}`);
 const configuredInstallRoot = process.env.PHASE10_INSTALL_DESTINATION === undefined
@@ -125,8 +127,9 @@ const server = requestedLayout === 'public-html'
         '-e', 'APP_DEBUG=false',
         '-e', 'WAYMARK_INSTALLED=false',
         '-e', 'WAYMARK_CRON_AVAILABLE=false',
-        '-v', `${webRoot}:/var/www/html`,
+        '-v', `${webRoot}:/waymark-source:ro`,
         process.env.PHASE10_INSTALL_APACHE_IMAGE ?? 'waymark-php83-apache:local',
+        'sh', '-lc', 'cp -a /waymark-source/. /var/www/html/ && exec apache2-foreground',
     ], { cwd: root, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] })
     : spawn('php', [
         '-S', `127.0.0.1:${appPort}`,
@@ -224,6 +227,11 @@ try {
     await expect(page.getByRole('heading', { name: 'Installation progress' })).toBeVisible();
     if (progressStageBeforeRefresh === null) throw new Error('Installation progress did not expose a persisted stage.');
     await page.waitForURL(/\/admin\/login(?:\?.*)?$/, { timeout: installationTimeout });
+
+    if (requestedLayout === 'public-html') {
+        syncContainerRuntimeFile(containerName, containerApplicationRoot, applicationRoot, '.env');
+        syncContainerRuntimeFile(containerName, containerApplicationRoot, applicationRoot, 'storage/app/private/installed.lock');
+    }
 
     const installedAppUrl = readEnvironmentValue(resolve(applicationRoot, '.env'), 'APP_URL');
     if (installedAppUrl !== browserBaseUrl) {
@@ -329,10 +337,19 @@ try {
     await new Promise((resolveClosed) => smtp.close(resolveClosed));
     server.kill();
     if (requestedLayout === 'public-html') {
+        try {
+            syncContainerRuntimeFile(containerName, containerApplicationRoot, applicationRoot, 'storage/app/private/installation-attempt.json');
+        } catch { /* no persisted diagnostic was produced */ }
         try { execFileSync('docker', ['rm', '-f', containerName], { stdio: 'ignore' }); } catch { /* already stopped */ }
     } else if (process.platform === 'win32' && server.pid !== undefined) {
         try { execFileSync('taskkill', ['/pid', String(server.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already stopped */ }
     }
+}
+
+function syncContainerRuntimeFile(container, containerApplication, hostApplication, relativePath) {
+    const destination = resolve(hostApplication, ...relativePath.split('/'));
+    mkdirSync(dirname(destination), { recursive: true });
+    execFileSync('docker', ['cp', `${container}:${containerApplication}/${relativePath}`, destination], { stdio: 'ignore' });
 }
 
 function normalizeUrlPrefix(value) {

@@ -34,6 +34,16 @@ test('public-html clean-install fixture uses PHP 8.3 Apache with htaccess overri
     assert.match(dockerfile, /pdo_mysql/);
 });
 
+test('public-html clean-install copies the exact package onto the native Apache filesystem', () => {
+    const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
+
+    assert.match(harness, /-v', `\$\{webRoot\}:\/waymark-source:ro`/);
+    assert.match(harness, /cp -a \/waymark-source\/\. \/var\/www\/html\/ && exec apache2-foreground/);
+    assert.doesNotMatch(harness, /-v', `\$\{webRoot\}:\/var\/www\/html`/);
+    assert.match(harness, /syncContainerRuntimeFile\(containerName, containerApplicationRoot, applicationRoot, '\.env'\)/);
+    assert.match(harness, /syncContainerRuntimeFile\(containerName, containerApplicationRoot, applicationRoot, 'storage\/app\/private\/installed\.lock'\)/);
+});
+
 test('public-html clean-install mail fixture is reachable from the Apache container', () => {
     const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
 
