@@ -41,6 +41,13 @@ $leader = User::factory()->create([
     'profile_photo_reference' => '/images/demo/lakeside-friends.png',
 ]);
 app(AcceptCurrentPhotoUploadPolicy::class)->handle($leader);
+$wizardLeader = User::factory()->create([
+    'name' => 'Taylor Walker',
+    'display_name' => 'Taylor W.',
+    'email' => 'walk.wizard@example.test',
+    'password' => 'password',
+    'role' => AccountRole::WalkLeader,
+]);
 $mediaAdmin = User::factory()->create([
     'name' => 'Media Administrator',
     'email' => 'media.admin@example.test',

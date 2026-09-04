@@ -85,7 +85,7 @@ test('add walk wizard preserves data through Back and Next without overflow at 2
 test('walk leader completes all five Add Walk steps through the dashboard action', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop', 'The existing responsive wizard test covers tablet and mobile presentation.');
 
-    await signIn(page, 'morgan.leader@example.test');
+    await signIn(page, 'walk.wizard@example.test');
     await page.goto('/admin');
 
     const addWalk = page.getByRole('link', { name: 'Add a walk' });
@@ -120,7 +120,7 @@ test('walk leader completes all five Add Walk steps through the dashboard action
     await page.getByRole('button', { name: 'Next' }).click();
     await expect(page.getByText('Leader and publishing', { exact: true })).toBeVisible();
     await page.getByLabel('Primary leader').click();
-    await page.getByRole('option', { name: 'Morgan Walker' }).click();
+    await page.getByRole('option', { name: 'Taylor Walker' }).click();
 
     await page.getByRole('button', { name: 'Create' }).click();
     await expect(page).toHaveURL(/\/admin\/walks\/\d+\/edit$/);
@@ -129,6 +129,6 @@ test('walk leader completes all five Add Walk steps through the dashboard action
     await expect(page.getByLabel('Summary')).toHaveValue('A complete browser journey through the existing walk workflow.');
 
     await page.goto('/admin/walks');
-    await expect(page.getByRole('row', { name: /Five step browser walk.*pending_approval.*Morgan Walker/i })).toBeVisible();
+    await expect(page.getByRole('row', { name: /Five step browser walk.*pending_approval.*Taylor Walker/i })).toBeVisible();
     await expect(page.getByText('Browser moderation walk')).toHaveCount(0);
 });

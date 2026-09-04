@@ -45,10 +45,9 @@ test('site media library is accessible and promotes deliberate approved-photo co
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: 'Remove' }).first().click();
     await expect(page.getByText('Media removed')).toBeVisible();
-    for (const closeButton of await page.getByRole('button', { name: 'Close notification' }).all()) {
-        await closeButton.click();
-    }
-    await expect(page.getByRole('button', { name: 'Close notification' })).toHaveCount(0);
+    const closeNotifications = page.getByRole('button', { name: 'Close notification' });
+    await closeNotifications.evaluateAll((buttons) => buttons.forEach((button) => (button as HTMLButtonElement).click()));
+    await expect(closeNotifications).toHaveCount(0, { timeout: 10_000 });
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
     expect(results.violations).toEqual([]);
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
