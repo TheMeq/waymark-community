@@ -53,8 +53,11 @@ final readonly class FreshInstallationSchema
 
         $tables = [];
         $schema = $connection->getSchemaBuilder();
+        $database = $connection->getDriverName() === 'sqlite'
+            ? null
+            : $connection->getDatabaseName();
 
-        foreach ($schema->getTables() as $table) {
+        foreach ($schema->getTables($database) as $table) {
             $name = (string) ($table['name'] ?? $table['table'] ?? '');
 
             if ($name === '' || str_starts_with($name, 'sqlite_')) {

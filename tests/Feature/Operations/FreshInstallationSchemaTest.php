@@ -4,7 +4,7 @@ namespace Tests\Feature\Operations;
 
 use App\Domain\Operations\Installation\FreshInstallationSchema;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 final class FreshInstallationSchemaTest extends TestCase
@@ -29,31 +29,6 @@ final class FreshInstallationSchemaTest extends TestCase
 
         self::assertSame($migrationNames, $manifest->migrationNames());
         self::assertSame(hash('sha256', implode("\n", $migrationNames)), $manifest->migrationSetHash());
-        self::assertSame($this->databaseTables(), $manifest->tables());
-    }
-
-    /** @return array<string, list<string>> */
-    private function databaseTables(): array
-    {
-        $tables = [];
-
-        foreach (Schema::getTables() as $table) {
-            $name = (string) ($table['name'] ?? $table['table'] ?? '');
-
-            if ($name === '' || str_starts_with($name, 'sqlite_')) {
-                continue;
-            }
-
-            $columns = array_map(
-                static fn (array $column): string => (string) $column['name'],
-                Schema::getColumns($name),
-            );
-            sort($columns);
-            $tables[$name] = array_values($columns);
-        }
-
-        ksort($tables);
-
-        return $tables;
+        self::assertSame(FreshInstallationSchema::capture(DB::connection())->tables(), $manifest->tables());
     }
 }
