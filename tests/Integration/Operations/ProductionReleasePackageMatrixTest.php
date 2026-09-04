@@ -61,7 +61,12 @@ final class ProductionReleasePackageMatrixTest extends TestCase
         $pdo = new PDO('sqlite:'.$database);
         $this->assertSame('Release matrix group', $pdo->query('SELECT group_name FROM site_profiles')->fetchColumn());
         $this->assertSame('portability_export_runs', $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='portability_export_runs'")->fetchColumn());
-        $this->assertSame($migrationsBefore, $this->migrationNames($pdo));
+        $migrationsAfter = $this->migrationNames($pdo);
+        $this->assertSame($migrationsBefore, array_slice($migrationsAfter, 0, count($migrationsBefore)));
+        $this->assertSame(
+            ['2026_08_31_090000_add_admin_onboarding_dismissal_to_users'],
+            array_slice($migrationsAfter, count($migrationsBefore)),
+        );
         $this->assertSame('retained media', file_get_contents($this->applicationRoot.'/storage/app/private/site-media/release-matrix.txt'));
         $this->assertSame('installed release matrix', file_get_contents($this->applicationRoot.'/storage/app/private/installed.lock'));
         $this->assertSame($this->layout, trim((string) file_get_contents($this->applicationRoot.'/DEPLOYMENT-LAYOUT')));
