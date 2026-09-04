@@ -3,9 +3,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-async function signIn(page: Page) {
+async function signIn(page: Page, email = 'media.admin@example.test') {
     await page.goto('/login');
-    await page.getByLabel('Email address').fill('media.admin@example.test');
+    await page.getByLabel('Email address').fill(email);
     await page.getByLabel('Password').fill('password');
     await Promise.all([
         page.waitForURL('**/new-here'),
@@ -80,4 +80,55 @@ test('add walk wizard preserves data through Back and Next without overflow at 2
         path: resolve(screenshotDirectory, `add-walk-wizard-${testInfo.project.name}.png`),
         fullPage: true,
     });
+});
+
+test('walk leader completes all five Add Walk steps through the dashboard action', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'The existing responsive wizard test covers tablet and mobile presentation.');
+
+    await signIn(page, 'morgan.leader@example.test');
+    await page.goto('/admin');
+
+    const addWalk = page.getByRole('link', { name: 'Add a walk' });
+    await expect(addWalk).toBeVisible();
+    await addWalk.click();
+    await expect(page).toHaveURL(/\/admin\/walks\/create$/);
+    await expect(page.getByText('When and where', { exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.getByText('The title field is required.')).toBeVisible();
+    await expect(page.getByText('When and where', { exact: true })).toBeVisible();
+
+    await page.getByLabel('Title').fill('Five step browser walk');
+    await page.getByLabel('Slug').fill('five-step-browser-walk');
+    await page.getByLabel('Starts at').fill('2026-10-03T09:30');
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.getByText('Walk details', { exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Back' }).click();
+    await expect(page.getByLabel('Title')).toHaveValue('Five step browser walk');
+    await expect(page.getByLabel('Starts at')).toHaveValue('2026-10-03T09:30');
+    await page.getByRole('button', { name: 'Next' }).click();
+
+    await page.getByLabel('Distance').fill('7.5');
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.getByText('Travel and practical information', { exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.getByText('Description, route and image', { exact: true })).toBeVisible();
+    await page.getByLabel('Summary').fill('A complete browser journey through the existing walk workflow.');
+
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.getByText('Leader and publishing', { exact: true })).toBeVisible();
+    await page.getByLabel('Primary leader').click();
+    await page.getByRole('option', { name: 'Morgan Walker' }).click();
+
+    await page.getByRole('button', { name: 'Create' }).click();
+    await expect(page).toHaveURL(/\/admin\/walks\/\d+\/edit$/);
+    await expect(page.getByLabel('Title')).toHaveValue('Five step browser walk');
+    await expect(page.getByLabel('Distance')).toHaveValue('7.5');
+    await expect(page.getByLabel('Summary')).toHaveValue('A complete browser journey through the existing walk workflow.');
+
+    await page.goto('/admin/walks');
+    await expect(page.getByRole('row', { name: /Five step browser walk.*pending_approval.*Morgan Walker/i })).toBeVisible();
+    await expect(page.getByText('Browser moderation walk')).toHaveCount(0);
 });
