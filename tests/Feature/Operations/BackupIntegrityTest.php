@@ -50,6 +50,23 @@ final class BackupIntegrityTest extends TestCase
         $verified->cleanup();
     }
 
+    public function test_mariadb_backup_manifest_driver_is_supported(): void
+    {
+        $backup = app(CreateBackup::class)->handle('manual');
+        $path = Storage::disk('backups')->path($backup->storage_path);
+        $archive = new ZipArchive;
+        $this->assertTrue($archive->open($path));
+        $manifest = json_decode($archive->getFromName('manifest.json'), true, flags: JSON_THROW_ON_ERROR);
+        $manifest['database_driver'] = 'mariadb';
+        $archive->addFromString('manifest.json', json_encode($manifest, JSON_THROW_ON_ERROR));
+        $archive->close();
+
+        $verified = app(BackupVerifier::class)->open($path);
+
+        $this->assertSame('mariadb', $verified->manifest['database_driver']);
+        $verified->cleanup();
+    }
+
     public function test_tampered_component_is_rejected_before_restore(): void
     {
         $backup = app(CreateBackup::class)->handle('manual');

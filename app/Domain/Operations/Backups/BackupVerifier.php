@@ -72,7 +72,7 @@ final readonly class BackupVerifier
             if (! is_array($manifest) || ! in_array($manifest['format'] ?? null, [1, 2], true)
                 || ! is_string($manifest['created_at'] ?? null)
                 || ! is_string($manifest['waymark_version'] ?? null)
-                || ! in_array($manifest['database_driver'] ?? null, ['sqlite', 'mysql'], true)
+                || ! in_array($manifest['database_driver'] ?? null, ['sqlite', 'mysql', 'mariadb'], true)
                 || ! is_array($manifest['components'] ?? null)) {
                 throw $this->failure();
             }
