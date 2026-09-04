@@ -117,11 +117,21 @@ final class SetupInstallationTest extends TestCase
             ->post('/setup/install')
             ->assertRedirect('/setup/install/progress');
 
-        $this->postJson('/setup/install/advance')
+        $failure = $this->postJson('/setup/install/advance')
             ->assertUnprocessable()
             ->assertJsonPath('failure_category', 'configuration_file_could_not_be_written')
             ->assertSessionHas('waymark.setup.environment_file')
-            ->assertSessionHas('waymark.setup.environment_instructions');
+            ->assertSessionHas('waymark.setup.environment_instructions')
+            ->json();
+
+        $this->get('/setup/install/progress')
+            ->assertOk()
+            ->assertSee('Preparing configuration failed')
+            ->assertSee('Failure category')
+            ->assertSee('Configuration file could not be written')
+            ->assertSee('No database or application data was changed by this failed step.')
+            ->assertSee('Retry installation')
+            ->assertSee($failure['diagnostic_id']);
 
         $this->assertSame([], $this->tables());
         $this->assertFileDoesNotExist($this->markerPath);
@@ -144,8 +154,11 @@ final class SetupInstallationTest extends TestCase
 
         $retried = $this->get('/setup/install/progress')
             ->assertOk()
-            ->assertSee('Continue installation')
-            ->assertSee('No database or application data was changed by the failed step.');
+            ->assertSee('Waymark is ready to resume this saved installation.')
+            ->assertDontSee('Continue installation')
+            ->assertDontSee('No database or application data was changed by the failed step.')
+            ->assertDontSee('Failure category')
+            ->assertDontSee($failure['diagnostic_id']);
 
         $record = app(InstallationAttemptStore::class)->load();
         self::assertNotNull($record);

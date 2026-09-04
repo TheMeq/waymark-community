@@ -225,4 +225,68 @@ if (app()->environment(['local', 'testing', 'browser-testing'])) {
             ],
         ]);
     })->name('dev.components');
+
+    Route::get('/_dev/setup/progress/{state}', function (string $state) {
+        $status = [
+            'attempt_id' => '01JTESTBROWSERATTEMPT000000',
+            'status' => 'running',
+            'stage' => 'preparing_configuration',
+            'stage_label' => 'Preparing configuration',
+            'message' => 'Waymark is preparing the saved settings for installation.',
+            'changed' => false,
+            'diagnostic_id' => null,
+            'failure_category' => null,
+            'failure_category_label' => null,
+            'migration' => ['current' => 0, 'total' => 57],
+            'completed' => false,
+            'failed' => false,
+            'retryable' => false,
+            'resettable' => false,
+            'return_to_database' => false,
+        ];
+
+        $status = match ($state) {
+            'running' => $status,
+            'schema' => [...$status,
+                'stage' => 'preparing_database_schema',
+                'stage_label' => 'Preparing database schema',
+                'message' => 'Waymark is creating the database structure it needs.',
+                'migration' => ['current' => 1, 'total' => 57],
+            ],
+            'retryable' => [...$status,
+                'status' => 'failed',
+                'stage_label' => 'Preparing configuration failed',
+                'message' => 'Waymark could not write the configuration file.',
+                'diagnostic_id' => 'WM-BROWSER1',
+                'failure_category' => 'configuration_file_could_not_be_written',
+                'failure_category_label' => 'Configuration file could not be written',
+                'failed' => true,
+                'retryable' => true,
+            ],
+            'resettable' => [...$status,
+                'status' => 'failed',
+                'stage' => 'preparing_database_schema',
+                'stage_label' => 'Preparing database schema failed',
+                'message' => 'Database schema installation failed.',
+                'changed' => true,
+                'diagnostic_id' => 'WM-BROWSER2',
+                'failure_category' => 'database_schema_installation_failed',
+                'failure_category_label' => 'Database schema installation',
+                'failed' => true,
+                'resettable' => true,
+            ],
+            'complete' => [...$status,
+                'status' => 'completed',
+                'stage' => 'completing_installation',
+                'stage_label' => 'Completing installation',
+                'message' => 'Waymark Community was installed successfully.',
+                'changed' => true,
+                'migration' => ['current' => 57, 'total' => 57],
+                'completed' => true,
+            ],
+        };
+
+        return view('setup.progress', ['attempt' => null, 'status' => $status]);
+    })->whereIn('state', ['running', 'schema', 'retryable', 'resettable', 'complete'])
+        ->name('dev.setup.progress');
 }

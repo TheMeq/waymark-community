@@ -77,7 +77,9 @@ final class SetupStagedInstallationTest extends TestCase
         $this->get('/setup/install/progress')
             ->assertSuccessful()
             ->assertSee('Preparing configuration')
-            ->assertSee('Installation progress');
+            ->assertSee('Installation progress')
+            ->assertDontSee('Continue installation')
+            ->assertDontSee('No database or application data was changed by the failed step.');
 
         $this->postJson('/setup/install/advance')
             ->assertSuccessful()
@@ -97,7 +99,15 @@ final class SetupStagedInstallationTest extends TestCase
 
         $this->get('/setup/install/progress')
             ->assertSuccessful()
-            ->assertSee('Preparing database schema');
+            ->assertSee('Preparing database schema')
+            ->assertSee('Waymark is creating the database structure it needs.')
+            ->assertDontSee('No database or application data was changed by the failed step.')
+            ->assertDontSee('Retry installation');
+
+        $this->get('/setup/install/progress')
+            ->assertSuccessful()
+            ->assertSee('Preparing database schema')
+            ->assertSee('Waymark is creating the database structure it needs.');
 
         $completed = false;
         for ($request = 0; $request < 80; $request++) {

@@ -81,4 +81,29 @@ final class InstallationAttemptStoreTest extends TestCase
         self::assertTrue($loaded?->changed);
         self::assertSame('Database schema installation failed.', $loaded?->message);
     }
+
+    public function test_retry_clears_stale_failure_presentation_state(): void
+    {
+        $retried = InstallationAttemptRecord::start(
+            '01JTESTATTEMPT000000000002',
+            'ownership-token',
+            'fingerprint',
+            'migration-hash',
+            57,
+            '2026-08-25T12:00:00+00:00',
+        )->fail(
+            category: 'configuration_file_could_not_be_written',
+            diagnosticId: 'WM-OLDFAIL',
+            message: 'Waymark could not write the configuration file.',
+            changed: false,
+            now: '2026-08-25T12:01:00+00:00',
+        )->retry('2026-08-25T12:02:00+00:00');
+
+        self::assertSame(InstallationAttemptStatus::Running, $retried->status);
+        self::assertNull($retried->diagnosticId);
+        self::assertNull($retried->failureCategory);
+        self::assertSame('Waymark is ready to resume this saved installation.', $retried->message);
+        self::assertStringNotContainsString('fail', strtolower($retried->message));
+        self::assertFalse($retried->changed);
+    }
 }

@@ -30,26 +30,40 @@
             <section class="status" id="installation-status" data-stage="{{ $status['stage'] }}" data-failed="{{ $status['failed'] ? 'true' : 'false' }}" role="status" aria-live="polite" aria-atomic="true">
                 <strong id="installation-stage">{{ $status['stage_label'] }}</strong>
                 <p id="installation-message">{{ $status['message'] }}</p>
-                @if ($status['diagnostic_id'])
-                    <p>Reference: <strong>{{ $status['diagnostic_id'] }}</strong></p>
-                    <p>Detailed diagnostics are recorded server-side in <code>storage/logs/laravel.log</code>.</p>
+                @if ($status['failed'])
+                    <p>Failure category: <strong>{{ $status['failure_category_label'] }}</strong></p>
+                    @if ($status['diagnostic_id'])
+                        <p>Reference: <strong>{{ $status['diagnostic_id'] }}</strong></p>
+                        <p>Detailed diagnostics are recorded server-side in <code>storage/logs/laravel.log</code>.</p>
+                    @endif
                 @endif
             </section>
-            <p>{{ $status['changed'] ? 'The installer changed the Waymark database or application configuration before this point.' : 'No database or application data was changed by the failed step.' }}</p>
+            @if ($status['failed'])
+                <p>{{ $status['changed'] ? 'The installer changed the Waymark database or application configuration before this failure.' : 'No database or application data was changed by this failed step.' }}</p>
+            @endif
             @if ($errors->has('retry'))<p class="error">{{ $errors->first('retry') }}</p>@endif
 
             @if (! $status['completed'] && ! $status['failed'])
-                <form id="installation-advance" method="post" action="{{ route('setup.install.advance') }}">
+                <form id="installation-advance" method="post" action="{{ route('setup.install.advance') }}" hidden>
                     @csrf
-                    <button type="submit">Continue installation</button>
                 </form>
+                <form id="installation-resume" method="post" action="{{ route('setup.install.advance') }}" hidden>
+                    @csrf
+                    <button type="submit">Resume installation</button>
+                </form>
+                <noscript>
+                    <form method="post" action="{{ route('setup.install.advance') }}">
+                        @csrf
+                        <button type="submit">Resume installation</button>
+                    </form>
+                </noscript>
             @elseif ($status['completed'])
-                <p><a href="{{ route('filament.admin.pages.dashboard') }}">Continue to administration</a></p>
+                <p><a href="{{ route('filament.admin.pages.dashboard') }}">Go to admin</a></p>
             @elseif ($status['retryable'])
                 <p>Correct the reported configuration or service problem, then retry this saved step. The installer will not start a second attempt.</p>
                 <form method="post" action="{{ route('setup.install.retry') }}">
                     @csrf
-                    <button type="submit">Retry step</button>
+                    <button type="submit">Retry installation</button>
                 </form>
             @elseif ($status['resettable'])
                 @if ($errors->any())<p>{{ $errors->first() }}</p>@endif
@@ -77,6 +91,7 @@
                     const stage = document.getElementById('installation-stage');
                     const message = document.getElementById('installation-message');
                     const progress = document.getElementById('installation-progress');
+                    const resume = document.getElementById('installation-resume');
                     let advancing = false;
 
                     const advance = async () => {
@@ -106,18 +121,21 @@
                                 return;
                             }
 
-                            if (response.ok) window.setTimeout(advance, 250);
+                            if (response.ok) {
+                                window.setTimeout(advance, 250);
+                                return;
+                            }
+
+                            message.textContent = 'Installation paused before the next saved stage could begin.';
+                            resume.hidden = false;
                         } catch (error) {
-                            message.textContent = 'The connection was interrupted. Refresh this page to resume the saved installation attempt.';
+                            message.textContent = 'The connection was interrupted. Use Resume installation to continue this saved attempt.';
+                            resume.hidden = false;
                         } finally {
                             advancing = false;
                         }
                     };
 
-                    form.addEventListener('submit', (event) => {
-                        event.preventDefault();
-                        advance();
-                    });
                     window.setTimeout(advance, 100);
                 })();
             </script>

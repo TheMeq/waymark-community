@@ -227,11 +227,14 @@ final class SetupController
             'attempt_id' => $attempt->id,
             'status' => $attempt->status->value,
             'stage' => $attempt->stage->value,
-            'stage_label' => $attempt->stage->label(),
+            'stage_label' => $attempt->status === InstallationAttemptStatus::Failed
+                ? $attempt->stage->label().' failed'
+                : $attempt->stage->label(),
             'message' => $attempt->message,
             'changed' => $attempt->changed,
             'diagnostic_id' => $attempt->diagnosticId,
             'failure_category' => $attempt->failureCategory,
+            'failure_category_label' => $this->failureCategoryLabel($attempt->failureCategory),
             'migration' => [
                 'current' => $attempt->migrationIndex,
                 'total' => $attempt->totalMigrations,
@@ -244,6 +247,25 @@ final class SetupController
             'return_to_database' => $attempt->status === InstallationAttemptStatus::Failed
                 && in_array($attempt->failureCategory, ['database_not_empty_or_ambiguous', 'database_configuration_changed'], true),
         ];
+    }
+
+    private function failureCategoryLabel(?string $category): ?string
+    {
+        return match ($category) {
+            'configuration_file_could_not_be_written' => 'Configuration file could not be written',
+            'database_connection_or_permissions_failed' => 'Database connection or permissions',
+            'database_schema_installation_failed' => 'Database schema installation',
+            'database_not_empty_or_ambiguous' => 'Database is not empty or is ambiguous',
+            'database_configuration_changed' => 'Database configuration changed',
+            'incomplete_waymark_installation_detected' => 'Incomplete Waymark installation detected',
+            'group_creation_failed' => 'Group settings creation',
+            'administrator_creation_failed' => 'Administrator creation',
+            'optional_configuration_failed' => 'Optional configuration',
+            'health_verification_failed' => 'Health verification',
+            'filesystem_or_completion_failure' => 'Installation completion',
+            null => null,
+            default => 'Installation',
+        };
     }
 
     private function redirectToStep(SetupStep $step): RedirectResponse

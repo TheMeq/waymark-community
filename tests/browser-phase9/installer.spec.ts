@@ -112,3 +112,47 @@ test('required guidance, optional email controls, and recovery-key generation re
     expect(generated).toMatch(/[^A-Za-z0-9]/);
     await expect(page.getByLabel('Confirm recovery key')).toHaveValue(generated);
 });
+
+test('installation actions reflect before-start, automatic, interrupted, failed, and complete states', async ({ page }) => {
+    await page.goto('/_dev/setup/install');
+    await expect(page.getByRole('button', { name: 'Install Waymark Community' })).toBeVisible();
+
+    await page.route('**/setup/install/advance', async (route) => {
+        await route.fulfill({
+            contentType: 'application/json',
+            body: JSON.stringify({
+                stage: 'preparing_database_schema',
+                stage_label: 'Preparing database schema',
+                message: 'Waymark is creating the database structure it needs.',
+                failed: false,
+                completed: false,
+                migration: { current: 1, total: 57 },
+            }),
+        });
+    });
+    await page.goto('/_dev/setup/progress/schema');
+    await expect(page.getByText('Waymark is creating the database structure it needs.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Continue installation' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Resume installation' })).toHaveCount(0);
+    await expect(page.locator('body')).not.toContainText(/failed|failure|error|retry/i);
+
+    await page.unroute('**/setup/install/advance');
+    await page.route('**/setup/install/advance', async (route) => route.abort());
+    await page.goto('/_dev/setup/progress/running');
+    await expect(page.getByRole('button', { name: 'Resume installation' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Continue installation' })).toHaveCount(0);
+
+    await page.unroute('**/setup/install/advance');
+    await page.goto('/_dev/setup/progress/retryable');
+    await expect(page.getByText('Preparing configuration failed')).toBeVisible();
+    await expect(page.getByText('Failure category: Configuration file could not be written')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Retry installation' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Resume installation' })).toHaveCount(0);
+
+    await page.goto('/_dev/setup/progress/resettable');
+    await expect(page.getByRole('button', { name: 'Reset incomplete installation and retry' })).toBeVisible();
+
+    await page.goto('/_dev/setup/progress/complete');
+    await expect(page.getByRole('link', { name: 'Go to admin' })).toBeVisible();
+    await expect(page.getByRole('button')).toHaveCount(0);
+});
