@@ -34,21 +34,16 @@ test('public-html clean-install fixture uses PHP 8.3 Apache with htaccess overri
     assert.match(dockerfile, /pdo_mysql/);
 });
 
-test('public-html clean-install copies the exact package onto the native Apache filesystem', () => {
+test('public-html clean-install copies the exact package into a stopped native Apache container', () => {
     const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
 
-    assert.match(harness, /-v', `\$\{webRoot\}:\/waymark-source:ro`/);
-    assert.match(harness, /cp -a \/waymark-source\/\. \/var\/www\/html\/ && exec apache2-foreground/);
-    assert.doesNotMatch(harness, /-v', `\$\{webRoot\}:\/var\/www\/html`/);
+    assert.match(harness, /execFileSync\('docker', \['create', '--name', containerName/);
+    assert.match(harness, /execFileSync\('docker', \['cp', `\$\{webRoot\}\/\.`, `\$\{containerName\}:\/var\/www\/html`\]/);
+    assert.match(harness, /chown www-data:www-data \$\{containerInstallRoot\}\/application && chown -R www-data:www-data \$\{containerInstallRoot\}\/application\/storage \$\{containerInstallRoot\}\/application\/bootstrap\/cache/);
+    assert.match(harness, /spawn\('docker', \['start', '-a', containerName\]/);
+    assert.doesNotMatch(harness, /'-v', `\$\{webRoot\}:/);
     assert.match(harness, /syncContainerRuntimeFile\(containerName, containerApplicationRoot, applicationRoot, '\.env'\)/);
     assert.match(harness, /syncContainerRuntimeFile\(containerName, containerApplicationRoot, applicationRoot, 'storage\/app\/private\/installed\.lock'\)/);
-});
-
-test('public-html clean-install allows for the bounded native Apache copy before setup is ready', () => {
-    const harness = readFileSync(resolve(repositoryRoot, 'tests/tooling/phase10-release-clean-install.mjs'), 'utf8');
-
-    assert.match(harness, /for \(let attempt = 0; attempt < 480; attempt\+\+\)/);
-    assert.match(harness, /setTimeout\(resolveWait, 250\)/);
 });
 
 test('public-html clean-install mail fixture is reachable from the Apache container', () => {

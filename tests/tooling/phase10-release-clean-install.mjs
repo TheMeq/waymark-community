@@ -120,17 +120,7 @@ const serverEnvironment = {
 };
 const containerName = `waymark-public-html-${database.driver}-${process.pid}`;
 const server = requestedLayout === 'public-html'
-    ? spawn('docker', [
-        'run', '--rm', '--name', containerName,
-        '-p', `${appPort}:80`,
-        '-e', 'APP_ENV=production',
-        '-e', 'APP_DEBUG=false',
-        '-e', 'WAYMARK_INSTALLED=false',
-        '-e', 'WAYMARK_CRON_AVAILABLE=false',
-        '-v', `${webRoot}:/waymark-source:ro`,
-        process.env.PHASE10_INSTALL_APACHE_IMAGE ?? 'waymark-php83-apache:local',
-        'sh', '-lc', 'cp -a /waymark-source/. /var/www/html/ && exec apache2-foreground',
-    ], { cwd: root, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] })
+    ? startPublicHtmlServer(containerName, webRoot, containerInstallRoot, appPort, root)
     : spawn('php', [
         '-S', `127.0.0.1:${appPort}`,
         resolve(applicationRoot, 'vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php'),
@@ -352,6 +342,28 @@ function syncContainerRuntimeFile(container, containerApplication, hostApplicati
     execFileSync('docker', ['cp', `${container}:${containerApplication}/${relativePath}`, destination], { stdio: 'ignore' });
 }
 
+function startPublicHtmlServer(containerName, webRoot, containerInstallRoot, appPort, root) {
+    const image = process.env.PHASE10_INSTALL_APACHE_IMAGE ?? 'waymark-php83-apache:local';
+    const prepareRuntime = `chown www-data:www-data ${containerInstallRoot}/application && chown -R www-data:www-data ${containerInstallRoot}/application/storage ${containerInstallRoot}/application/bootstrap/cache && exec apache2-foreground`;
+    execFileSync('docker', ['create', '--name', containerName,
+        '-p', `${appPort}:80`,
+        '-e', 'APP_ENV=production',
+        '-e', 'APP_DEBUG=false',
+        '-e', 'WAYMARK_INSTALLED=false',
+        '-e', 'WAYMARK_CRON_AVAILABLE=false',
+        image,
+        'sh', '-lc', prepareRuntime,
+    ], { cwd: root, env: process.env, stdio: 'ignore' });
+    try {
+        execFileSync('docker', ['cp', `${webRoot}/.`, `${containerName}:/var/www/html`], { cwd: root, env: process.env, stdio: 'ignore' });
+    } catch (error) {
+        try { execFileSync('docker', ['rm', '-f', containerName], { stdio: 'ignore' }); } catch { /* preserve copy failure */ }
+        throw error;
+    }
+
+    return spawn('docker', ['start', '-a', containerName], { cwd: root, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
 function normalizeUrlPrefix(value) {
     const candidate = String(value).trim();
     if (candidate === '' || candidate === '/') return '/';
@@ -469,7 +481,7 @@ function runTool(name, args, options) {
 }
 
 async function waitForHttp(url, process, output) {
-    for (let attempt = 0; attempt < 480; attempt++) {
+    for (let attempt = 0; attempt < 120; attempt++) {
         if (process.exitCode !== null) throw new Error(`Release web server exited before setup was ready.\n${output()}`);
         try { const response = await fetch(url); if (response.ok) return; } catch { /* starting */ }
         await new Promise((resolveWait) => setTimeout(resolveWait, 250));
