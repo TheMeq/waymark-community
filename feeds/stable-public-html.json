@@ -2,17 +2,18 @@
     "payload": {
         "schema": 1,
         "channel": "stable",
-        "version": "1.0.1",
-        "published_at": "2026-08-25T21:32:42Z",
+        "version": "1.0.2",
+        "published_at": "2026-09-06T20:43:58Z",
         "security_release": false,
-        "summary": "Shared-host installer reliability and updater transport improvements.",
+        "summary": "Volunteer-focused administration, clearer installer progress, and shared-host efficiency improvements.",
         "release_notes": [
-            "Improved setup beneath supported URL prefixes and subdirectories.",
-            "Made outbound email configuration optional during setup.",
-            "Clarified required-field and recovery-key guidance and improved module controls.",
-            "Made fresh installation progress bounded, persisted and recoverable.",
-            "Added database capability checks, interrupted-install recovery and non-sensitive diagnostics.",
-            "Made updater package downloads follow bounded HTTPS redirects used by release asset hosting."
+            "Added a volunteer-oriented administration dashboard and task-focused navigation.",
+            "Added a five-step Add Walk wizard using the existing Walk permissions and save process.",
+            "Added dismissible first-run guidance for administrators.",
+            "Improved healthy automatic installer progress states while preserving resumable recovery.",
+            "Applied stored homepage hero focal points and corrected the packaged default crop.",
+            "Added bounded request diagnostics and OPcache visibility for shared-host troubleshooting.",
+            "Reduced repeated shared-host application work using request-scoped and shared-host-safe caching."
         ],
         "requirements": {
             "php": "8.3.0",
@@ -27,9 +28,9 @@
             },
             "disk_free_bytes": 250000000
         },
-        "package_url": "https://github.com/TheMeq/waymark-community/releases/download/v1.0.1/waymark-community-1.0.1-public-html.zip",
-        "package_sha256": "7fd20513c5ccef295541cedc27e9a551b023eef2d38c729228ad798e6c50e5e3",
-        "package_size_bytes": 41368268
+        "package_url": "https://github.com/TheMeq/waymark-community/releases/download/v1.0.2/waymark-community-1.0.2-public-html.zip",
+        "package_sha256": "9ae053ed4b77ca3188347808f541d034123bb5c7e3560518519c0bf02b2e4596",
+        "package_size_bytes": 41450768
     },
-    "signature": "A85VbcfF9BkrPd/wDYxS+hM36vnnd+Qm9U9hUrkLNa5oJ1jqKC+s2YVAyPDwqyaqJE7LE6aNREeBpRijuz+hWy7gKi57pgzAZXiZE5zbPxZrPrSAa6aq/42WHUyHjxr8nI/1kwYXzjL/b7q1+/oncXcliZksPZ79M2G9hFVeEYhmEn+J01PItrO4wBpFbynjT3GVqCFu5yy2aZ7n5td43qlFHwoLqtXghywP7Bi74Yg2/Vik9g0u0xUhONBFmt8CYR1zw5XnKrWPPpyR6zxPEEB3z965lmrfqLMrw7FvV8XDXgipnfuFO3pMh2Vj9B8FymvGwf7Z0PJWesua1tUMvmi33Z7OxLMw6d6SN/rWbfuzxrv9/bG1rZbsUudu9f7LWs4Y8t8C3CzR7i7AaeQ9+ua5hgwji2noZfdurTttacM9n0F0VfxSjifhTBHqbGWkoPExU/WrKYy7THVoB4/G7IXOaAzASFbAARE5Sv1+2+OVbtz7dqzw3t8vCjHXXjK5"
+    "signature": "RgX9ADavz1ZyOAG4EQoKSy6s+M+MeL3OSiXoLpnoh8vMHGt1I4nzB9+pdQtOhfP3JpYLSDy6XSs6oDCd5ESMMbeSe7eQ8nZsoFGMG5a0wDQ280wyfzuZ+/gfPdxD8pdnItwll4rjwhJ4jYrmYoVAWFjo0NuxJannWrg63YOKQI9+XbXBxTui4RJc600K86anCKHJFbWYakUIDNnquqggv+XV1a7AkKxBx3/f7FdW/Im/Jsu/31dHuMMlm4GXw2OQVxNgAtdh3YyemyQj1PsWIlbu+RPtk3ycSmWCzDc7Ezy3xxlov67fq2TGavr78EV/+fIzrXgcg95nV59LehD0SwZZVwoTGb61wJ53K7NaN+VLaWvdawJiBIF7inlkDpO1upLKsfOcQfEs7i7c7houD6j0AlvmYisyH6emQYdOMw0zFUxWuGo/KJQahBktQs7i99OF0dirW1Fk6CLfKGJsOj7I+0e5N3rDc4EdNXJgmMLzE8RsN1bZKsD2C8Yammlk"
 }
