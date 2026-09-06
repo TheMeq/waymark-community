@@ -51,12 +51,11 @@ final readonly class CreateWalk
             : CarbonImmutable::parse((string) $startsAt);
         $dateSuffix = '-'.$date->format('Y-m-d');
         $titleSlug = Str::slug($title) ?: 'walk';
-        $base = Str::limit($titleSlug, 255 - strlen($dateSuffix), '').$dateSuffix;
-        $slug = $base;
+        $slug = Str::limit($titleSlug, 255 - strlen($dateSuffix), '').$dateSuffix;
 
         for ($suffix = 2; Event::query()->where('slug', $slug)->exists(); $suffix++) {
             $suffixText = '-'.$suffix;
-            $slug = Str::limit($base, 255 - strlen($suffixText), '').$suffixText;
+            $slug = Str::limit($titleSlug, 255 - strlen($dateSuffix) - strlen($suffixText), '').$dateSuffix.$suffixText;
         }
 
         return $slug;

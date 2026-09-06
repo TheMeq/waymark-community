@@ -46,6 +46,24 @@ final class WalkCreationSlugTest extends TestCase
         $this->assertSame('reservoir-circuit-2026-09-12-3', $third->event->slug);
     }
 
+    public function test_long_collision_slug_preserves_the_complete_date_before_the_numeric_suffix(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+        $attributes = [
+            'title' => str_repeat('Boundary ', 40),
+            'starts_at' => '2026-09-12 09:30:00',
+            'primary_leader_id' => $administrator->id,
+        ];
+
+        $first = app(CreateWalk::class)->handle($administrator, $attributes);
+        $second = app(CreateWalk::class)->handle($administrator, $attributes);
+
+        $this->assertSame(255, strlen($first->event->slug));
+        $this->assertStringEndsWith('-2026-09-12-2', $second->event->slug);
+        $this->assertLessThanOrEqual(255, strlen($second->event->slug));
+        $this->assertNotSame($first->event->slug, $second->event->slug);
+    }
+
     public function test_editing_a_walk_title_and_date_does_not_change_its_slug(): void
     {
         $administrator = User::factory()->initialAdministrator()->create();
