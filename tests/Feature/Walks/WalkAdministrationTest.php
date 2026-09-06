@@ -140,7 +140,6 @@ final class WalkAdministrationTest extends TestCase
         Livewire::test(CreateWalk::class)
             ->fillForm([
                 'title' => 'Reservoir circuit',
-                'slug' => 'reservoir-circuit',
                 'starts_at' => '2026-09-12 09:30:00',
                 'ends_at' => '2026-09-12 14:30:00',
                 'primary_leader_id' => $leader->id,
@@ -149,7 +148,7 @@ final class WalkAdministrationTest extends TestCase
             ->call('create')
             ->assertHasNoFormErrors();
 
-        $event = Event::query()->where('slug', 'reservoir-circuit')->firstOrFail();
+        $event = Event::query()->where('slug', 'reservoir-circuit-2026-09-12')->firstOrFail();
 
         $this->assertSame($leader->id, $event->organiser_id);
         $this->assertSame(EventStatus::Published, $event->status);
@@ -167,14 +166,13 @@ final class WalkAdministrationTest extends TestCase
         Livewire::test(CreateWalk::class)
             ->fillForm([
                 'title' => 'Canal path walk',
-                'slug' => 'canal-path-walk',
                 'starts_at' => '2026-09-19 09:30:00',
                 'primary_leader_id' => $leader->id,
             ])
             ->call('create')
             ->assertHasNoFormErrors();
 
-        $event = Event::query()->where('slug', 'canal-path-walk')->firstOrFail();
+        $event = Event::query()->where('slug', 'canal-path-walk-2026-09-19')->firstOrFail();
 
         $this->assertSame(EventStatus::PendingApproval, $event->status);
         $this->assertFalse($event->is_public);

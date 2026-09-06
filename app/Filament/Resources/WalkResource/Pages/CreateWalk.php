@@ -23,7 +23,7 @@ final class CreateWalk extends CreateRecord
     {
         return [
             Step::make('When and where')->schema($this->fields([
-                'title', 'slug', 'starts_at', 'ends_at', 'meeting_location_name', 'meeting_address',
+                'title', 'starts_at', 'ends_at', 'meeting_location_name', 'meeting_address',
                 'meeting_postcode', 'latitude', 'longitude', 'what3words', 'os_grid_reference',
             ])),
             Step::make('Walk details')->schema($this->fields([

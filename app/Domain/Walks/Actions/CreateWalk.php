@@ -7,9 +7,12 @@ use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Domain\Walks\Models\Walk;
 use App\Models\User;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 
 final readonly class CreateWalk
 {
@@ -26,7 +29,8 @@ final readonly class CreateWalk
 
         $walk = DB::transaction(function () use ($organiser, $attributes): Walk {
             $event = Event::query()->create([
-                ...Arr::only($attributes, ['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at']),
+                ...Arr::only($attributes, ['title', 'summary', 'description', 'starts_at', 'ends_at']),
+                'slug' => $this->uniqueSlug((string) $attributes['title'], $attributes['starts_at']),
                 'type' => EventType::Walk,
                 'status' => EventStatus::Draft,
                 'is_public' => false,
@@ -38,5 +42,23 @@ final readonly class CreateWalk
         });
 
         return $this->submitWalkForPublication->handle($walk, $organiser);
+    }
+
+    private function uniqueSlug(string $title, mixed $startsAt): string
+    {
+        $date = $startsAt instanceof CarbonInterface
+            ? $startsAt
+            : CarbonImmutable::parse((string) $startsAt);
+        $dateSuffix = '-'.$date->format('Y-m-d');
+        $titleSlug = Str::slug($title) ?: 'walk';
+        $base = Str::limit($titleSlug, 255 - strlen($dateSuffix), '').$dateSuffix;
+        $slug = $base;
+
+        for ($suffix = 2; Event::query()->where('slug', $slug)->exists(); $suffix++) {
+            $suffixText = '-'.$suffix;
+            $slug = Str::limit($base, 255 - strlen($suffixText), '').$suffixText;
+        }
+
+        return $slug;
     }
 }
