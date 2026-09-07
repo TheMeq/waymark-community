@@ -140,6 +140,8 @@ git commit -m "refactor(walks): extract walk slug generation"
 - Consumes: `GenerateWalkSlug::handle()`, `SaveWalkDetails::handle()`, and `Gate::forUser($actor)->authorize('create', Walk::class)`.
 - Produces: `SaveWalkDraft::create(User $actor, array $attributes): Walk`.
 - Initial input: required `title` and `starts_at`; optional Step 1 Event/location fields; any caller-supplied organiser, publication state, slug, or primary leader is ignored.
+- Activity invariant: `User::hasCapability()` already returns `false` before role or legacy-capability lookup whenever `User::isActive()` is false. The policy must reuse that fail-closed capability seam rather than duplicate account-status logic.
+- Verification invariant: every draft creator, including an Administrator with `ManageAllWalks`, must have a verified email. Remove the current `ManageAllWalks` verification bypass; there is no repository-wide administrator convention requiring it, and `User::canAccessPanel()` already requires verified email for all admin-panel users.
 
 - [ ] **Step 1: Write failing tests for initial persistence and coherent authority**
 
@@ -170,7 +172,7 @@ public function test_valid_step_one_creates_one_private_actor_owned_draft(): voi
 }
 ```
 
-Add data-driven cases proving blank/overlong title and missing/invalid start time throw `ValidationException` and leave both tables empty. Configure a role with `CreateWalks` but neither `ManageOwnWalks` nor `ManageAllWalks`, assert `WalkPolicy::create()` is false, and assert `SaveWalkDraft::create()` throws `AuthorizationException`. Also assert an unverified or inactive actor cannot create a draft.
+Add data-driven cases proving blank/overlong title and missing/invalid start time throw `ValidationException` and leave both tables empty. Configure a role with `CreateWalks` but neither `ManageOwnWalks` nor `ManageAllWalks`, assert `WalkPolicy::create()` is false, and assert `SaveWalkDraft::create()` throws `AuthorizationException`. Add distinct regressions proving: a suspended/disabled user receives no effective Walk capabilities through `hasCapability()` and cannot create a draft; an unverified Walk Leader cannot create a draft; and an unverified Administrator with `ManageAllWalks` cannot create a draft.
 
 - [ ] **Step 2: Run the draft test and verify RED**
 
@@ -180,9 +182,10 @@ Expected: FAIL because `SaveWalkDraft` is absent and the current Walk create pol
 
 - [ ] **Step 3: Refine creation authority and implement atomic initial persistence**
 
-Change `WalkPolicy::create()` to require active capability checks, email verification, and coherent management authority:
+Change `WalkPolicy::create()` to require verified email plus coherent effective capabilities. Activity is enforced by the existing `User::hasCapability()` fail-closed check, so do not add another account-status comparison in the policy:
 
 ```php
+// User::hasCapability() returns false for every inactive account.
 return $user->hasVerifiedEmail()
     && $user->hasCapability(ModuleCapability::CreateWalks)
     && (
@@ -190,6 +193,8 @@ return $user->hasVerifiedEmail()
         || $user->hasCapability(ModuleCapability::ManageAllWalks)
     );
 ```
+
+The leading email-verification condition intentionally applies to Administrators as well as Walk Leaders. `ManageAllWalks` grants management breadth only; it does not bypass identity verification.
 
 Implement `SaveWalkDraft::create()` as one `DB::transaction()`. Apply these exact rules: `title => required|string|max:255`; `starts_at => required|date`; `ends_at => nullable|date|after:starts_at`; `meeting_location_name => nullable|string|max:255`; `meeting_address => nullable|string|max:5000`; `meeting_postcode => nullable|string|max:32`; paired latitude/longitude numeric range rules matching `WalkDetailsData`; and nullable `what3words`/`os_grid_reference` strings capped at 255. Create the Event with fixed Walk/Draft/private fields and a generated slug, then call `SaveWalkDetails` with only validated Step 1 details plus `primary_leader_id => $actor->id`.
 
@@ -199,7 +204,7 @@ The action must not inject or call `SubmitWalkForPublication`, `PublishEvent`, o
 
 Run: `php artisan test tests/Feature/Walks/SaveWalkDraftTest.php tests/Feature/Walks/WalkAdministrationTest.php --filter='create|access'`
 
-Expected: initial draft and access-policy cases pass; existing default Walk Leader and Administrator create access remains available.
+Expected: initial draft and access-policy cases pass; active verified default Walk Leaders and Administrators retain create access; inactive users and unverified users, including unverified Administrators, are denied.
 
 - [ ] **Step 5: Commit initial draft persistence**
 
