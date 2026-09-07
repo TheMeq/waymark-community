@@ -3,29 +3,54 @@
 namespace App\Filament\Resources\WalkResource\Pages;
 
 use App\Domain\Walks\Actions\CreateWalk as CreateWalkAction;
+use App\Domain\Walks\Actions\SaveWalkDraft;
+use App\Domain\Walks\Models\Walk;
 use App\Filament\Components\AccessibleWizard;
 use App\Filament\Resources\WalkResource;
 use App\Models\User;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
 use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\View as ViewComponent;
 use Filament\Schemas\Components\Wizard\Step;
+use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
+use Livewire\Attributes\Url;
 
 final class CreateWalk extends CreateRecord
 {
     use HasWizard;
 
+    private const STEP_ONE_FIELDS = [
+        'title',
+        'starts_at',
+        'ends_at',
+        'meeting_location_name',
+        'meeting_address',
+        'meeting_postcode',
+        'latitude',
+        'longitude',
+        'what3words',
+        'os_grid_reference',
+    ];
+
     protected static string $resource = WalkResource::class;
+
+    #[Url(as: 'draft')]
+    public ?int $draftId = null;
+
+    public ?string $draftSaveStatus = null;
+
+    public ?string $draftSaveError = null;
 
     /** @return list<Step> */
     public function getSteps(): array
     {
         return [
-            Step::make('When and where')->schema($this->fields([
-                'title', 'starts_at', 'ends_at', 'meeting_location_name', 'meeting_address',
-                'meeting_postcode', 'latitude', 'longitude', 'what3words', 'os_grid_reference',
-            ])),
+            Step::make('When and where')
+                ->schema($this->fields(self::STEP_ONE_FIELDS))
+                ->afterValidation(fn () => $this->checkpointStepOne()),
             Step::make('Walk details')->schema($this->fields([
                 'grade_id', 'tag_ids', 'distance', 'ascent', 'estimated_duration_minutes',
                 'capacity', 'availability', 'terrain_notes',
@@ -55,6 +80,14 @@ final class CreateWalk extends CreateRecord
             ->contained(false);
     }
 
+    public function content(Schema $schema): Schema
+    {
+        return $schema->components([
+            $this->getFormContentComponent(),
+            ViewComponent::make('filament.walks.draft-save-status'),
+        ]);
+    }
+
     /**
      * @param  list<string>  $names
      * @return list<Component>
@@ -66,6 +99,26 @@ final class CreateWalk extends CreateRecord
         );
 
         return collect($names)->map(fn (string $name): Component => $fields->get($name))->all();
+    }
+
+    private function checkpointStepOne(): void
+    {
+        /** @var User $actor */
+        $actor = auth()->user();
+        $attributes = Arr::only($this->data, self::STEP_ONE_FIELDS);
+
+        $draft = $this->draftId === null
+            ? app(SaveWalkDraft::class)->create($actor, $attributes)
+            : app(SaveWalkDraft::class)->update(
+                Walk::query()->findOrFail($this->draftId),
+                $actor,
+                $attributes,
+            );
+
+        $this->draftId ??= $draft->id;
+        $this->data['primary_leader_id'] ??= $actor->id;
+        $this->draftSaveError = null;
+        $this->draftSaveStatus = 'Draft saved';
     }
 
     /** @param array<string, mixed> $data */
