@@ -6,7 +6,9 @@ use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Accounts\Models\RoleCapability;
 use App\Domain\Events\Enums\EventStatus;
+use App\Domain\Events\Models\Event;
 use App\Domain\Walks\Actions\SaveWalkDraft;
+use App\Domain\Walks\Actions\UpdateWalkFieldSettings;
 use App\Domain\Walks\Models\Grade;
 use App\Domain\Walks\Models\Tag;
 use App\Domain\Walks\Models\Walk;
@@ -400,5 +402,115 @@ final class WalkDraftWizardTest extends TestCase
         $authorityComponent->set('data.meeting_location_name', 'Private change')->assertForbidden();
 
         $this->assertNull($secondDraft->fresh()->meeting_location_name);
+    }
+
+    public function test_submit_walk_action_submits_the_same_draft_for_approval(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        app(UpdateWalkFieldSettings::class)->handle([], leadersCanPublishDirectly: false);
+
+        $component = Livewire::actingAs($leader)
+            ->test(CreateWalk::class)
+            ->fillForm([
+                'title' => 'Reservoir circuit',
+                'starts_at' => '2026-09-12 09:30:00',
+            ])
+            ->goToNextWizardStep();
+        $draft = Walk::query()->with('event')->findOrFail($component->get('draftId'));
+
+        $component
+            ->goToWizardStep(3)
+            ->goToWizardStep(4)
+            ->goToWizardStep(5)
+            ->assertSee('Submit walk');
+        $this->assertFalse($component->instance()->canCreateAnother());
+
+        $component
+            ->call('create')
+            ->assertHasNoFormErrors()
+            ->assertSet('draftId', null);
+
+        $submitted = Walk::query()->with('event')->sole();
+        $this->assertSame($draft->id, $submitted->id);
+        $this->assertSame($draft->event_id, $submitted->event_id);
+        $this->assertSame(EventStatus::PendingApproval, $submitted->event->status);
+        $this->assertFalse($submitted->event->is_public);
+        $this->assertDatabaseCount('events', 1);
+        $this->assertDatabaseCount('walks', 1);
+    }
+
+    public function test_final_submission_publishes_the_same_draft_when_direct_publishing_is_enabled(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        app(UpdateWalkFieldSettings::class)->handle([], leadersCanPublishDirectly: true);
+
+        $component = Livewire::actingAs($leader)
+            ->test(CreateWalk::class)
+            ->fillForm([
+                'title' => 'Hilltop circuit',
+                'starts_at' => '2026-09-19 09:30:00',
+            ])
+            ->goToNextWizardStep();
+        $draft = Walk::query()->findOrFail($component->get('draftId'));
+
+        $component
+            ->goToWizardStep(3)
+            ->goToWizardStep(4)
+            ->goToWizardStep(5)
+            ->call('create')
+            ->assertHasNoFormErrors()
+            ->assertSet('draftId', null);
+
+        $submitted = Walk::query()->with('event')->sole();
+        $this->assertSame($draft->id, $submitted->id);
+        $this->assertSame($draft->event_id, $submitted->event_id);
+        $this->assertSame(EventStatus::Published, $submitted->event->status);
+        $this->assertTrue($submitted->event->is_public);
+        $this->assertNotNull($submitted->event->published_at);
+        $this->assertDatabaseCount('events', 1);
+        $this->assertDatabaseCount('walks', 1);
+    }
+
+    public function test_submission_failure_preserves_the_last_private_checkpoint_and_reports_feedback(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+        $component = Livewire::actingAs($administrator)
+            ->test(CreateWalk::class)
+            ->fillForm([
+                'title' => 'Clifftop circuit',
+                'starts_at' => '2026-09-26 09:30:00',
+            ])
+            ->goToNextWizardStep()
+            ->goToWizardStep(3)
+            ->goToWizardStep(4)
+            ->fillForm(['summary' => 'Previously saved summary.'])
+            ->goToWizardStep(5);
+        $draft = Walk::query()->with('event')->findOrFail($component->get('draftId'));
+
+        Event::updating(function (Event $event): void {
+            if ($event->isDirty('status') && $event->status !== EventStatus::Draft) {
+                throw new \RuntimeException('Simulated final transition failure.');
+            }
+        });
+
+        $component
+            ->fillForm(['summary' => 'Unsaved final summary.'])
+            ->call('create')
+            ->assertNoRedirect()
+            ->assertSet('draftId', $draft->id)
+            ->assertSet('draftSaveStatus', null)
+            ->assertSet(
+                'draftSaveError',
+                "We couldn't submit your walk. Your draft is still saved. Try again.",
+            )
+            ->assertSee("We couldn't submit your walk. Your draft is still saved. Try again.")
+            ->assertDispatched('walk-draft-save-failed');
+
+        $draft->event->refresh();
+        $this->assertSame('Previously saved summary.', $draft->event->summary);
+        $this->assertSame(EventStatus::Draft, $draft->event->status);
+        $this->assertFalse($draft->event->is_public);
+        $this->assertDatabaseCount('events', 1);
+        $this->assertDatabaseCount('walks', 1);
     }
 }

@@ -10,6 +10,7 @@ use App\Filament\Components\AccessibleWizard;
 use App\Filament\Resources\WalkResource;
 use App\Filament\Resources\WalkResource\Support\WalkFormData;
 use App\Models\User;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
 use Filament\Schemas\Components\Component;
@@ -26,6 +27,8 @@ use Throwable;
 final class CreateWalk extends CreateRecord
 {
     use HasWizard;
+
+    protected static bool $canCreateAnother = false;
 
     private const CHECKPOINT_FIELDS = [
         1 => [
@@ -131,6 +134,20 @@ final class CreateWalk extends CreateRecord
     {
         return AccessibleWizard::make($this->getSteps())
             ->persistStepInQueryString('step')
+            ->extraAttributes([
+                'x-init' => <<<'JS'
+                    $watch('step', (value) => $nextTick(() => {
+                        const index = getStepIndex(value)
+                        const stepId = $refs.header?.children[index]?.querySelector('button')?.getAttribute('aria-controls')
+
+                        if (! stepId) return
+
+                        const url = new URL(window.location.href)
+                        url.searchParams.set('step', stepId)
+                        history.replaceState(null, document.title, url.toString())
+                    }))
+                    JS,
+            ])
             ->startOnStep($this->getStartStep())
             ->cancelAction($this->getCancelFormAction())
             ->submitAction($this->getSubmitFormAction())
@@ -213,12 +230,32 @@ final class CreateWalk extends CreateRecord
         return $walk;
     }
 
+    protected function getCreateFormAction(): Action
+    {
+        return parent::getCreateFormAction()->label('Submit walk');
+    }
+
     /** @param array<string, mixed> $data */
     protected function handleRecordCreation(array $data): Model
     {
         /** @var User $user */
         $user = auth()->user();
+        $draft = $this->draftId === null ? null : $this->resolveDraft();
 
-        return app(CreateWalkAction::class)->handle($user, $data);
+        try {
+            $walk = app(CreateWalkAction::class)->handle($user, $data, $draft);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            $this->draftSaveStatus = null;
+            $this->draftSaveError = "We couldn't submit your walk. Your draft is still saved. Try again.";
+            $this->dispatch('walk-draft-save-failed');
+
+            throw (new Halt)->rollBackDatabaseTransaction();
+        }
+
+        $this->draftId = null;
+
+        return $walk;
     }
 }
