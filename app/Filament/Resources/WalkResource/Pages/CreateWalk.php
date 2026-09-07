@@ -2,11 +2,13 @@
 
 namespace App\Filament\Resources\WalkResource\Pages;
 
+use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Walks\Actions\CreateWalk as CreateWalkAction;
 use App\Domain\Walks\Actions\SaveWalkDraft;
 use App\Domain\Walks\Models\Walk;
 use App\Filament\Components\AccessibleWizard;
 use App\Filament\Resources\WalkResource;
+use App\Filament\Resources\WalkResource\Support\WalkFormData;
 use App\Models\User;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
@@ -17,6 +19,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Exceptions\Halt;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Url;
 
 final class CreateWalk extends CreateRecord
@@ -77,31 +80,56 @@ final class CreateWalk extends CreateRecord
 
     public ?string $draftSaveError = null;
 
+    public function mount(): void
+    {
+        parent::mount();
+
+        if ($this->draftId !== null) {
+            $this->form->fill(WalkFormData::from($this->resolveDraft()));
+        }
+    }
+
+    public function hydrate(): void
+    {
+        parent::hydrate();
+
+        if ($this->draftId !== null) {
+            $this->resolveDraft();
+        }
+    }
+
     /** @return list<Step> */
     public function getSteps(): array
     {
         return [
             Step::make('When and where')
+                ->id('when-and-where')
                 ->schema($this->fields(self::CHECKPOINT_FIELDS[1]))
                 ->afterValidation(fn () => $this->checkpointStep(1)),
             Step::make('Walk details')
+                ->id('walk-details')
                 ->schema($this->fields(self::CHECKPOINT_FIELDS[2]))
                 ->afterValidation(fn () => $this->checkpointStep(2)),
             Step::make('Travel and practical information')
+                ->id('travel-and-practical-information')
                 ->schema($this->fields(self::CHECKPOINT_FIELDS[3]))
                 ->afterValidation(fn () => $this->checkpointStep(3)),
             Step::make('Description, route and image')
+                ->id('description-route-and-image')
                 ->schema($this->fields(self::CHECKPOINT_FIELDS[4]))
                 ->afterValidation(fn () => $this->checkpointStep(4)),
-            Step::make('Leader and publishing')->schema($this->fields([
-                'primary_leader_id', 'co_leader_ids', 'private_organiser_notes',
-            ])),
+            Step::make('Leader and publishing')
+                ->id('leader-and-publishing')
+                ->schema($this->fields([
+                    'primary_leader_id', 'co_leader_ids', 'private_organiser_notes',
+                ])),
         ];
     }
 
     public function getWizardComponent(): Component
     {
         return AccessibleWizard::make($this->getSteps())
+            ->persistStepInQueryString('step')
             ->startOnStep($this->getStartStep())
             ->cancelAction($this->getCancelFormAction())
             ->submitAction($this->getSubmitFormAction())
@@ -147,7 +175,7 @@ final class CreateWalk extends CreateRecord
         $draft = $this->draftId === null
             ? app(SaveWalkDraft::class)->create($actor, $attributes)
             : app(SaveWalkDraft::class)->update(
-                Walk::query()->findOrFail($this->draftId),
+                $this->resolveDraft(),
                 $actor,
                 $attributes,
             );
@@ -156,6 +184,21 @@ final class CreateWalk extends CreateRecord
         $this->data['primary_leader_id'] ??= $actor->id;
         $this->draftSaveError = null;
         $this->draftSaveStatus = 'Draft saved';
+    }
+
+    private function resolveDraft(): Walk
+    {
+        /** @var User $actor */
+        $actor = auth()->user();
+        $walk = WalkResource::getEloquentQuery()
+            ->with(['event', 'coLeaders', 'tags'])
+            ->whereKey($this->draftId)
+            ->firstOrFail();
+
+        Gate::forUser($actor)->authorize('update', $walk);
+        abort_unless($walk->event->status === EventStatus::Draft, 404);
+
+        return $walk;
     }
 
     /** @param array<string, mixed> $data */

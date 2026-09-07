@@ -5,13 +5,16 @@ namespace Tests\Feature\Walks;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Models\Event;
 use App\Domain\Walks\Actions\CreateWalk as CreateWalkAction;
+use App\Domain\Walks\Actions\SaveWalkDraft;
 use App\Domain\Walks\Actions\SubmitWalkForPublication;
 use App\Domain\Walks\Actions\UpdateWalkFieldSettings;
 use App\Domain\Walks\Models\Grade;
 use App\Domain\Walks\Models\Tag;
 use App\Domain\Walks\Models\Walk;
+use App\Filament\Resources\WalkResource;
 use App\Filament\Resources\WalkResource\Pages\CreateWalk;
 use App\Filament\Resources\WalkResource\Pages\EditWalk;
+use App\Filament\Resources\WalkResource\Pages\ListWalks;
 use App\Models\User;
 use App\Policies\WalkPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -112,6 +115,33 @@ final class WalkAdministrationTest extends TestCase
             ->assertSuccessful()
             ->assertSee('Add a walk')
             ->assertSee('/admin/walks/create', false);
+    }
+
+    public function test_walk_list_uses_continue_draft_only_for_drafts(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        $draft = app(SaveWalkDraft::class)->create($leader, [
+            'title' => 'Draft reservoir circuit',
+            'starts_at' => '2026-09-12 09:30:00',
+        ]);
+        $pending = app(SaveWalkDraft::class)->create($leader, [
+            'title' => 'Pending reservoir circuit',
+            'starts_at' => '2026-09-19 09:30:00',
+        ]);
+        $pending->event->forceFill(['status' => EventStatus::PendingApproval])->save();
+        $published = app(SaveWalkDraft::class)->create($leader, [
+            'title' => 'Published reservoir circuit',
+            'starts_at' => '2026-09-26 09:30:00',
+        ]);
+        $published->event->forceFill(['status' => EventStatus::Published])->save();
+
+        Livewire::actingAs($leader)->test(ListWalks::class)
+            ->assertTableActionHasLabel('edit', 'Continue draft', $draft)
+            ->assertTableActionHasUrl('edit', WalkResource::getUrl('create', ['draft' => $draft->id]), $draft)
+            ->assertTableActionHasLabel('edit', 'Edit', $pending)
+            ->assertTableActionHasUrl('edit', WalkResource::getUrl('edit', ['record' => $pending]), $pending)
+            ->assertTableActionHasLabel('edit', 'Edit', $published)
+            ->assertTableActionHasUrl('edit', WalkResource::getUrl('edit', ['record' => $published]), $published);
     }
 
     public function test_direct_publish_setting_publishes_an_organisers_walk(): void

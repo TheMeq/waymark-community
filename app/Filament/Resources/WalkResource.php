@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Accounts\Queries\EligibleWalkLeadersQuery;
+use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Walks\Actions\CreateGrade as CreateGradeAction;
 use App\Domain\Walks\Actions\CreateTag as CreateTagAction;
 use App\Domain\Walks\Models\Grade;
@@ -165,7 +166,11 @@ final class WalkResource extends Resource
                 TextColumn::make('primaryLeader.name')->label('Leader'),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->label(fn (Walk $record): string => $record->event->status === EventStatus::Draft ? 'Continue draft' : 'Edit')
+                    ->url(fn (Walk $record): string => $record->event->status === EventStatus::Draft
+                        ? self::getUrl('create', ['draft' => $record->getKey()])
+                        : self::getUrl('edit', ['record' => $record])),
                 DuplicateWalkAction::make(),
             ]);
     }

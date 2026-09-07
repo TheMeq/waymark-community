@@ -2,6 +2,7 @@
 
 namespace App\ViewModels;
 
+use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Models\Event;
 use App\Domain\Governance\Models\Document;
 use App\Domain\Operations\Models\SiteProfile;
@@ -68,14 +69,22 @@ final readonly class LeaderHubPageViewModel
     {
         return $events->map(function (Event $event) use ($leader, $canAccessAdministration): array {
             $walk = $event->walk;
+            $canEdit = $canAccessAdministration
+                && $walk instanceof Walk
+                && Gate::forUser($leader)->allows('update', $walk);
 
             return [
                 'title' => $event->title,
                 'status' => str($event->status->value)->replace('_', ' ')->title()->toString(),
                 'when' => $event->starts_at->format('j M Y, H:i'),
                 'notes' => $walk?->private_organiser_notes,
-                'edit_url' => $canAccessAdministration && $walk instanceof Walk && Gate::forUser($leader)->allows('update', $walk)
-                    ? WalkResource::getUrl('edit', ['record' => $walk])
+                'edit_label' => $canEdit
+                    ? ($event->status === EventStatus::Draft ? 'Continue draft' : 'Edit')
+                    : null,
+                'edit_url' => $canEdit
+                    ? ($event->status === EventStatus::Draft
+                        ? WalkResource::getUrl('create', ['draft' => $walk->getKey()])
+                        : WalkResource::getUrl('edit', ['record' => $walk]))
                     : null,
                 'duplicate_url' => route('leader-hub.walks.duplicate.edit', $walk),
             ];

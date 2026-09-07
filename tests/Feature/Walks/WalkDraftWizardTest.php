@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\Walks;
 
+use App\Domain\Accounts\Enums\AccountRole;
+use App\Domain\Accounts\Enums\ModuleCapability;
+use App\Domain\Accounts\Models\RoleCapability;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Walks\Actions\SaveWalkDraft;
 use App\Domain\Walks\Models\Grade;
@@ -9,6 +12,7 @@ use App\Domain\Walks\Models\Tag;
 use App\Domain\Walks\Models\Walk;
 use App\Filament\Resources\WalkResource\Pages\CreateWalk;
 use App\Models\User;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -211,5 +215,124 @@ final class WalkDraftWizardTest extends TestCase
         $this->assertSame('6.75', $draft->fresh()->distance);
         $this->assertDatabaseCount('events', 1);
         $this->assertDatabaseCount('walks', 1);
+    }
+
+    public function test_owned_draft_can_resume_at_its_saved_step_and_update_the_same_record(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        $coLeader = User::factory()->walkLeader()->create();
+        $grade = Grade::query()->create([
+            'display_order' => 1,
+            'name' => 'Moderate',
+            'description' => 'Mixed paths.',
+        ]);
+        $tag = Tag::query()->create(['name' => 'Woodland']);
+        $draft = app(SaveWalkDraft::class)->create($leader, [
+            'title' => 'Reservoir circuit',
+            'starts_at' => '2026-09-12 09:30:00',
+            'meeting_location_name' => 'North gate',
+        ]);
+        $draft = app(SaveWalkDraft::class)->update($draft, $leader, [
+            'grade_id' => $grade->id,
+            'tag_ids' => [$tag->id],
+            'co_leader_ids' => [$coLeader->id],
+            'distance' => 8.5,
+            'directions' => 'Meet beside the visitor centre.',
+            'summary' => 'A varied reservoir circuit.',
+        ]);
+
+        Livewire::actingAs($leader);
+        $component = Livewire::withQueryParams([
+            'draft' => $draft->id,
+            'step' => 'walk-details',
+        ])->test(CreateWalk::class)
+            ->assertWizardCurrentStep(2)
+            ->assertFormSet([
+                'title' => 'Reservoir circuit',
+                'meeting_location_name' => 'North gate',
+                'grade_id' => $grade->id,
+                'tag_ids' => [$tag->id],
+                'co_leader_ids' => [$coLeader->id],
+                'distance' => '8.50',
+                'directions' => 'Meet beside the visitor centre.',
+                'summary' => 'A varied reservoir circuit.',
+                'primary_leader_id' => $leader->id,
+            ])
+            ->fillForm(['distance' => 9.25])
+            ->goToWizardStep(3)
+            ->assertWizardCurrentStep(3);
+
+        $updated = Walk::query()->findOrFail($component->get('draftId'));
+        $this->assertSame($draft->id, $updated->id);
+        $this->assertSame('9.25', $updated->distance);
+        $this->assertDatabaseCount('events', 1);
+        $this->assertDatabaseCount('walks', 1);
+    }
+
+    public function test_missing_or_inaccessible_draft_cannot_be_resumed(): void
+    {
+        $owner = User::factory()->walkLeader()->create();
+        $otherLeader = User::factory()->walkLeader()->create();
+        $draft = app(SaveWalkDraft::class)->create($owner, [
+            'title' => 'Private reservoir circuit',
+            'starts_at' => '2026-09-12 09:30:00',
+        ]);
+
+        Livewire::actingAs($otherLeader);
+        foreach ([$draft->id, 999999] as $draftId) {
+            try {
+                Livewire::withQueryParams(['draft' => $draftId])->test(CreateWalk::class);
+                $this->fail('An inaccessible or missing draft rendered.');
+            } catch (ModelNotFoundException) {
+                $this->assertTrue(true);
+            }
+        }
+    }
+
+    public function test_non_draft_walk_cannot_be_resumed(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+
+        foreach ([EventStatus::PendingApproval, EventStatus::Published] as $status) {
+            $walk = app(SaveWalkDraft::class)->create($leader, [
+                'title' => 'Private '.$status->value,
+                'starts_at' => '2026-09-12 09:30:00',
+            ]);
+            $walk->event->forceFill(['status' => $status])->save();
+
+            Livewire::actingAs($leader);
+            Livewire::withQueryParams(['draft' => $walk->id])
+                ->test(CreateWalk::class)
+                ->assertNotFound();
+        }
+    }
+
+    public function test_resumed_draft_re_authorises_status_and_authority_on_later_requests(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        $draft = app(SaveWalkDraft::class)->create($leader, [
+            'title' => 'Reservoir circuit',
+            'starts_at' => '2026-09-12 09:30:00',
+        ]);
+
+        Livewire::actingAs($leader);
+        $statusComponent = Livewire::withQueryParams(['draft' => $draft->id])
+            ->test(CreateWalk::class);
+        $draft->event->forceFill(['status' => EventStatus::PendingApproval])->save();
+        $statusComponent->set('data.meeting_location_name', 'Private change')->assertNotFound();
+
+        $secondDraft = app(SaveWalkDraft::class)->create($leader, [
+            'title' => 'Second reservoir circuit',
+            'starts_at' => '2026-09-19 09:30:00',
+        ]);
+        $authorityComponent = Livewire::withQueryParams(['draft' => $secondDraft->id])
+            ->test(CreateWalk::class);
+        RoleCapability::query()
+            ->where('role', AccountRole::WalkLeader->value)
+            ->where('capability', ModuleCapability::ManageOwnWalks->value)
+            ->delete();
+        $authorityComponent->set('data.meeting_location_name', 'Private change')->assertForbidden();
+
+        $this->assertNull($secondDraft->fresh()->meeting_location_name);
     }
 }

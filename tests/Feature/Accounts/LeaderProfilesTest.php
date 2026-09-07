@@ -12,6 +12,7 @@ use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Walks\Actions\SaveWalkDetails;
 use App\Domain\Walks\Enums\DuplicateWalkCopyGroup;
 use App\Domain\Walks\Models\Walk;
+use App\Filament\Resources\WalkResource;
 use App\Models\User;
 use App\ViewModels\PublicWalkDetailViewModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -239,7 +240,7 @@ final class LeaderProfilesTest extends TestCase
         ]);
     }
 
-    public function test_leader_hub_is_actor_owned_and_groups_draft_current_upcoming_and_past_walks(): void
+    public function test_leader_hub_continue_draft_link_is_actor_owned_and_groups_walks(): void
     {
         $leader = $this->leader();
         $otherLeader = $this->leader(['public_profile_slug' => 'other-leader']);
@@ -251,6 +252,11 @@ final class LeaderProfilesTest extends TestCase
         $current = $this->walkEvent('Own current walk', $leader, $leader, [], [
             'starts_at' => now()->subHour(),
             'ends_at' => now()->addHour(),
+        ]);
+        $pending = $this->walkEvent('Own pending walk', $leader, $leader, [], [
+            'status' => EventStatus::PendingApproval,
+            'is_public' => false,
+            'published_at' => null,
         ]);
         $upcoming = $this->walkEvent('Own upcoming walk', $leader, $leader);
         $past = $this->walkEvent('Own past walk', $leader, $leader, [], [
@@ -269,10 +275,14 @@ final class LeaderProfilesTest extends TestCase
             ->assertSee('Upcoming and current walks')
             ->assertSee('Past walks')
             ->assertSee($draft->title)
+            ->assertSee($pending->title)
             ->assertSee($current->title)
             ->assertSee($upcoming->title)
             ->assertSee($past->title)
             ->assertSee('Own private note.')
+            ->assertSee('>Continue draft<', false)
+            ->assertSee('href="'.WalkResource::getUrl('create', ['draft' => $draft->walk->id]).'"', false)
+            ->assertSee('href="'.WalkResource::getUrl('edit', ['record' => $pending->walk]).'">Edit</a>', false)
             ->assertDontSee($otherOwned->title)
             ->assertDontSee('Other private note.');
     }

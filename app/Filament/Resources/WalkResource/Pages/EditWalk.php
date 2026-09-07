@@ -10,6 +10,7 @@ use App\Domain\Walks\Actions\UpdateWalk;
 use App\Domain\Walks\Actions\UpdateWalkRecap;
 use App\Domain\Walks\Models\WalkFieldSettings;
 use App\Filament\Resources\WalkResource;
+use App\Filament\Resources\WalkResource\Support\WalkFormData;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -28,15 +29,7 @@ final class EditWalk extends EditRecord
     /** @param array<string, mixed> $data */
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        $walk = $this->getRecord()->loadMissing(['event', 'coLeaders', 'tags']);
-        $event = $walk->event;
-
-        return [
-            ...$data,
-            ...$event->only(['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at']),
-            'co_leader_ids' => $walk->coLeaders->modelKeys(),
-            'tag_ids' => $walk->tags->modelKeys(),
-        ];
+        return WalkFormData::from($this->getRecord());
     }
 
     /** @param array<string, mixed> $data */

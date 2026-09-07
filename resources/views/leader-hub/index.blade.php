@@ -35,7 +35,7 @@
                                         </div>
                                         <div class="flex flex-wrap gap-3 text-sm font-semibold">
                                             @if ($walk['edit_url'])
-                                                <a class="text-brand underline" href="{{ $walk['edit_url'] }}">Edit</a>
+                                                <a class="text-brand underline" href="{{ $walk['edit_url'] }}">{{ $walk['edit_label'] }}</a>
                                             @endif
                                             <a class="text-brand underline" href="{{ $walk['duplicate_url'] }}">Duplicate</a>
                                         </div>
