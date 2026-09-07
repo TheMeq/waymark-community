@@ -4,6 +4,8 @@ namespace App\Filament\Resources;
 
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Accounts\Queries\EligibleWalkLeadersQuery;
+use App\Domain\Walks\Actions\CreateGrade as CreateGradeAction;
+use App\Domain\Walks\Actions\CreateTag as CreateTagAction;
 use App\Domain\Walks\Models\Grade;
 use App\Domain\Walks\Models\Tag;
 use App\Domain\Walks\Models\Walk;
@@ -13,6 +15,7 @@ use App\Filament\Resources\WalkResource\Pages\CreateWalk;
 use App\Filament\Resources\WalkResource\Pages\EditWalk;
 use App\Filament\Resources\WalkResource\Pages\ListWalks;
 use App\Models\User;
+use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Repeater;
@@ -27,6 +30,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Gate;
 
 final class WalkResource extends Resource
 {
@@ -44,8 +48,45 @@ final class WalkResource extends Resource
     }
 
     /** @return list<Component> */
-    public static function formComponents(): array
+    public static function formComponents(bool $allowInlineSupportingDataCreation = false): array
     {
+        $grade = Select::make('grade_id')
+            ->label('Grade')
+            ->options(fn (): array => Grade::query()->orderBy('display_order')->orderBy('name')->pluck('name', 'id')->all())
+            ->searchable();
+        $tags = Select::make('tag_ids')
+            ->label('Tags')
+            ->multiple()
+            ->options(fn (): array => Tag::query()->orderBy('name')->pluck('name', 'id')->all())
+            ->searchable();
+
+        if ($allowInlineSupportingDataCreation) {
+            $grade
+                ->noOptionsMessage('No grades yet — create one here.')
+                ->createOptionForm(fn (): array => GradeResource::creationFormComponents(includeDisplayOrder: false))
+                ->createOptionUsing(function (array $data): int {
+                    /** @var User $actor */
+                    $actor = auth()->user();
+
+                    return (int) app(CreateGradeAction::class)->handle($actor, $data)->getKey();
+                })
+                ->createOptionAction(fn (Action $action): Action => $action
+                    ->modalHeading('Create grade')
+                    ->visible(fn (): bool => Gate::allows('create', Grade::class)));
+            $tags
+                ->noOptionsMessage('No tags yet — create one here.')
+                ->createOptionForm(fn (): array => TagResource::creationFormComponents())
+                ->createOptionUsing(function (array $data): int {
+                    /** @var User $actor */
+                    $actor = auth()->user();
+
+                    return (int) app(CreateTagAction::class)->handle($actor, $data)->getKey();
+                })
+                ->createOptionAction(fn (Action $action): Action => $action
+                    ->modalHeading('Create tag')
+                    ->visible(fn (): bool => Gate::allows('create', Tag::class)));
+        }
+
         return [
             TextInput::make('title')->required()->maxLength(255)->columnSpanFull(),
             TextInput::make('slug')->required()->maxLength(255),
@@ -66,15 +107,8 @@ final class WalkResource extends Resource
                 ->getOptionLabelsUsing(fn (array $values): array => app(EligibleWalkLeadersQuery::class)->existingLabels($values))
                 ->searchable()
                 ->visible(fn (): bool => self::optionalFieldEnabled('co_leaders')),
-            Select::make('grade_id')
-                ->label('Grade')
-                ->options(fn (): array => Grade::query()->orderBy('display_order')->orderBy('name')->pluck('name', 'id')->all())
-                ->searchable(),
-            Select::make('tag_ids')
-                ->label('Tags')
-                ->multiple()
-                ->options(fn (): array => Tag::query()->orderBy('name')->pluck('name', 'id')->all())
-                ->searchable(),
+            $grade,
+            $tags,
             TextInput::make('distance')->numeric()->minValue(0.01)->maxValue(999999.99),
             TextInput::make('ascent')->numeric()->minValue(0)->maxValue(999999.99),
             TextInput::make('estimated_duration_minutes')->integer()->minValue(1)->maxValue(65535),

@@ -61,7 +61,7 @@ final class CreateWalk extends CreateRecord
      */
     private function fields(array $names): array
     {
-        $fields = collect(WalkResource::formComponents())->keyBy(
+        $fields = collect(WalkResource::formComponents(allowInlineSupportingDataCreation: true))->keyBy(
             fn (Component $component): string => $component->getName(),
         );
 
