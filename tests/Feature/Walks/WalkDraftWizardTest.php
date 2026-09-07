@@ -67,6 +67,72 @@ final class WalkDraftWizardTest extends TestCase
         $this->assertDatabaseCount('walks', 1);
     }
 
+    public function test_checkpoint_failure_preserves_entries_and_reports_accessible_feedback(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        $component = Livewire::actingAs($leader)
+            ->test(CreateWalk::class)
+            ->fillForm([
+                'title' => 'Reservoir circuit',
+                'starts_at' => '2026-09-12 09:30:00',
+            ])
+            ->goToNextWizardStep();
+        $draft = Walk::query()->with('event')->findOrFail($component->get('draftId'));
+
+        Walk::updating(function (): never {
+            throw new \RuntimeException('Simulated checkpoint failure.');
+        });
+
+        $component
+            ->fillForm([
+                'distance' => 8.5,
+                'terrain_notes' => 'Woodland paths and open hillside.',
+            ])
+            ->goToWizardStep(3)
+            ->assertNotDispatched('next-wizard-step')
+            ->assertFormSet([
+                'distance' => 8.5,
+                'terrain_notes' => 'Woodland paths and open hillside.',
+            ])
+            ->assertSet('draftId', $draft->id)
+            ->assertSet('draftSaveStatus', null)
+            ->assertSet(
+                'draftSaveError',
+                "We couldn't save your draft. Your entries are still on this page. Try again.",
+            )
+            ->assertSee("We couldn't save your draft. Your entries are still on this page. Try again.")
+            ->assertDispatched('walk-draft-save-failed');
+
+        $draft->refresh();
+        $this->assertNull($draft->distance);
+        $this->assertNull($draft->terrain_notes);
+        $this->assertSame(EventStatus::Draft, $draft->event->fresh()->status);
+        $this->assertDatabaseCount('events', 1);
+        $this->assertDatabaseCount('walks', 1);
+        $this->assertDatabaseMissing('events', ['status' => EventStatus::PendingApproval->value]);
+        $this->assertDatabaseMissing('events', ['status' => EventStatus::Published->value]);
+    }
+
+    public function test_draft_feedback_regions_expose_persistent_status_and_conditional_alert_semantics(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+
+        $component = Livewire::actingAs($leader)
+            ->test(CreateWalk::class)
+            ->assertSeeHtml('role="status"')
+            ->assertSeeHtml('aria-live="polite"')
+            ->assertSeeHtml('aria-atomic="true"')
+            ->assertDontSeeHtml('role="alert"');
+
+        $component
+            ->set('draftSaveError', "We couldn't save your draft. Your entries are still on this page. Try again.")
+            ->assertSeeHtml('role="alert"')
+            ->assertSeeHtml('tabindex="-1"')
+            ->assertSeeHtml('x-ref="draftSaveError"')
+            ->assertSeeHtml('x-on:walk-draft-save-failed.window')
+            ->assertSee("We couldn't save your draft. Your entries are still on this page. Try again.");
+    }
+
     public function test_back_and_next_update_the_first_draft_without_duplication(): void
     {
         $leader = User::factory()->walkLeader()->create();

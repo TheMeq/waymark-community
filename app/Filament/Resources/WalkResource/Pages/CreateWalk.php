@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Url;
+use Throwable;
 
 final class CreateWalk extends CreateRecord
 {
@@ -168,17 +169,28 @@ final class CreateWalk extends CreateRecord
         if ($this->draftId === null && $step !== 1) {
             $this->draftSaveStatus = null;
             $this->draftSaveError = "We couldn't save your draft. Your entries are still on this page. Try again.";
+            $this->dispatch('walk-draft-save-failed');
 
             throw new Halt;
         }
 
-        $draft = $this->draftId === null
-            ? app(SaveWalkDraft::class)->create($actor, $attributes)
-            : app(SaveWalkDraft::class)->update(
-                $this->resolveDraft(),
-                $actor,
-                $attributes,
-            );
+        try {
+            $draft = $this->draftId === null
+                ? app(SaveWalkDraft::class)->create($actor, $attributes)
+                : app(SaveWalkDraft::class)->update(
+                    $this->resolveDraft(),
+                    $actor,
+                    $attributes,
+                );
+        } catch (Throwable $exception) {
+            report($exception);
+
+            $this->draftSaveStatus = null;
+            $this->draftSaveError = "We couldn't save your draft. Your entries are still on this page. Try again.";
+            $this->dispatch('walk-draft-save-failed');
+
+            throw new Halt;
+        }
 
         $this->draftId ??= $draft->id;
         $this->data['primary_leader_id'] ??= $actor->id;
