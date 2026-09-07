@@ -14,6 +14,7 @@ use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\View as ViewComponent;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
+use Filament\Support\Exceptions\Halt;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Livewire\Attributes\Url;
@@ -22,17 +23,49 @@ final class CreateWalk extends CreateRecord
 {
     use HasWizard;
 
-    private const STEP_ONE_FIELDS = [
-        'title',
-        'starts_at',
-        'ends_at',
-        'meeting_location_name',
-        'meeting_address',
-        'meeting_postcode',
-        'latitude',
-        'longitude',
-        'what3words',
-        'os_grid_reference',
+    private const CHECKPOINT_FIELDS = [
+        1 => [
+            'title',
+            'starts_at',
+            'ends_at',
+            'meeting_location_name',
+            'meeting_address',
+            'meeting_postcode',
+            'latitude',
+            'longitude',
+            'what3words',
+            'os_grid_reference',
+        ],
+        2 => [
+            'grade_id',
+            'tag_ids',
+            'distance',
+            'ascent',
+            'estimated_duration_minutes',
+            'capacity',
+            'availability',
+            'terrain_notes',
+        ],
+        3 => [
+            'directions',
+            'is_public_transport_friendly',
+            'public_transport_station_stop',
+            'public_transport_notes',
+            'public_transport_url',
+            'parking_notes',
+            'toilet_information',
+            'cafe_pub_information',
+            'dog_guidance',
+            'accessibility_notes',
+            'kit_checklist',
+            'kit_notes',
+        ],
+        4 => [
+            'summary',
+            'description',
+            'featured_image_path',
+            'attachments',
+        ],
     ];
 
     protected static string $resource = WalkResource::class;
@@ -49,20 +82,17 @@ final class CreateWalk extends CreateRecord
     {
         return [
             Step::make('When and where')
-                ->schema($this->fields(self::STEP_ONE_FIELDS))
-                ->afterValidation(fn () => $this->checkpointStepOne()),
-            Step::make('Walk details')->schema($this->fields([
-                'grade_id', 'tag_ids', 'distance', 'ascent', 'estimated_duration_minutes',
-                'capacity', 'availability', 'terrain_notes',
-            ])),
-            Step::make('Travel and practical information')->schema($this->fields([
-                'directions', 'is_public_transport_friendly', 'public_transport_station_stop',
-                'public_transport_notes', 'public_transport_url', 'parking_notes', 'toilet_information',
-                'cafe_pub_information', 'dog_guidance', 'accessibility_notes', 'kit_checklist', 'kit_notes',
-            ])),
-            Step::make('Description, route and image')->schema($this->fields([
-                'summary', 'description', 'featured_image_path', 'attachments',
-            ])),
+                ->schema($this->fields(self::CHECKPOINT_FIELDS[1]))
+                ->afterValidation(fn () => $this->checkpointStep(1)),
+            Step::make('Walk details')
+                ->schema($this->fields(self::CHECKPOINT_FIELDS[2]))
+                ->afterValidation(fn () => $this->checkpointStep(2)),
+            Step::make('Travel and practical information')
+                ->schema($this->fields(self::CHECKPOINT_FIELDS[3]))
+                ->afterValidation(fn () => $this->checkpointStep(3)),
+            Step::make('Description, route and image')
+                ->schema($this->fields(self::CHECKPOINT_FIELDS[4]))
+                ->afterValidation(fn () => $this->checkpointStep(4)),
             Step::make('Leader and publishing')->schema($this->fields([
                 'primary_leader_id', 'co_leader_ids', 'private_organiser_notes',
             ])),
@@ -101,11 +131,18 @@ final class CreateWalk extends CreateRecord
         return collect($names)->map(fn (string $name): Component => $fields->get($name))->all();
     }
 
-    private function checkpointStepOne(): void
+    private function checkpointStep(int $step): void
     {
         /** @var User $actor */
         $actor = auth()->user();
-        $attributes = Arr::only($this->data, self::STEP_ONE_FIELDS);
+        $attributes = Arr::only($this->data, self::CHECKPOINT_FIELDS[$step]);
+
+        if ($this->draftId === null && $step !== 1) {
+            $this->draftSaveStatus = null;
+            $this->draftSaveError = "We couldn't save your draft. Your entries are still on this page. Try again.";
+
+            throw new Halt;
+        }
 
         $draft = $this->draftId === null
             ? app(SaveWalkDraft::class)->create($actor, $attributes)

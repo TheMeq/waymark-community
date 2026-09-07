@@ -3,6 +3,9 @@
 namespace Tests\Feature\Walks;
 
 use App\Domain\Events\Enums\EventStatus;
+use App\Domain\Walks\Actions\SaveWalkDraft;
+use App\Domain\Walks\Models\Grade;
+use App\Domain\Walks\Models\Tag;
 use App\Domain\Walks\Models\Walk;
 use App\Filament\Resources\WalkResource\Pages\CreateWalk;
 use App\Models\User;
@@ -80,5 +83,133 @@ final class WalkDraftWizardTest extends TestCase
         $this->assertDatabaseCount('events', 1);
         $this->assertDatabaseCount('walks', 1);
         $this->assertSame('Updated gate', Walk::query()->sole()->meeting_location_name);
+    }
+
+    public function test_later_steps_and_repeated_navigation_update_the_same_draft(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        $grade = Grade::query()->create([
+            'display_order' => 1,
+            'name' => 'Moderate',
+            'description' => 'Mixed paths and sustained climbs.',
+        ]);
+        $existingTag = Tag::query()->create(['name' => 'Woodland']);
+
+        $component = Livewire::actingAs($leader)
+            ->test(CreateWalk::class)
+            ->fillForm([
+                'title' => 'Reservoir circuit',
+                'starts_at' => '2026-09-12 09:30:00',
+            ])
+            ->goToNextWizardStep();
+        $draftId = $component->get('draftId');
+        $walkId = Walk::query()->findOrFail($draftId)->id;
+        $eventId = Walk::query()->findOrFail($draftId)->event_id;
+
+        $component
+            ->fillForm([
+                'grade_id' => $grade->id,
+                'tag_ids' => [$existingTag->id],
+                'distance' => 8.5,
+                'ascent' => 320,
+                'estimated_duration_minutes' => 240,
+                'capacity' => 18,
+                'availability' => 'Places available',
+                'terrain_notes' => 'Woodland paths and open hillside.',
+            ])
+            ->callFormComponentAction('tag_ids', 'createOption', ['name' => 'Riverside'])
+            ->assertHasNoFormComponentActionErrors()
+            ->goToWizardStep(3)
+            ->assertWizardCurrentStep(3);
+        $inlineTag = Tag::query()->where('name', 'Riverside')->sole();
+        $draft = Walk::query()->with(['tags', 'event'])->findOrFail($draftId);
+
+        $this->assertSame($grade->id, $draft->grade_id);
+        $this->assertSame([$existingTag->id, $inlineTag->id], $draft->tags->modelKeys());
+        $this->assertSame('8.50', $draft->distance);
+        $this->assertSame('320.00', $draft->ascent);
+        $this->assertSame(240, $draft->estimated_duration_minutes);
+        $this->assertSame(18, $draft->capacity);
+        $this->assertSame('Places available', $draft->availability);
+        $this->assertSame('Woodland paths and open hillside.', $draft->terrain_notes);
+
+        $component
+            ->fillForm([
+                'directions' => 'Meet beside the northern entrance.',
+                'is_public_transport_friendly' => true,
+                'public_transport_station_stop' => 'Reservoir Road',
+                'parking_notes' => 'Use the signed overflow area.',
+                'toilet_information' => 'Facilities at the visitor centre.',
+                'kit_checklist' => ['Waterproofs', 'Lunch'],
+            ])
+            ->goToWizardStep(4)
+            ->assertWizardCurrentStep(4);
+        $draft = Walk::query()->with(['tags', 'event'])->findOrFail($draftId);
+
+        $this->assertSame('Meet beside the northern entrance.', $draft->directions);
+        $this->assertTrue($draft->is_public_transport_friendly);
+        $this->assertSame('Reservoir Road', $draft->public_transport_station_stop);
+        $this->assertSame('Use the signed overflow area.', $draft->parking_notes);
+        $this->assertSame(['Waterproofs', 'Lunch'], $draft->kit_checklist);
+        $this->assertSame('8.50', $draft->distance);
+        $this->assertSame([$existingTag->id, $inlineTag->id], $draft->tags->modelKeys());
+
+        $component
+            ->fillForm([
+                'summary' => 'A varied circuit around the reservoir.',
+                'description' => 'A longer description for walkers.',
+                'featured_image_path' => '/images/demo/reservoir.jpg',
+                'attachments' => [[
+                    'path' => 'walks/route-notes.pdf',
+                    'name' => 'Route notes.pdf',
+                    'mime_type' => 'application/pdf',
+                    'size_bytes' => 1024,
+                ]],
+            ])
+            ->goToWizardStep(5)
+            ->assertWizardCurrentStep(5)
+            ->goToPreviousWizardStep()
+            ->fillForm(['summary' => 'Updated reservoir circuit summary.'])
+            ->goToWizardStep(5)
+            ->assertWizardCurrentStep(5);
+        $draft = Walk::query()->with(['tags', 'event'])->findOrFail($draftId);
+
+        $this->assertSame($walkId, $draft->id);
+        $this->assertSame($eventId, $draft->event_id);
+        $this->assertSame('Updated reservoir circuit summary.', $draft->event->summary);
+        $this->assertSame('A longer description for walkers.', $draft->event->description);
+        $this->assertSame('/images/demo/reservoir.jpg', $draft->featured_image_path);
+        $this->assertSame('Route notes.pdf', $draft->attachments[0]['name']);
+        $this->assertSame('8.50', $draft->distance);
+        $this->assertSame('Meet beside the northern entrance.', $draft->directions);
+        $this->assertDatabaseCount('events', 1);
+        $this->assertDatabaseCount('walks', 1);
+    }
+
+    public function test_earlier_checkpoint_preserves_unvisited_later_step_data(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        $component = Livewire::actingAs($leader)
+            ->test(CreateWalk::class)
+            ->fillForm([
+                'title' => 'Reservoir circuit',
+                'starts_at' => '2026-09-12 09:30:00',
+            ])
+            ->goToNextWizardStep();
+        $draft = Walk::query()->findOrFail($component->get('draftId'));
+        app(SaveWalkDraft::class)->update($draft, $leader, [
+            'summary' => 'Stored before visiting the description step.',
+        ]);
+
+        $component
+            ->fillForm(['distance' => 6.75])
+            ->goToWizardStep(3)
+            ->assertWizardCurrentStep(3);
+
+        $draft->event->refresh();
+        $this->assertSame('Stored before visiting the description step.', $draft->event->summary);
+        $this->assertSame('6.75', $draft->fresh()->distance);
+        $this->assertDatabaseCount('events', 1);
+        $this->assertDatabaseCount('walks', 1);
     }
 }
