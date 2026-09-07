@@ -6,7 +6,9 @@ use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Accounts\Models\RoleCapability;
 use App\Domain\Events\Enums\EventStatus;
+use App\Domain\Events\Models\Event;
 use App\Domain\Membership\Enums\AccountStatus;
+use App\Domain\Walks\Actions\CreateWalk;
 use App\Domain\Walks\Actions\SaveWalkDraft;
 use App\Domain\Walks\Models\Grade;
 use App\Domain\Walks\Models\Tag;
@@ -16,6 +18,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\DataProvider;
+use RuntimeException;
 use Tests\TestCase;
 
 final class SaveWalkDraftTest extends TestCase
@@ -236,6 +239,60 @@ final class SaveWalkDraftTest extends TestCase
             'pending approval' => [EventStatus::PendingApproval],
             'published' => [EventStatus::Published],
         ];
+    }
+
+    public function test_existing_draft_is_updated_and_submitted_without_creating_another_aggregate(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+        $draft = app(SaveWalkDraft::class)->create($administrator, $this->validDetails());
+
+        $submitted = app(CreateWalk::class)->handle($administrator, [
+            ...$this->validDetails(),
+            'summary' => 'Final submission summary.',
+            'primary_leader_id' => $administrator->id,
+        ], $draft);
+
+        $this->assertSame($draft->id, $submitted->id);
+        $this->assertSame($draft->event_id, $submitted->event_id);
+        $this->assertSame('Final submission summary.', $submitted->event->summary);
+        $this->assertSame(EventStatus::Published, $submitted->event->status);
+        $this->assertDatabaseCount('events', 1);
+        $this->assertDatabaseCount('walks', 1);
+    }
+
+    public function test_status_transition_failure_rolls_back_final_changes_and_preserves_prior_checkpoint(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+        $draft = app(SaveWalkDraft::class)->create($administrator, $this->validDetails());
+        $draft = app(SaveWalkDraft::class)->update($draft, $administrator, [
+            'summary' => 'Previously saved summary.',
+        ]);
+        $failTransition = true;
+        Event::updating(function (Event $event) use (&$failTransition): void {
+            if ($failTransition && $event->isDirty('status') && $event->status !== EventStatus::Draft) {
+                throw new RuntimeException('Simulated status transition failure.');
+            }
+        });
+
+        try {
+            app(CreateWalk::class)->handle($administrator, [
+                ...$this->validDetails(),
+                'summary' => 'Unsaved final summary.',
+                'primary_leader_id' => $administrator->id,
+            ], $draft);
+            $this->fail('The simulated status transition did not fail.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Simulated status transition failure.', $exception->getMessage());
+        } finally {
+            $failTransition = false;
+        }
+
+        $draft->event->refresh();
+
+        $this->assertSame('Previously saved summary.', $draft->event->summary);
+        $this->assertSame(EventStatus::Draft, $draft->event->status);
+        $this->assertDatabaseCount('events', 1);
+        $this->assertDatabaseCount('walks', 1);
     }
 
     /** @return array<string, mixed> */

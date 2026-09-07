@@ -4,6 +4,7 @@ namespace Tests\Feature\Walks;
 
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Models\Event;
+use App\Domain\Walks\Actions\CreateWalk as CreateWalkAction;
 use App\Domain\Walks\Actions\SubmitWalkForPublication;
 use App\Domain\Walks\Actions\UpdateWalkFieldSettings;
 use App\Domain\Walks\Models\Grade;
@@ -128,6 +129,21 @@ final class WalkAdministrationTest extends TestCase
 
         $this->assertSame(EventStatus::Published, $walk->event->status);
         $this->assertTrue($walk->event->is_public);
+    }
+
+    public function test_two_argument_create_walk_call_remains_a_one_shot_submission(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+
+        $walk = app(CreateWalkAction::class)->handle($administrator, [
+            'title' => 'One shot circuit',
+            'starts_at' => '2026-09-12 09:30:00',
+            'primary_leader_id' => $administrator->id,
+        ]);
+
+        $this->assertSame(EventStatus::Published, $walk->event->status);
+        $this->assertDatabaseCount('events', 1);
+        $this->assertDatabaseCount('walks', 1);
     }
 
     public function test_walk_leader_creates_a_walk_owned_by_themself_and_publishes_when_direct_publish_is_enabled(): void

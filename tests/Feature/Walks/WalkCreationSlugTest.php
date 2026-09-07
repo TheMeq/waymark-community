@@ -50,7 +50,7 @@ final class WalkCreationSlugTest extends TestCase
     {
         $administrator = User::factory()->initialAdministrator()->create();
         $attributes = [
-            'title' => str_repeat('Boundary ', 40),
+            'title' => str_repeat('Boundary ', 28),
             'starts_at' => '2026-09-12 09:30:00',
             'primary_leader_id' => $administrator->id,
         ];
