@@ -11,12 +11,14 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 final readonly class SaveWalkDraft
 {
     public function __construct(
         private GenerateWalkSlug $generateWalkSlug,
         private SaveWalkDetails $saveWalkDetails,
+        private UpdateWalk $updateWalk,
     ) {}
 
     /** @param array<string, mixed> $attributes */
@@ -60,6 +62,40 @@ final readonly class SaveWalkDraft
                 ]),
                 'primary_leader_id' => $actor->id,
             ]);
+        });
+    }
+
+    /** @param array<string, mixed> $attributes */
+    public function update(Walk $draft, User $actor, array $attributes): Walk
+    {
+        return DB::transaction(function () use ($draft, $actor, $attributes): Walk {
+            $lockedWalk = Walk::query()
+                ->with(['coLeaders', 'tags'])
+                ->lockForUpdate()
+                ->findOrFail($draft->getKey());
+            $lockedWalk->setRelation(
+                'event',
+                $lockedWalk->event()->lockForUpdate()->firstOrFail(),
+            );
+
+            Gate::forUser($actor)->authorize('update', $lockedWalk);
+
+            if ($lockedWalk->event->status !== EventStatus::Draft) {
+                throw ValidationException::withMessages([
+                    'draft' => 'Only a draft walk can be saved from the Add Walk wizard.',
+                ]);
+            }
+
+            $lockedWalk->event->forceFill([
+                'is_public' => false,
+                'published_at' => null,
+            ])->save();
+
+            return $this->updateWalk->handle(
+                $lockedWalk,
+                $actor,
+                Arr::except($attributes, ['slug', 'status', 'is_public', 'published_at', 'organiser_id']),
+            );
         });
     }
 }

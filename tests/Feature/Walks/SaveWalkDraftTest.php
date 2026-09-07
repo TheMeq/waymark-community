@@ -8,6 +8,8 @@ use App\Domain\Accounts\Models\RoleCapability;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Membership\Enums\AccountStatus;
 use App\Domain\Walks\Actions\SaveWalkDraft;
+use App\Domain\Walks\Models\Grade;
+use App\Domain\Walks\Models\Tag;
 use App\Models\User;
 use App\Policies\WalkPolicy;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -143,6 +145,97 @@ final class SaveWalkDraftTest extends TestCase
         $this->expectException(AuthorizationException::class);
 
         app(SaveWalkDraft::class)->create($administrator, $this->validDetails());
+    }
+
+    public function test_updates_merge_into_the_same_draft_without_erasing_omitted_relationships(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        $coLeader = User::factory()->walkLeader()->create();
+        $grade = Grade::query()->create([
+            'display_order' => 1,
+            'name' => 'Moderate',
+            'description' => 'Steady terrain',
+        ]);
+        $tag = Tag::query()->create(['name' => 'Riverside']);
+        $draft = app(SaveWalkDraft::class)->create($leader, $this->validDetails());
+
+        $updated = app(SaveWalkDraft::class)->update($draft, $leader, [
+            'grade_id' => $grade->id,
+            'tag_ids' => [$tag->id],
+            'co_leader_ids' => [$coLeader->id],
+            'distance' => 8.5,
+        ]);
+        $updated = app(SaveWalkDraft::class)->update($updated, $leader, [
+            'directions' => 'Meet beside the northern entrance.',
+            'is_public_transport_friendly' => true,
+            'public_transport_station_stop' => 'Reservoir Road',
+        ]);
+
+        $this->assertSame($draft->id, $updated->id);
+        $this->assertSame($draft->event_id, $updated->event_id);
+        $this->assertDatabaseCount('events', 1);
+        $this->assertDatabaseCount('walks', 1);
+        $this->assertSame($grade->id, $updated->grade_id);
+        $this->assertSame('8.50', $updated->distance);
+        $this->assertSame('Meet beside the northern entrance.', $updated->directions);
+        $this->assertSame([$tag->id], $updated->tags->modelKeys());
+        $this->assertSame([$coLeader->id], $updated->coLeaders->modelKeys());
+    }
+
+    public function test_updating_title_and_start_date_preserves_the_draft_slug(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        $draft = app(SaveWalkDraft::class)->create($leader, $this->validDetails());
+
+        $updated = app(SaveWalkDraft::class)->update($draft, $leader, [
+            'title' => 'Lakeside circuit',
+            'starts_at' => '2026-10-03 10:00:00',
+        ]);
+
+        $this->assertSame('Lakeside circuit', $updated->event->title);
+        $this->assertSame('2026-10-03', $updated->event->starts_at->format('Y-m-d'));
+        $this->assertSame('reservoir-circuit-2026-09-12', $updated->event->slug);
+    }
+
+    public function test_another_organiser_cannot_update_the_draft(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        $otherLeader = User::factory()->walkLeader()->create();
+        $draft = app(SaveWalkDraft::class)->create($leader, $this->validDetails());
+
+        try {
+            app(SaveWalkDraft::class)->update($draft, $otherLeader, ['distance' => 8.5]);
+            $this->fail('Another organiser updated the draft.');
+        } catch (AuthorizationException) {
+            $this->assertNull($draft->fresh()->distance);
+            $this->assertSame('Reservoir circuit', $draft->event->fresh()->title);
+        }
+    }
+
+    #[DataProvider('nonDraftStatuses')]
+    public function test_non_draft_walk_cannot_be_updated_from_the_wizard(EventStatus $status): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        $walk = app(SaveWalkDraft::class)->create($leader, $this->validDetails());
+        $walk->event->forceFill(['status' => $status])->save();
+
+        try {
+            app(SaveWalkDraft::class)->update($walk, $leader, ['title' => 'Changed title']);
+            $this->fail('A non-draft walk was updated from the wizard.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('draft', $exception->errors());
+            $this->assertSame('Reservoir circuit', $walk->event->fresh()->title);
+            $this->assertSame($status, $walk->event->fresh()->status);
+        }
+    }
+
+    /** @return array<string, array{EventStatus}> */
+    public static function nonDraftStatuses(): array
+    {
+        return [
+            'pending approval' => [EventStatus::PendingApproval],
+            'published' => [EventStatus::Published],
+        ];
     }
 
     /** @return array<string, mixed> */
