@@ -4,7 +4,9 @@ namespace App\Policies;
 
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Walks\Models\Grade;
+use App\Domain\Walks\Models\Walk;
 use App\Models\User;
+use Illuminate\Support\Facades\Gate;
 
 final class GradePolicy
 {
@@ -20,7 +22,8 @@ final class GradePolicy
 
     public function create(User $user): bool
     {
-        return $user->hasCapability(ModuleCapability::ManageEventConfiguration);
+        return $user->hasCapability(ModuleCapability::ManageEventConfiguration)
+            || Gate::forUser($user)->allows('create', Walk::class);
     }
 
     public function update(User $user, Grade $grade): bool

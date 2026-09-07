@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources;
 
+use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Walks\Models\Tag;
 use App\Filament\Resources\TagResource\Pages\CreateTag;
 use App\Filament\Resources\TagResource\Pages\EditTag;
 use App\Filament\Resources\TagResource\Pages\ListTags;
+use App\Models\User;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
@@ -25,13 +27,19 @@ final class TagResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema
-            ->components([
-                TextInput::make('name')
-                    ->maxLength(255)
-                    ->required()
-                    ->unique(ignoreRecord: true)
-                    ->helperText('Use a short reusable label.'),
-            ]);
+            ->components(self::creationFormComponents());
+    }
+
+    /** @return array<int, TextInput> */
+    public static function creationFormComponents(): array
+    {
+        return [
+            TextInput::make('name')
+                ->maxLength(255)
+                ->required()
+                ->unique(ignoreRecord: true)
+                ->helperText('Use a short reusable label.'),
+        ];
     }
 
     public static function table(Table $table): Table
@@ -45,6 +53,14 @@ final class TagResource extends Resource
                 EditAction::make(),
                 DeleteAction::make(),
             ]);
+    }
+
+    public static function canCreate(): bool
+    {
+        $actor = auth()->user();
+
+        return $actor instanceof User
+            && $actor->hasCapability(ModuleCapability::ManageEventConfiguration);
     }
 
     /** @return array<string, class-string> */

@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources;
 
+use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Walks\Models\Grade;
 use App\Filament\Resources\GradeResource\Pages\CreateGrade;
 use App\Filament\Resources\GradeResource\Pages\EditGrade;
 use App\Filament\Resources\GradeResource\Pages\ListGrades;
+use App\Models\User;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\ColorPicker;
@@ -29,26 +31,38 @@ final class GradeResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema
-            ->components([
-                TextInput::make('display_order')
-                    ->label('Display order')
-                    ->integer()
-                    ->minValue(0)
-                    ->required(),
-                TextInput::make('name')
-                    ->maxLength(255)
-                    ->required()
-                    ->unique(ignoreRecord: true),
-                Textarea::make('description')
-                    ->rows(3)
-                    ->maxLength(1000)
-                    ->required()
-                    ->helperText('Explain the practical difficulty so walkers can choose confidently.'),
-                ColorPicker::make('colour')
-                    ->label('Accent colour')
-                    ->nullable()
-                    ->helperText('Optional. The grade label and description remain the meaning.'),
-            ]);
+            ->components(self::creationFormComponents());
+    }
+
+    /** @return array<int, ColorPicker|Textarea|TextInput> */
+    public static function creationFormComponents(bool $includeDisplayOrder = true): array
+    {
+        $components = [];
+
+        if ($includeDisplayOrder) {
+            $components[] = TextInput::make('display_order')
+                ->label('Display order')
+                ->integer()
+                ->minValue(0)
+                ->required();
+        }
+
+        return [
+            ...$components,
+            TextInput::make('name')
+                ->maxLength(255)
+                ->required()
+                ->unique(ignoreRecord: true),
+            Textarea::make('description')
+                ->rows(3)
+                ->maxLength(1000)
+                ->required()
+                ->helperText('Explain the practical difficulty so walkers can choose confidently.'),
+            ColorPicker::make('colour')
+                ->label('Accent colour')
+                ->nullable()
+                ->helperText('Optional. The grade label and description remain the meaning.'),
+        ];
     }
 
     public static function table(Table $table): Table
@@ -64,6 +78,14 @@ final class GradeResource extends Resource
                 EditAction::make(),
                 DeleteAction::make(),
             ]);
+    }
+
+    public static function canCreate(): bool
+    {
+        $actor = auth()->user();
+
+        return $actor instanceof User
+            && $actor->hasCapability(ModuleCapability::ManageEventConfiguration);
     }
 
     /** @return array<string, class-string> */

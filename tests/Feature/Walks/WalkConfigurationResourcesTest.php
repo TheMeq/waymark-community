@@ -24,7 +24,19 @@ final class WalkConfigurationResourcesTest extends TestCase
             ['display_order', 'name', 'description', 'colour'],
             $this->fieldNames(GradeResource::form(Schema::make())),
         );
+        $this->assertSame(
+            ['display_order', 'name', 'description', 'colour'],
+            array_map(static fn (Field $field): string => $field->getName(), GradeResource::creationFormComponents()),
+        );
+        $this->assertSame(
+            ['name', 'description', 'colour'],
+            array_map(static fn (Field $field): string => $field->getName(), GradeResource::creationFormComponents(false)),
+        );
         $this->assertSame(['name'], $this->fieldNames(TagResource::form(Schema::make())));
+        $this->assertSame(
+            ['name'],
+            array_map(static fn (Field $field): string => $field->getName(), TagResource::creationFormComponents()),
+        );
         $this->assertSame(
             ['field_configuration', 'leaders_can_publish_directly'],
             $this->fieldNames(WalkFieldSettingsResource::form(Schema::make())),
