@@ -10,8 +10,13 @@ final class WalkPolicy
 {
     public function create(User $user): bool
     {
-        return $user->hasCapability(ModuleCapability::CreateWalks)
-            && ($user->hasVerifiedEmail() || $user->hasCapability(ModuleCapability::ManageAllWalks));
+        // User::hasCapability() returns false for every inactive account.
+        return $user->hasVerifiedEmail()
+            && $user->hasCapability(ModuleCapability::CreateWalks)
+            && (
+                $user->hasCapability(ModuleCapability::ManageOwnWalks)
+                || $user->hasCapability(ModuleCapability::ManageAllWalks)
+            );
     }
 
     public function update(User $user, Walk $walk): bool
