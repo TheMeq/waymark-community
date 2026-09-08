@@ -52,7 +52,7 @@ final class GradeResource extends Resource
             TextInput::make('name')
                 ->maxLength(255)
                 ->required()
-                ->unique(ignoreRecord: true),
+                ->unique(table: Grade::class, column: 'name', ignoreRecord: true),
             Textarea::make('description')
                 ->rows(3)
                 ->maxLength(1000)

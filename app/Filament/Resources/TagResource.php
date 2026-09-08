@@ -37,7 +37,7 @@ final class TagResource extends Resource
             TextInput::make('name')
                 ->maxLength(255)
                 ->required()
-                ->unique(ignoreRecord: true)
+                ->unique(table: Tag::class, column: 'name', ignoreRecord: true)
                 ->helperText('Use a short reusable label.'),
         ];
     }

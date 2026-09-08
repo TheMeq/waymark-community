@@ -63,7 +63,7 @@ final class WalkResource extends Resource
 
         if ($allowInlineSupportingDataCreation) {
             $grade
-                ->noOptionsMessage('No grades yet — create one here.')
+                ->noOptionsMessage('No grades yet.')
                 ->createOptionForm(fn (): array => GradeResource::creationFormComponents(includeDisplayOrder: false))
                 ->createOptionUsing(function (array $data): int {
                     /** @var User $actor */
@@ -72,10 +72,12 @@ final class WalkResource extends Resource
                     return (int) app(CreateGradeAction::class)->handle($actor, $data)->getKey();
                 })
                 ->createOptionAction(fn (Action $action): Action => $action
+                    ->label('Create grade')
+                    ->button()
                     ->modalHeading('Create grade')
                     ->visible(fn (): bool => Gate::allows('create', Grade::class)));
             $tags
-                ->noOptionsMessage('No tags yet — create one here.')
+                ->noOptionsMessage('No tags yet.')
                 ->createOptionForm(fn (): array => TagResource::creationFormComponents())
                 ->createOptionUsing(function (array $data): int {
                     /** @var User $actor */
@@ -84,6 +86,8 @@ final class WalkResource extends Resource
                     return (int) app(CreateTagAction::class)->handle($actor, $data)->getKey();
                 })
                 ->createOptionAction(fn (Action $action): Action => $action
+                    ->label('Create tag')
+                    ->button()
                     ->modalHeading('Create tag')
                     ->visible(fn (): bool => Gate::allows('create', Tag::class)));
         }
