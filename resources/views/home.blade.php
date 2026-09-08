@@ -60,17 +60,17 @@
     @endif
 
     @if ($homepageSections->has('whats_on'))
-    <section data-homepage-section="whats_on" data-layout="{{ $homepageSections['whats_on']->layout_variant }}" class="wm-home-layout-{{ $homepageSections['whats_on']->layout_variant }} bg-surface-raised py-7 sm:py-8 lg:py-5" aria-labelledby="weekend-heading" style="order: {{ $homepageSections['whats_on']->sort_order }}">
+    <section data-homepage-section="whats_on" data-layout="{{ $homepageSections['whats_on']->layout_variant }}" class="wm-home-layout-{{ $homepageSections['whats_on']->layout_variant }} bg-surface-raised py-7 sm:py-8 lg:py-5" aria-labelledby="upcoming-walks-heading" style="order: {{ $homepageSections['whats_on']->sort_order }}">
         <div class="wm-container grid gap-10 {{ $homepageSections['whats_on']->layout_variant === 'walks_first' ? 'lg:grid-cols-[minmax(0,3fr)_minmax(17rem,1fr)]' : 'lg:grid-cols-[minmax(0,2.45fr)_minmax(19rem,1fr)]' }} lg:gap-6">
             <div data-homepage-whats-on-walks class="min-w-0">
                 <div class="flex items-end justify-between gap-4">
-                    <h2 id="weekend-heading" class="text-3xl text-ink lg:text-2xl">{{ $homepageSections['whats_on']->heading ?: 'This Weekend' }}</h2>
+                    <h2 id="upcoming-walks-heading" class="text-3xl text-ink lg:text-2xl">{{ $homepageSections['whats_on']->heading ?: 'Upcoming walks' }}</h2>
                     <a class="text-sm font-semibold text-brand underline decoration-brand/30 underline-offset-4 sm:hidden" href="{{ $homepageSections['whats_on']->cta_url ?: route('walks.index') }}">{{ $homepageSections['whats_on']->cta_label ?: 'View all' }}</a>
                 </div>
                 @if (filled($homepageSections['whats_on']->supporting_copy))<p class="mt-2 text-sm text-ink-muted">{{ $homepageSections['whats_on']->supporting_copy }}</p>@endif
-                @if ($homepage->weekendWalks !== [])
+                @if ($homepage->upcomingWalks !== [])
                     <div class="wm-card-rail mt-5 grid gap-4 lg:mt-3 lg:gap-3">
-                        @foreach ($homepage->weekendWalks as $walk)
+                        @foreach ($homepage->upcomingWalks as $walk)
                             <x-public.event-card :event="$walk" />
                         @endforeach
                     </div>

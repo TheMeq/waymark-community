@@ -29,7 +29,7 @@ final class HomeController
     {
         $siteProfile = $currentProfile->get();
         $homepageSections = $sections->get()->keyBy('section_key');
-        $walkEvents = $walks->weekend()->limit(3)->get();
+        $walkEvents = $walks->upcoming()->limit(3)->get();
         $walkSection = $homepageSections->get('whats_on');
         if ($walkSection?->content_mode === 'pinned') {
             $pinnedWalk = $walks->upcoming()->whereKey($walkSection->pinned_id)->first();
@@ -37,7 +37,7 @@ final class HomeController
                 $walkEvents = collect([$pinnedWalk])->concat($walkEvents)->unique('id')->take(3)->values();
             }
         }
-        $weekendWalks = $walkEvents
+        $upcomingWalks = $walkEvents
             ->map(fn ($event) => PublicWalkCardViewModel::fromEvent($event, $siteProfile))
             ->all();
 
@@ -106,7 +106,7 @@ final class HomeController
             : null;
 
         return view('home', [
-            'homepage' => HomepageViewModel::live($siteProfile, $weekendWalks, $holiday === null ? null : PublicHolidayCardViewModel::spotlight($holiday), $gallery, $testimonial?->quote, $heroOverrides),
+            'homepage' => HomepageViewModel::live($siteProfile, $upcomingWalks, $holiday === null ? null : PublicHolidayCardViewModel::spotlight($holiday), $gallery, $testimonial?->quote, $heroOverrides),
             'homepageSections' => $homepageSections,
             'configuredSectionKeys' => HomepageSection::query()->pluck('section_key'),
             'homeNews' => $homeNews,

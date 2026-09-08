@@ -473,17 +473,19 @@ final class PublicWalkPagesTest extends TestCase
             ->assertDontSee('wm-card-rail', false);
     }
 
-    public function test_homepage_cards_are_limited_to_upcoming_weekend_walks(): void
+    public function test_homepage_cards_include_the_nearest_weekday_and_are_limited_to_three_upcoming_walks(): void
     {
-        $weekday = $this->publishedWalk('Earlier weekday walk', 'next Monday');
+        $this->travelTo('2026-09-08 09:00:00');
+
+        $weekday = $this->publishedWalk('Earlier weekday walk', 'next Wednesday');
         $weekendOne = $this->publishedWalk('Saturday walk', 'next Saturday');
         $weekendTwo = $this->publishedWalk('Sunday walk', 'next Sunday');
         $weekendThree = $this->publishedWalk('Following Saturday walk', 'next Saturday +1 week');
 
         $this->get('/')
             ->assertOk()
-            ->assertDontSee($weekday->title)
-            ->assertSeeInOrder([$weekendOne->title, $weekendTwo->title, $weekendThree->title]);
+            ->assertSeeInOrder([$weekday->title, $weekendOne->title, $weekendTwo->title])
+            ->assertDontSee($weekendThree->title);
     }
 
     /** @param array<string, mixed> $overrides */

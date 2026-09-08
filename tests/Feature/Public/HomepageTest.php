@@ -21,13 +21,13 @@ final class HomepageTest extends TestCase
         $homepage = HomepageViewModel::demo();
 
         $this->assertSame('Waymark Community', $homepage->site['name']);
-        $this->assertCount(3, $homepage->weekendWalks);
+        $this->assertCount(3, $homepage->upcomingWalks);
         $this->assertCount(6, $homepage->gallery);
 
         $this->get('/')
             ->assertOk()
             ->assertViewIs('home')
-            ->assertViewHas('homepage', fn (HomepageViewModel $rendered): bool => $rendered->weekendWalks === [] && $rendered->gallery === []);
+            ->assertViewHas('homepage', fn (HomepageViewModel $rendered): bool => $rendered->upcomingWalks === [] && $rendered->gallery === []);
     }
 
     public function test_homepage_reuses_one_canonical_site_profile_read_per_request(): void
@@ -50,8 +50,8 @@ final class HomepageTest extends TestCase
             ->assertOk()
             ->assertSeeInOrder([
                 'Great walks. Good people.',
-                'Weekend adventures.',
-                'This Weekend',
+                'Shared adventures.',
+                'Upcoming walks',
                 'Holidays & Weekends Away',
                 'Photos from our walks & holidays',
                 'Join us!',
