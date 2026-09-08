@@ -513,4 +513,46 @@ final class WalkDraftWizardTest extends TestCase
         $this->assertDatabaseCount('events', 1);
         $this->assertDatabaseCount('walks', 1);
     }
+
+    public function test_paragraph_sized_summary_is_checkpointed_resumed_and_retained_on_final_submission(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        app(UpdateWalkFieldSettings::class)->handle([], leadersCanPublishDirectly: false);
+        $summary = str_repeat(
+            'A varied route over field paths and woodland tracks, with time to enjoy the views and pause together. ',
+            4,
+        );
+        $this->assertGreaterThan(255, strlen($summary));
+
+        $component = Livewire::actingAs($leader)
+            ->test(CreateWalk::class)
+            ->fillForm([
+                'title' => 'Long summary circuit',
+                'starts_at' => '2026-10-10 09:30:00',
+            ])
+            ->goToNextWizardStep()
+            ->goToWizardStep(3)
+            ->goToWizardStep(4)
+            ->fillForm(['summary' => $summary])
+            ->goToWizardStep(5);
+        $draftId = $component->get('draftId');
+
+        $this->assertSame($summary, Walk::query()->findOrFail($draftId)->event->summary);
+
+        Livewire::actingAs($leader);
+        Livewire::withQueryParams([
+            'draft' => $draftId,
+            'step' => 'leader-and-publishing',
+        ])->test(CreateWalk::class)
+            ->assertWizardCurrentStep(5)
+            ->assertFormSet(['summary' => $summary])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $submitted = Walk::query()->with('event')->findOrFail($draftId);
+        $this->assertSame($summary, $submitted->event->summary);
+        $this->assertSame(EventStatus::PendingApproval, $submitted->event->status);
+        $this->assertDatabaseCount('events', 1);
+        $this->assertDatabaseCount('walks', 1);
+    }
 }

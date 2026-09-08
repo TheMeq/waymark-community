@@ -36,6 +36,11 @@ final class EventFoundationTest extends TestCase
         ]));
     }
 
+    public function test_event_summary_uses_text_storage_for_paragraph_sized_content(): void
+    {
+        $this->assertSame('text', Schema::getColumnType('events', 'summary'));
+    }
+
     public function test_event_stores_common_details_and_belongs_to_its_organiser(): void
     {
         $this->assertTrue(class_exists(Event::class));
