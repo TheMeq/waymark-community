@@ -9,9 +9,12 @@ use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Events\EventStatusChanged;
 use App\Domain\Events\Models\Event;
 use App\Models\User;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event as EventFacade;
 use Illuminate\Support\Facades\Schema;
+use RuntimeException;
 use Tests\TestCase;
 
 final class EventFoundationTest extends TestCase
@@ -39,6 +42,41 @@ final class EventFoundationTest extends TestCase
     public function test_event_summary_uses_text_storage_for_paragraph_sized_content(): void
     {
         $this->assertSame('text', Schema::getColumnType('events', 'summary'));
+    }
+
+    public function test_event_summary_migration_uses_medium_text_for_the_advertised_character_limit(): void
+    {
+        $columnType = null;
+        Schema::shouldReceive('table')
+            ->once()
+            ->withArgs(function (string $table, callable $callback) use (&$columnType): bool {
+                $blueprint = new Blueprint(DB::connection(), $table);
+                $callback($blueprint);
+                $columnType = $blueprint->getColumns()[0]->type ?? null;
+
+                return $table === 'events';
+            });
+
+        $this->summaryMigration()->up();
+
+        $this->assertSame('mediumText', $columnType);
+    }
+
+    public function test_event_summary_migration_refuses_a_lossy_rollback(): void
+    {
+        $event = Event::factory()->create(['summary' => str_repeat('a', 256)]);
+
+        try {
+            $this->summaryMigration()->down();
+            $this->fail('The summary column was contracted despite containing data longer than 255 characters.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame(
+                'Cannot contract events.summary to 255 characters while longer summaries exist.',
+                $exception->getMessage(),
+            );
+        }
+
+        $this->assertSame(str_repeat('a', 256), $event->fresh()->summary);
     }
 
     public function test_event_stores_common_details_and_belongs_to_its_organiser(): void
@@ -217,5 +255,10 @@ final class EventFoundationTest extends TestCase
         $this->assertTrue($event->is_public);
         $this->assertSame('2026-08-20 12:00:00', $event->published_at->format('Y-m-d H:i:s'));
         EventFacade::assertNotDispatched(EventStatusChanged::class);
+    }
+
+    private function summaryMigration(): object
+    {
+        return require database_path('migrations/2026_09_08_090000_expand_event_summary_to_text.php');
     }
 }
