@@ -129,6 +129,13 @@ Purpose selects a server-owned processing profile; clients cannot submit variant
 
 The health checker determines required variants from the record's purpose rather than assuming every SiteMedia item has the gallery's four variants. Presentation still returns `null` when the requested processed variant is absent or unsafe. Where no retained safe source exists, repair guidance says to replace/re-upload the asset rather than offering regeneration that cannot succeed.
 
+#### Alt-text ownership contract
+
+- A `walk_featured_image` SiteMedia record is always non-decorative.
+- On initial Walk image upload, the submitted image description is written to both `SiteMedia.alt_text`, satisfying the SiteMedia model invariant and providing generic media metadata, and `walks.featured_image_alt_text`, which is the authoritative owner-specific public alt text.
+- If that SiteMedia record is later shared, including through Walk duplication, editing one Walk's image description updates only that Walk's `featured_image_alt_text`. It must not mutate the shared `SiteMedia.alt_text` or alter another owner's presentation.
+- `site_logo` and `site_favicon` SiteMedia records are explicitly decorative, with `is_decorative = true` and no SiteMedia alt text.
+
 ### 4. Data model and foreign keys
 
 Forward migrations from v1.0.2 add:
