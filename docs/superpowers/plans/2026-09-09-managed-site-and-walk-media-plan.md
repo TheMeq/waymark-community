@@ -6,7 +6,7 @@
 
 **Architecture:** Extend the existing `SiteMedia` aggregate and ingestion pipeline rather than creating a second media system. Purpose-aware internal media creation is consumed by Walk-authorised and `ManageContent`-authorised owner actions; one `SiteMediaUsage` query protects every reference. Owner actions perform process-first, locked transactional reference changes and post-commit orphan marking. Public view models consume centralized presenters and never inspect storage in Blade.
 
-**Tech Stack:** PHP 8.3, Laravel 12, Eloquent, Filament 5/Livewire, SQLite-focused PHPUnit feature tests, GD-backed existing image processing, private Laravel filesystem storage, Blade, TypeScript/Playwright for two critical browser flows.
+**Tech Stack:** PHP 8.3, Laravel 13, Eloquent, Filament 5/Livewire, SQLite-focused PHPUnit feature tests, GD-backed existing image processing, private Laravel filesystem storage, Blade, TypeScript/Playwright for two critical browser flows.
 
 **Spec:** `docs/superpowers/specs/2026-09-09-managed-site-and-walk-media-design.md`
 
