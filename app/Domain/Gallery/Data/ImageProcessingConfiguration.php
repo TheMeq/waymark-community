@@ -18,9 +18,13 @@ final readonly class ImageProcessingConfiguration
         public int $maxHeight,
         public int $maxPixels,
         public int $maxMemoryBytes,
+        public int $minimumWidth,
+        public int $minimumHeight,
+        public bool $requiresSquare,
         public ?ImageVariantDefinition $retainedSource,
         public array $variants,
         public string $outputMimeType,
+        public ?string $requiredOutputMimeType,
     ) {}
 
     public static function from(array $configuration, RasterImageTransformer $transformer): self
@@ -45,20 +49,38 @@ final readonly class ImageProcessingConfiguration
             $limits[$name] = $value;
         }
 
+        $minimumWidth = $configuration['minimum_width'] ?? 1;
+        $minimumHeight = $configuration['minimum_height'] ?? 1;
+        $requiresSquare = $configuration['requires_square'] ?? false;
+
+        if (! is_int($minimumWidth) || $minimumWidth < 1
+            || ! is_int($minimumHeight) || $minimumHeight < 1
+            || ! is_bool($requiresSquare)) {
+            throw new RuntimeException('Gallery image processing configuration is invalid.');
+        }
+
         $variants = $configuration['variants'] ?? null;
 
-        if (! is_array($variants)) {
+        if (! is_array($variants) || $variants === []) {
             throw new RuntimeException('Gallery image processing configuration is invalid.');
+        }
+
+        $requiredVariants = $configuration['required_variants'] ?? ['master', 'large', 'medium', 'thumbnail'];
+
+        if (! is_array($requiredVariants) || $requiredVariants === []) {
+            throw new RuntimeException('Gallery image processing configuration is invalid.');
+        }
+
+        foreach ($requiredVariants as $name) {
+            if (! is_string($name) || ! array_key_exists($name, $variants)) {
+                throw new RuntimeException('Gallery image processing configuration is invalid.');
+            }
         }
 
         $compiledVariants = [];
 
-        foreach (['master', 'large', 'medium', 'thumbnail'] as $name) {
-            if (! array_key_exists($name, $variants)) {
-                throw new RuntimeException('Gallery image processing configuration is invalid.');
-            }
-
-            $compiledVariants[$name] = self::variant($name, $variants[$name]);
+        foreach ($variants as $name => $definition) {
+            $compiledVariants[(string) $name] = self::variant((string) $name, $definition);
         }
 
         $retainedSource = null;
@@ -67,16 +89,28 @@ final readonly class ImageProcessingConfiguration
             $retainedSource = self::variant('source', $configuration['retained_source'] ?? null);
         }
 
+        $requiredOutputMimeType = $configuration['required_output_mime_type'] ?? null;
+        $supportedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
+
+        if ($requiredOutputMimeType !== null
+            && (! is_string($requiredOutputMimeType) || ! in_array($requiredOutputMimeType, $supportedMimeTypes, true))) {
+            throw new RuntimeException('Gallery image processing configuration is invalid.');
+        }
+
+        if (is_string($requiredOutputMimeType) && ! $transformer->supportsOutput($requiredOutputMimeType)) {
+            throw new RuntimeException("The server cannot provide the required {$requiredOutputMimeType} output.");
+        }
+
         $preferences = $configuration['preferred_output_mime_types'] ?? null;
 
         if (! is_array($preferences) || $preferences === []) {
             throw new RuntimeException('Gallery image processing configuration is invalid.');
         }
 
-        $outputMimeType = null;
+        $outputMimeType = $requiredOutputMimeType;
 
         foreach ($preferences as $mimeType) {
-            if (! is_string($mimeType) || ! in_array($mimeType, ['image/jpeg', 'image/png', 'image/webp', 'image/avif'], true)) {
+            if (! is_string($mimeType) || ! in_array($mimeType, $supportedMimeTypes, true)) {
                 throw new RuntimeException('Gallery image processing configuration is invalid.');
             }
 
@@ -106,9 +140,13 @@ final readonly class ImageProcessingConfiguration
             $limits['max_height'],
             $limits['max_pixels'],
             $limits['max_memory_bytes'],
+            $minimumWidth,
+            $minimumHeight,
+            $requiresSquare,
             $retainedSource,
             $compiledVariants,
             $outputMimeType,
+            $requiredOutputMimeType,
         );
     }
 

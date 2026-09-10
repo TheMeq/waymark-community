@@ -18,7 +18,7 @@ final class RegenerateSiteMedia
     {
         $this->authorizeSiteMedia($actor);
         if ($media->source_community_photo_id === null || $media->sourceCommunityPhoto === null) {
-            throw ValidationException::withMessages(['media' => 'This media item has no safe source available for regeneration.']);
+            throw ValidationException::withMessages(['media' => 'This media item has no safe source available for regeneration. Replace or re-upload it instead.']);
         }
         $replacement = $this->promotion->handle($actor, $media->sourceCommunityPhoto, new SiteMediaMetadata($media->alt_text, $media->is_decorative, (float) $media->focal_point_x, (float) $media->focal_point_y));
 
