@@ -94,7 +94,16 @@ final readonly class SaveWalkDraft
             return $this->updateWalk->handle(
                 $lockedWalk,
                 $actor,
-                Arr::except($attributes, ['slug', 'status', 'is_public', 'published_at', 'organiser_id']),
+                Arr::except($attributes, [
+                    'slug',
+                    'status',
+                    'is_public',
+                    'published_at',
+                    'organiser_id',
+                    'featured_image_media_id',
+                    'featured_image_path',
+                    'featured_image_alt_text',
+                ]),
             );
         });
     }

@@ -4,8 +4,13 @@ namespace Tests\Feature\Walks;
 
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Models\Event;
+use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
+use App\Domain\SiteMedia\Models\SiteMedia;
+use App\Domain\SiteMedia\Models\SiteMediaAudit;
 use App\Domain\Walks\Actions\DuplicateWalk;
 use App\Domain\Walks\Actions\SaveWalkDetails;
+use App\Domain\Walks\Actions\UpdateWalkFeaturedImage;
+use App\Domain\Walks\Data\WalkFeaturedImageInput;
 use App\Domain\Walks\Enums\DuplicateWalkCopyGroup;
 use App\Domain\Walks\Models\Grade;
 use App\Domain\Walks\Models\Tag;
@@ -14,6 +19,9 @@ use App\Filament\Resources\WalkResource\Pages\ListWalks;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -129,7 +137,22 @@ final class DuplicateWalkTest extends TestCase
         }
 
         if ($group !== DuplicateWalkCopyGroup::FeaturedImage->value) {
+            $this->assertNull($duplicate->featured_image_media_id);
             $this->assertNull($duplicate->featured_image_path);
+            $this->assertNull($duplicate->featured_image_alt_text);
+        } else {
+            $this->assertSame($source->featured_image_media_id, $duplicate->featured_image_media_id);
+            $this->assertSame($source->featured_image_alt_text, $duplicate->featured_image_alt_text);
+            $audit = SiteMediaAudit::query()
+                ->where('site_media_id', $source->featured_image_media_id)
+                ->where('action', 'attached')
+                ->sole();
+            $this->assertSame([
+                'owner_type' => 'walk',
+                'owner_id' => $duplicate->id,
+                'slot' => 'featured_image',
+            ], $audit->context);
+            $this->assertStringNotContainsString('site-media/', json_encode($audit->context, JSON_THROW_ON_ERROR));
         }
 
         if ($group !== DuplicateWalkCopyGroup::Gpx->value) {
@@ -276,8 +299,38 @@ final class DuplicateWalkTest extends TestCase
         $duplicate = Walk::query()->where('event_id', '!=', $source->event_id)->sole();
 
         $this->assertSame('Winter circuit', $duplicate->event->title);
+        $this->assertSame($source->featured_image_media_id, $duplicate->featured_image_media_id);
         $this->assertSame('walks/featured/north-gate.jpg', $duplicate->featured_image_path);
+        $this->assertSame('Walkers beside the north gate', $duplicate->featured_image_alt_text);
         $this->assertSame(EventStatus::Draft, $duplicate->event->status);
+    }
+
+    public function test_replacing_a_duplicated_featured_image_does_not_mutate_the_shared_source_media_or_walk(): void
+    {
+        Storage::fake('local');
+        config()->set('gallery.photos.disk', 'local');
+        $organiser = User::factory()->create(['can_manage_walks' => true]);
+        $source = $this->createSourceWalk($organiser);
+        $sharedMedia = $source->featuredMedia;
+        $duplicate = app(DuplicateWalk::class)->handle($source, $organiser, $this->duplicateOptions([
+            DuplicateWalkCopyGroup::FeaturedImage->value,
+        ]));
+
+        $updatedDuplicate = app(UpdateWalkFeaturedImage::class)->handle(
+            $organiser,
+            $duplicate,
+            WalkFeaturedImageInput::from([
+                'featured_image_source' => 'managed',
+                'featured_image_upload' => UploadedFile::fake()->image('replacement.jpg', 80, 60),
+                'featured_image_alt_text' => 'Replacement for the duplicate',
+            ]),
+        );
+
+        $this->assertNotSame($sharedMedia->id, $updatedDuplicate->featured_image_media_id);
+        $this->assertSame($sharedMedia->id, $source->fresh()->featured_image_media_id);
+        $this->assertSame('Walkers beside the north gate', $source->fresh()->featured_image_alt_text);
+        $this->assertSame('Shared featured image metadata', $sharedMedia->fresh()->alt_text);
+        $this->assertNull($sharedMedia->fresh()->orphaned_at);
     }
 
     public function test_filament_review_requires_new_identity_and_start_date(): void
@@ -393,7 +446,6 @@ final class DuplicateWalkTest extends TestCase
                 'mime_type' => 'application/pdf',
                 'size_bytes' => 2048,
             ]],
-            'featured_image_path' => 'walks/featured/north-gate.jpg',
             'terrain_notes' => 'Steep woodland paths after rain.',
             'is_public_transport_friendly' => true,
             'public_transport_station_stop' => 'Central Station',
@@ -410,11 +462,34 @@ final class DuplicateWalkTest extends TestCase
             'highlights' => 'Kingfisher sighting.',
         ]);
 
+        $storageKey = Str::uuid()->toString();
+        $media = SiteMedia::query()->create([
+            'created_by_user_id' => $organiser->id,
+            'storage_key' => $storageKey,
+            'storage_disk' => 'local',
+            'processed_variants' => ['master' => "site-media/{$storageKey}/master.jpg"],
+            'mime_type' => 'image/jpeg',
+            'width' => 1200,
+            'height' => 800,
+            'file_size_bytes' => 4096,
+            'alt_text' => 'Shared featured image metadata',
+            'is_decorative' => false,
+            'focal_point_x' => 0.5,
+            'focal_point_y' => 0.5,
+            'processing_status' => 'complete',
+            'health_status' => 'healthy',
+            'purpose' => SiteMediaPurpose::WalkFeaturedImage,
+            'orphaned_at' => null,
+        ]);
+
         $walk->forceFill([
             'gpx_path' => self::GPX_PATH,
             'gpx_derived_metadata' => ['distance_metres' => 13680],
+            'featured_image_media_id' => $media->id,
+            'featured_image_path' => 'walks/featured/north-gate.jpg',
+            'featured_image_alt_text' => 'Walkers beside the north gate',
         ])->save();
 
-        return $walk->fresh();
+        return $walk->fresh()->load('featuredMedia');
     }
 }

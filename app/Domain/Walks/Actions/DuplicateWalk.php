@@ -5,6 +5,7 @@ namespace App\Domain\Walks\Actions;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
+use App\Domain\SiteMedia\Models\SiteMediaAudit;
 use App\Domain\Walks\Data\DuplicateWalkOptions;
 use App\Domain\Walks\Data\StoredGpx;
 use App\Domain\Walks\Enums\DuplicateWalkCopyGroup;
@@ -50,7 +51,32 @@ final readonly class DuplicateWalk
                 ? StoredGpx::fromWalk($source)
                 : null;
 
-            return $this->saveWalkDetails->handle($event, $this->walkAttributes($source, $actor, $options), $storedGpx);
+            $duplicate = $this->saveWalkDetails->handle($event, $this->walkAttributes($source, $actor, $options), $storedGpx);
+
+            if ($options->copies(DuplicateWalkCopyGroup::FeaturedImage)) {
+                $duplicate->forceFill([
+                    'featured_image_media_id' => $source->featured_image_media_id,
+                    'featured_image_path' => $source->featured_image_path,
+                    'featured_image_alt_text' => $source->featured_image_alt_text,
+                ])->save();
+
+                if ($source->featured_image_media_id !== null) {
+                    SiteMediaAudit::query()->create([
+                        'site_media_id' => $source->featured_image_media_id,
+                        'actor_user_id' => $actor->id,
+                        'action' => 'attached',
+                        'before' => null,
+                        'after' => null,
+                        'context' => [
+                            'owner_type' => 'walk',
+                            'owner_id' => $duplicate->id,
+                            'slot' => 'featured_image',
+                        ],
+                    ]);
+                }
+            }
+
+            return $duplicate->refresh()->load(['event', 'grade', 'primaryLeader', 'coLeaders', 'tags', 'featuredMedia']);
         });
     }
 
@@ -99,10 +125,6 @@ final readonly class DuplicateWalk
 
         if ($options->copies(DuplicateWalkCopyGroup::Attachments)) {
             $attributes['attachments'] = $source->attachments;
-        }
-
-        if ($options->copies(DuplicateWalkCopyGroup::FeaturedImage)) {
-            $attributes['featured_image_path'] = $source->featured_image_path;
         }
 
         if ($options->copies(DuplicateWalkCopyGroup::OptionalFields)) {
