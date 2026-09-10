@@ -2,10 +2,12 @@
 
 namespace App\Domain\SiteMedia\Actions;
 
+use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
 use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Domain\SiteMedia\Queries\SiteMediaUsage;
 use App\Models\User;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -50,6 +52,7 @@ final class DeleteSiteMedia
     {
         return DB::transaction(function () use ($actor, $media): bool {
             $locked = SiteMedia::query()->lockForUpdate()->findOrFail($media->id);
+            $this->authorizeOrphanDiscard($actor, $locked);
 
             if ($locked->purpose === SiteMediaPurpose::Library || $locked->orphaned_at === null || $this->usage->isUsed($locked)) {
                 return false;
@@ -57,6 +60,16 @@ final class DeleteSiteMedia
 
             return $this->removeLocked($actor, $locked);
         });
+    }
+
+    private function authorizeOrphanDiscard(User $actor, SiteMedia $media): void
+    {
+        if (
+            ! $actor->hasCapability(ModuleCapability::ManageSiteMedia)
+            && (int) $media->created_by_user_id !== (int) $actor->id
+        ) {
+            throw new AuthorizationException;
+        }
     }
 
     private function removeLocked(User $actor, SiteMedia $media): bool

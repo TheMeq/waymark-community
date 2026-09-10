@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\SiteMedia;
 
+use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Content\Models\CmsPage;
 use App\Domain\Content\Models\NewsArticle;
 use App\Domain\Content\Models\Testimonial;
@@ -17,6 +18,7 @@ use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Domain\SiteMedia\Queries\SiteMediaUsage;
 use App\Domain\Walks\Models\Walk;
 use App\Models\User;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -146,6 +148,67 @@ final class SiteMediaUsageTest extends TestCase
 
         $this->assertFalse(app(MarkSiteMediaOrphaned::class)->handle($library));
         $this->assertNull($library->fresh()->orphaned_at);
+    }
+
+    public function test_creator_can_discard_their_own_unreferenced_purpose_bound_orphan_without_media_management_capability(): void
+    {
+        Storage::fake('local');
+        $creator = User::factory()->create();
+        $media = $this->media($creator, [
+            'purpose' => SiteMediaPurpose::WalkFeaturedImage,
+            'orphaned_at' => now()->subMinute(),
+        ]);
+        $path = $media->processed_variants['master'];
+        Storage::disk('local')->put($path, 'safe image');
+
+        $this->assertFalse($creator->hasCapability(ModuleCapability::ManageSiteMedia));
+        $this->assertTrue(app(DiscardUnattachedSiteMedia::class)->handle($creator, $media));
+        $this->assertSame('removed', $media->fresh()->health_status);
+        Storage::disk('local')->assertMissing($path);
+    }
+
+    public function test_unrelated_ordinary_user_cannot_discard_somebody_elses_orphan(): void
+    {
+        Storage::fake('local');
+        $creator = User::factory()->create();
+        $unrelated = User::factory()->create();
+        $media = $this->media($creator, [
+            'purpose' => SiteMediaPurpose::WalkFeaturedImage,
+            'orphaned_at' => now()->subMinute(),
+        ]);
+        $path = $media->processed_variants['master'];
+        Storage::disk('local')->put($path, 'safe image');
+
+        $this->assertFalse($unrelated->hasCapability(ModuleCapability::ManageSiteMedia));
+        $this->expectException(AuthorizationException::class);
+
+        try {
+            app(DiscardUnattachedSiteMedia::class)->handle($unrelated, $media);
+        } finally {
+            $media->refresh();
+            $this->assertSame('healthy', $media->health_status);
+            $this->assertNotEmpty($media->processed_variants);
+            Storage::disk('local')->assertExists($path);
+            $this->assertDatabaseCount('site_media_audits', 0);
+        }
+    }
+
+    public function test_media_manager_can_perform_administrative_orphan_cleanup(): void
+    {
+        Storage::fake('local');
+        $creator = User::factory()->create();
+        $administrator = User::factory()->create(['is_admin' => true]);
+        $media = $this->media($creator, [
+            'purpose' => SiteMediaPurpose::WalkFeaturedImage,
+            'orphaned_at' => now()->subMinute(),
+        ]);
+        $path = $media->processed_variants['master'];
+        Storage::disk('local')->put($path, 'safe image');
+
+        $this->assertTrue($administrator->hasCapability(ModuleCapability::ManageSiteMedia));
+        $this->assertTrue(app(DiscardUnattachedSiteMedia::class)->handle($administrator, $media));
+        $this->assertSame('removed', $media->fresh()->health_status);
+        Storage::disk('local')->assertMissing($path);
     }
 
     public function test_discard_rechecks_current_usage_and_never_discards_library_or_attached_media(): void
