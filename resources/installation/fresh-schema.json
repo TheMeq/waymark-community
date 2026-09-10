@@ -1,6 +1,6 @@
 {
     "format": 1,
-    "migration_set_hash": "46ebbbed544f6d1d8d7c20034510220bea9cd40ce33554c5ca886bc73a36158f",
+    "migration_set_hash": "96f7a0f09633a06a614be1771f8d3e2f07e4eab9ee8ac1c52991671b39b406e1",
     "migrations": [
         "0001_01_01_000000_create_users_table",
         "0001_01_01_000001_create_cache_table",
@@ -60,7 +60,8 @@
         "2026_08_24_120000_add_progress_to_backup_runs_table",
         "2026_08_24_130000_create_portability_export_runs_table",
         "2026_08_31_090000_add_admin_onboarding_dismissal_to_users",
-        "2026_09_08_090000_expand_event_summary_to_text"
+        "2026_09_08_090000_expand_event_summary_to_text",
+        "2026_09_09_100000_add_managed_site_and_walk_media"
     ],
     "tables": {
         "account_administration_audits": [
@@ -700,8 +701,10 @@
             "id",
             "is_decorative",
             "mime_type",
+            "orphaned_at",
             "processed_variants",
             "processing_status",
+            "purpose",
             "regeneration_cleanup_status",
             "regeneration_cleanup_storage_disk",
             "regeneration_cleanup_storage_key",
@@ -730,11 +733,13 @@
             "contact_email",
             "created_at",
             "distance_unit",
+            "favicon_media_id",
             "favicon_path",
             "group_name",
             "hero_default_path",
             "id",
             "locale",
+            "logo_media_id",
             "logo_path",
             "module_configuration",
             "primary_colour",
@@ -861,6 +866,8 @@
             "dog_guidance",
             "estimated_duration_minutes",
             "event_id",
+            "featured_image_alt_text",
+            "featured_image_media_id",
             "featured_image_path",
             "gpx_derived_metadata",
             "gpx_path",

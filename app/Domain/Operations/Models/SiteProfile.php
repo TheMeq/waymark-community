@@ -2,8 +2,10 @@
 
 namespace App\Domain\Operations\Models;
 
+use App\Domain\SiteMedia\Models\SiteMedia;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'group_name',
@@ -14,7 +16,9 @@ use Illuminate\Database\Eloquent\Model;
     'distance_unit',
     'ascent_unit',
     'start_year',
+    'logo_media_id',
     'logo_path',
+    'favicon_media_id',
     'favicon_path',
     'hero_default_path',
     'primary_colour',
@@ -51,5 +55,17 @@ final class SiteProfile extends Model
             'social_links' => 'array',
             'terminology' => 'array',
         ];
+    }
+
+    /** @return BelongsTo<SiteMedia, $this> */
+    public function logoMedia(): BelongsTo
+    {
+        return $this->belongsTo(SiteMedia::class, 'logo_media_id');
+    }
+
+    /** @return BelongsTo<SiteMedia, $this> */
+    public function faviconMedia(): BelongsTo
+    {
+        return $this->belongsTo(SiteMedia::class, 'favicon_media_id');
     }
 }

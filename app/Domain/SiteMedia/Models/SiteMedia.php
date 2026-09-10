@@ -4,18 +4,25 @@ namespace App\Domain\SiteMedia\Models;
 
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\SiteMedia\Data\SiteMediaStorageReference;
+use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['created_by_user_id', 'source_community_photo_id', 'storage_key', 'storage_disk', 'processed_variants', 'mime_type', 'width', 'height', 'file_size_bytes', 'alt_text', 'is_decorative', 'focal_point_x', 'focal_point_y', 'processing_status', 'health_status', 'regeneration_cleanup_status', 'regeneration_cleanup_storage_disk', 'regeneration_cleanup_storage_key'])]
+#[Fillable(['created_by_user_id', 'source_community_photo_id', 'storage_key', 'storage_disk', 'processed_variants', 'mime_type', 'width', 'height', 'file_size_bytes', 'alt_text', 'is_decorative', 'focal_point_x', 'focal_point_y', 'processing_status', 'health_status', 'purpose', 'orphaned_at', 'regeneration_cleanup_status', 'regeneration_cleanup_storage_disk', 'regeneration_cleanup_storage_key'])]
 final class SiteMedia extends Model
 {
     protected static function booted(): void
     {
         self::saving(function (self $media): void {
+            $media->purpose ??= SiteMediaPurpose::Library;
+
+            $requiredDecorativeState = $media->purpose->requiredDecorativeState();
+            if ($requiredDecorativeState !== null) {
+                $media->is_decorative = $requiredDecorativeState;
+            }
             if (! $media->is_decorative && trim((string) $media->alt_text) === '') {
                 throw new \LogicException('Site media requires meaningful alt text unless marked decorative.');
             }
@@ -37,7 +44,7 @@ final class SiteMedia extends Model
 
     protected function casts(): array
     {
-        return ['processed_variants' => 'array', 'is_decorative' => 'boolean', 'width' => 'integer', 'height' => 'integer', 'file_size_bytes' => 'integer', 'focal_point_x' => 'decimal:4', 'focal_point_y' => 'decimal:4'];
+        return ['processed_variants' => 'array', 'is_decorative' => 'boolean', 'width' => 'integer', 'height' => 'integer', 'file_size_bytes' => 'integer', 'focal_point_x' => 'decimal:4', 'focal_point_y' => 'decimal:4', 'purpose' => SiteMediaPurpose::class, 'orphaned_at' => 'datetime'];
     }
 
     /** @return BelongsTo<User, $this> */
