@@ -15,6 +15,7 @@ use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
 use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Domain\SiteMedia\Models\SiteMediaAudit;
+use App\Filament\Pages\BrandingSettings;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -22,6 +23,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -394,6 +396,158 @@ final class BrandingMediaManagementTest extends TestCase
         $this->assertSame('/images/demo/favicon.png', $updated->favicon_path);
         $this->assertNull($updated->logo_media_id);
         $this->assertNull($updated->favicon_media_id);
+    }
+
+    public function test_branding_page_is_upload_first_and_hides_storage_implementation_details(): void
+    {
+        $manager = $this->contentManager();
+        SiteProfile::query()->create(['group_name' => 'Trail Friends']);
+
+        $this->actingAs($manager);
+        $component = Livewire::test(BrandingSettings::class)
+            ->assertFormSet([
+                'logo_source' => 'managed',
+                'favicon_source' => 'managed',
+            ])
+            ->assertFormFieldVisible('logo_source')
+            ->assertFormFieldVisible('favicon_source')
+            ->assertFormFieldVisible('logo_upload')
+            ->assertFormFieldVisible('favicon_upload')
+            ->assertFormFieldHidden('logo_path')
+            ->assertFormFieldHidden('favicon_path')
+            ->assertFormFieldDoesNotExist('logo_media_id')
+            ->assertFormFieldDoesNotExist('favicon_media_id')
+            ->assertFormFieldDoesNotExist('storage_disk')
+            ->assertFormFieldDoesNotExist('storage_key')
+            ->assertFormFieldExists('logo_upload', null, fn ($field): bool => ! $field->shouldStoreFiles()
+                && ! $field->canEditSvgs()
+                && ! in_array('image/svg+xml', $field->getAcceptedFileTypes() ?? [], true))
+            ->assertFormFieldExists('favicon_upload', null, fn ($field): bool => ! $field->shouldStoreFiles()
+                && ! $field->canEditSvgs()
+                && ! in_array('image/x-icon', $field->getAcceptedFileTypes() ?? [], true))
+            ->assertSee('Upload a local logo (recommended)')
+            ->assertSee('Use an external logo instead')
+            ->assertSee('Upload a local favicon (recommended)')
+            ->assertSee('square image around 512 by 512 pixels')
+            ->assertFormFieldDoesNotExist('logo_svg')
+            ->assertFormFieldDoesNotExist('favicon_ico')
+            ->assertFormFieldDoesNotExist('pwa_icon');
+
+        $component
+            ->fillForm([
+                'logo_source' => 'managed',
+                'favicon_source' => 'external',
+            ])
+            ->assertFormFieldVisible('logo_upload')
+            ->assertFormFieldHidden('logo_path')
+            ->assertFormFieldHidden('favicon_upload')
+            ->assertFormFieldVisible('favicon_path');
+    }
+
+    public function test_branding_page_saves_managed_logo_and_favicon_and_reloads_safe_previews(): void
+    {
+        $manager = $this->contentManager();
+        SiteProfile::query()->create([
+            'group_name' => 'Trail Friends',
+            'logo_path' => 'https://images.example.org/retained-logo.png',
+            'favicon_path' => '/images/demo/favicon.png',
+            'typography_option' => 'instrument',
+        ]);
+
+        $this->actingAs($manager);
+        Livewire::test(BrandingSettings::class)
+            ->fillForm([
+                'group_name' => 'Managed Trail Friends',
+                'logo_source' => 'managed',
+                'logo_upload' => $this->image('transparent-logo.png', 80, 60),
+                'favicon_source' => 'managed',
+                'favicon_upload' => $this->image('favicon.png', 64, 64),
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $profile = SiteProfile::query()->with(['logoMedia', 'faviconMedia'])->findOrFail(SiteProfile::SINGLETON_ID);
+        $this->assertSame('Managed Trail Friends', $profile->group_name);
+        $this->assertSame(SiteMediaPurpose::SiteLogo, $profile->logoMedia?->purpose);
+        $this->assertSame(SiteMediaPurpose::SiteFavicon, $profile->faviconMedia?->purpose);
+        $this->assertSame('https://images.example.org/retained-logo.png', $profile->logo_path);
+        $this->assertSame('/images/demo/favicon.png', $profile->favicon_path);
+
+        $component = Livewire::test(BrandingSettings::class)
+            ->assertFormSet([
+                'logo_source' => 'managed',
+                'favicon_source' => 'managed',
+            ])
+            ->assertSee('Saved local logo.')
+            ->assertSee('Saved local favicon.')
+            ->assertSee('saved external fallback is retained');
+
+        $component
+            ->fillForm(['logo_source' => 'none'])
+            ->assertFormFieldVisible('logo_remove_fallback')
+            ->assertSee('Also remove the saved external fallback');
+
+        $logoPreview = $component->get('logoPreview');
+        $faviconPreview = $component->get('faviconPreview');
+        $this->assertSame(route('site-media.stream', [$profile->logoMedia, 'medium']), $logoPreview['url']);
+        $this->assertSame(route('site-media.stream', [$profile->faviconMedia, 'favicon']), $faviconPreview['url']);
+        $this->assertStringNotContainsString((string) $profile->logoMedia->processed_variants['medium'], $component->html());
+        $this->assertStringNotContainsString((string) $profile->faviconMedia->processed_variants['favicon'], $component->html());
+    }
+
+    public function test_branding_page_saves_ordinary_settings_without_requiring_new_branding_images(): void
+    {
+        $manager = $this->contentManager();
+        SiteProfile::query()->create([
+            'group_name' => 'Trail Friends',
+            'typography_option' => 'instrument',
+        ]);
+
+        $this->actingAs($manager);
+        Livewire::test(BrandingSettings::class)
+            ->fillForm(['group_name' => 'Updated Trail Friends'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $profile = SiteProfile::query()->findOrFail(SiteProfile::SINGLETON_ID);
+        $this->assertSame('Updated Trail Friends', $profile->group_name);
+        $this->assertNull($profile->logo_media_id);
+        $this->assertNull($profile->favicon_media_id);
+    }
+
+    public function test_branding_page_maps_favicon_processing_errors_and_preserves_the_saved_preview(): void
+    {
+        $manager = $this->contentManager();
+        $profile = SiteProfile::query()->create([
+            'group_name' => 'Trail Friends',
+            'typography_option' => 'instrument',
+        ]);
+        $profile = app(UpdateBrandingImage::class)->handle(
+            $manager,
+            $profile,
+            SiteMediaPurpose::SiteFavicon,
+            $this->input(SiteMediaPurpose::SiteFavicon, 'managed', $this->image('saved-favicon.png', 64, 64)),
+        );
+        $savedFaviconId = $profile->favicon_media_id;
+
+        $this->actingAs($manager);
+        $component = Livewire::test(BrandingSettings::class);
+        $savedPreviewUrl = $component->get('faviconPreview')['url'];
+        $component->call('save')->assertSet('saveStatus', 'Branding saved.');
+
+        $component
+            ->fillForm([
+                'favicon_source' => 'managed',
+                'favicon_upload' => $this->image('not-square.png', 80, 64),
+            ])
+            ->call('save')
+            ->assertHasFormErrors(['favicon_upload'])
+            ->assertSet('saveStatus', '')
+            ->assertSee('must be square');
+
+        $this->assertSame($savedFaviconId, $profile->fresh()->favicon_media_id);
+        $this->assertSame($savedPreviewUrl, $component->get('faviconPreview')['url']);
+        $this->assertNotNull($component->get('data.favicon_upload'));
     }
 
     private function contentManager(AccountStatus $status = AccountStatus::Active): User

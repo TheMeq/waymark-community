@@ -1,10 +1,11 @@
 @php
     $savedPreview = is_array($preview ?? null) ? $preview : null;
+    $previewSlot = $slot ?? 'featured-image';
 @endphp
 
 <div class="space-y-3">
     @if ($savedPreview && filled($savedPreview['url'] ?? null))
-        <figure data-testid="managed-image-preview" class="max-w-xl overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5">
+        <figure data-testid="managed-image-preview" data-slot="{{ $previewSlot }}" class="max-w-xl overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5">
             <img
                 src="{{ $savedPreview['url'] }}"
                 alt="{{ $savedPreview['alt'] ?? '' }}"
@@ -14,15 +15,15 @@
         </figure>
     @endif
 
-    <div data-testid="managed-image-status" role="status" aria-live="polite" aria-atomic="true" class="space-y-1 text-sm text-gray-600 dark:text-gray-300">
+    <div data-testid="managed-image-status" data-slot="{{ $previewSlot }}" role="status" aria-live="polite" aria-atomic="true" class="space-y-1 text-sm text-gray-600 dark:text-gray-300">
         @if ($pendingUpload ?? false)
-            <p>Temporary preview selected. Your image will be saved when you continue from Step 4.</p>
+            <p>{{ $pendingMessage ?? 'Temporary preview selected. Your image will be saved when you continue from Step 4.' }}</p>
         @elseif (($savedPreview['source'] ?? null) === 'managed')
-            <p>Saved local image.</p>
+            <p>{{ $savedManagedMessage ?? 'Saved local image.' }}</p>
         @elseif (($savedPreview['source'] ?? null) === 'external')
-            <p>Saved external image.</p>
+            <p>{{ $savedExternalMessage ?? 'Saved external image.' }}</p>
         @else
-            <p>No saved featured image.</p>
+            <p>{{ $emptyMessage ?? 'No saved featured image.' }}</p>
         @endif
 
         @if (($savedPreview['source'] ?? null) === 'managed' && filled($savedPreview['fallback_url'] ?? null))
