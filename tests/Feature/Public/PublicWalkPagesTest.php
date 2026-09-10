@@ -6,14 +6,20 @@ use App\Domain\Events\Actions\ChangeEventStatus;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
+use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
+use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Domain\Walks\Actions\SaveWalkDetails;
 use App\Domain\Walks\Actions\UpdateWalkFieldSettings;
 use App\Domain\Walks\Models\Grade;
 use App\Domain\Walks\Models\Tag;
+use App\Domain\Walks\Queries\PublicWalksQuery;
+use App\Domain\Walks\RelatedContent\RelatedWalks;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 final class PublicWalkPagesTest extends TestCase
@@ -303,6 +309,78 @@ final class PublicWalkPagesTest extends TestCase
             ->assertSee('alt="A group walking together across open moorland"', false);
     }
 
+    public function test_managed_walk_image_uses_medium_card_large_detail_and_the_same_large_seo_url(): void
+    {
+        Storage::fake('local');
+        $event = $this->publishedWalk('Managed public route', '+1 week');
+        $media = $this->siteMedia('Generic compatibility description');
+        $event->walk->forceFill([
+            'featured_image_media_id' => $media->id,
+            'featured_image_path' => 'https://images.example.org/retained.jpg',
+            'featured_image_alt_text' => 'Walkers crossing a broad grassy ridge',
+        ])->save();
+        $mediumUrl = route('site-media.stream', [$media, 'medium']);
+        $largeUrl = route('site-media.stream', [$media, 'large']);
+
+        $this->get('/walks')
+            ->assertOk()
+            ->assertSee('src="'.$mediumUrl.'"', false)
+            ->assertSee('alt="Walkers crossing a broad grassy ridge"', false)
+            ->assertDontSee('https://images.example.org/retained.jpg', false);
+
+        $this->get('/walks/'.$event->slug)
+            ->assertOk()
+            ->assertSee('data-walk-featured-image', false)
+            ->assertSee('src="'.$largeUrl.'"', false)
+            ->assertSee('alt="Walkers crossing a broad grassy ridge"', false)
+            ->assertSee('<meta property="og:image" content="'.$largeUrl.'">', false)
+            ->assertSee('"image":["'.$largeUrl.'"]', false)
+            ->assertDontSee('https://images.example.org/retained.jpg', false);
+    }
+
+    public function test_safe_upgraded_external_image_renders_without_network_access_and_uses_title_alt_fallback(): void
+    {
+        Http::preventStrayRequests();
+        $event = $this->publishedWalk('Upgraded external route', '+1 week');
+        $event->walk->forceFill([
+            'featured_image_path' => 'https://images.example.org/upgraded.jpg',
+            'featured_image_alt_text' => null,
+        ])->save();
+
+        $this->get('/walks')
+            ->assertOk()
+            ->assertSee('src="https://images.example.org/upgraded.jpg"', false)
+            ->assertSee('alt="Upgraded external route featured image"', false);
+
+        $this->get('/walks/'.$event->slug)
+            ->assertOk()
+            ->assertSee('src="https://images.example.org/upgraded.jpg"', false)
+            ->assertSee('alt="Upgraded external route featured image"', false)
+            ->assertSee('<meta property="og:image" content="https://images.example.org/upgraded.jpg">', false);
+    }
+
+    public function test_unavailable_managed_image_uses_safe_retained_fallback_before_default_or_omission(): void
+    {
+        Storage::fake('local');
+        $event = $this->publishedWalk('Retained fallback route', '+1 week');
+        $media = $this->siteMedia('Generic retained fallback description', storeVariantFiles: false);
+        $event->walk->forceFill([
+            'featured_image_media_id' => $media->id,
+            'featured_image_path' => '/images/demo/woodland-walk-768.webp',
+        ])->save();
+
+        $this->get('/walks')
+            ->assertOk()
+            ->assertSee('src="/images/demo/woodland-walk-768.webp"', false)
+            ->assertSee('alt="Generic retained fallback description"', false);
+
+        $this->get('/walks/'.$event->slug)
+            ->assertOk()
+            ->assertSee('data-walk-featured-image', false)
+            ->assertSee('src="/images/demo/woodland-walk-768.webp"', false)
+            ->assertSee('alt="Generic retained fallback description"', false);
+    }
+
     public function test_public_walk_detail_cleanly_omits_an_invalid_or_absent_featured_image(): void
     {
         $invalid = $this->publishedWalk('Invalid featured route', '+1 week');
@@ -317,6 +395,27 @@ final class PublicWalkPagesTest extends TestCase
         $this->get('/walks/'.$absent->slug)
             ->assertOk()
             ->assertDontSee('data-walk-featured-image', false);
+
+        $index = $this->get('/walks')->assertOk();
+        $this->assertSame(2, substr_count($index->getContent(), '/images/demo/hero-walkers-768.webp'));
+        $index->assertDontSee('/private/member-photo.png', false);
+    }
+
+    public function test_public_walk_query_boundaries_eager_load_featured_media(): void
+    {
+        $current = $this->publishedWalk('Current query route', '+1 week');
+        $this->publishedWalk('Related query route', '+2 weeks');
+
+        $upcoming = app(PublicWalksQuery::class)->upcoming()->whereKey($current->id)->firstOrFail();
+        $published = app(PublicWalksQuery::class)->published()->whereKey($current->id)->firstOrFail();
+        $related = app(RelatedWalks::class)->for($current)->firstOrFail();
+
+        $this->assertTrue($upcoming->relationLoaded('walk'));
+        $this->assertTrue($upcoming->walk->relationLoaded('featuredMedia'));
+        $this->assertTrue($published->relationLoaded('walk'));
+        $this->assertTrue($published->walk->relationLoaded('featuredMedia'));
+        $this->assertTrue($related->relationLoaded('walk'));
+        $this->assertTrue($related->walk->relationLoaded('featuredMedia'));
     }
 
     public function test_grading_guide_is_a_public_text_first_reference_ordered_by_grade(): void
@@ -510,5 +609,39 @@ final class PublicWalkPagesTest extends TestCase
         }
 
         return $event;
+    }
+
+    private function siteMedia(string $alt, bool $storeVariantFiles = true): SiteMedia
+    {
+        $storageKey = (string) Str::uuid();
+        $variants = [
+            'master' => "site-media/{$storageKey}/master.jpg",
+            'large' => "site-media/{$storageKey}/large.jpg",
+            'medium' => "site-media/{$storageKey}/medium.jpg",
+            'thumbnail' => "site-media/{$storageKey}/thumbnail.jpg",
+        ];
+        if ($storeVariantFiles) {
+            foreach ($variants as $path) {
+                Storage::disk('local')->put($path, 'safe image');
+            }
+        }
+
+        return SiteMedia::query()->create([
+            'created_by_user_id' => User::factory()->create()->id,
+            'storage_disk' => 'local',
+            'storage_key' => $storageKey,
+            'processed_variants' => $variants,
+            'mime_type' => 'image/jpeg',
+            'width' => 1600,
+            'height' => 1000,
+            'file_size_bytes' => 1234,
+            'alt_text' => $alt,
+            'is_decorative' => false,
+            'focal_point_x' => 0.5,
+            'focal_point_y' => 0.5,
+            'processing_status' => 'complete',
+            'health_status' => 'healthy',
+            'purpose' => SiteMediaPurpose::WalkFeaturedImage,
+        ]);
     }
 }

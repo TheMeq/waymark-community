@@ -68,7 +68,7 @@ final class PublicSeo
         );
     }
 
-    public function event(Event $event, SiteProfile $profile, ?string $image = null): SeoMetadata
+    public function event(Event $event, SiteProfile $profile, ?string $resolvedImageUrl = null): SeoMetadata
     {
         $canonical = match ($event->type) {
             EventType::Walk => route('walks.show', $event->slug),
@@ -82,7 +82,7 @@ final class PublicSeo
             title: $event->title,
             description: $description,
             canonical: $canonical,
-            image: $image,
+            image: $resolvedImageUrl,
             structuredData: [[
                 '@context' => 'https://schema.org',
                 '@type' => 'Event',
@@ -95,7 +95,7 @@ final class PublicSeo
                 'eventAttendanceMode' => 'https://schema.org/OfflineEventAttendanceMode',
                 'organizer' => ['@type' => 'Organization', 'name' => $this->siteName($profile), 'url' => route('home')],
                 ...($location === null ? [] : ['location' => ['@type' => 'Place', 'name' => $location]]),
-                ...($image === null ? [] : ['image' => [$image]]),
+                ...($resolvedImageUrl === null ? [] : ['image' => [$resolvedImageUrl]]),
             ]],
         );
     }

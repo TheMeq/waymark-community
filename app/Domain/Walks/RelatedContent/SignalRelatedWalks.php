@@ -41,7 +41,7 @@ final class SignalRelatedWalks implements RelatedWalks
                     $query->{$method}('walk', fn (Builder $walks): Builder => $walks->whereRaw('LOWER(meeting_location_name) = ?', [$location]));
                 }
             })
-            ->with(['walk.grade', 'walk.primaryLeader', 'walk.tags']);
+            ->with(['walk.grade', 'walk.primaryLeader', 'walk.tags', 'walk.featuredMedia']);
 
         if ($tagIds === []) {
             $query->selectRaw('0 as related_tag_matches');

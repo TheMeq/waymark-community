@@ -19,7 +19,7 @@ final class PublicWalksQuery
         $this->applyUpcomingVisibility($query);
 
         return $query
-            ->with(['walk.grade', 'walk.primaryLeader'])
+            ->with(['walk.grade', 'walk.primaryLeader', 'walk.featuredMedia'])
             ->orderBy('starts_at')
             ->orderBy('id');
     }
@@ -58,7 +58,7 @@ final class PublicWalksQuery
                 EventStatus::Completed,
             ])
             ->whereHas('walk')
-            ->with(['walk.grade', 'walk.primaryLeader', 'walk.coLeaders', 'walk.tags']);
+            ->with(['walk.grade', 'walk.primaryLeader', 'walk.coLeaders', 'walk.tags', 'walk.featuredMedia']);
     }
 
     /** @return Builder<Event> */
