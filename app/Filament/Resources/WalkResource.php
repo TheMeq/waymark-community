@@ -15,6 +15,7 @@ use App\Filament\Actions\DuplicateWalkAction;
 use App\Filament\Resources\WalkResource\Pages\CreateWalk;
 use App\Filament\Resources\WalkResource\Pages\EditWalk;
 use App\Filament\Resources\WalkResource\Pages\ListWalks;
+use App\Filament\Resources\WalkResource\Support\WalkFeaturedImageFields;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -139,7 +140,7 @@ final class WalkResource extends Resource
             Textarea::make('accessibility_notes')->maxLength(5000)->visible(fn (): bool => self::optionalFieldEnabled('accessibility_notes')),
             TagsInput::make('kit_checklist')->label('Kit checklist')->visible(fn (): bool => self::optionalFieldEnabled('kit_checklist')),
             Textarea::make('kit_notes')->maxLength(5000)->visible(fn (): bool => self::optionalFieldEnabled('kit_notes')),
-            TextInput::make('featured_image_path')->label('Featured image path')->maxLength(255),
+            ...WalkFeaturedImageFields::components(),
             Repeater::make('attachments')
                 ->label('Attachment metadata')
                 ->schema([

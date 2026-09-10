@@ -148,3 +148,36 @@ test('walk leader completes all five Add Walk steps through the dashboard action
     await expect(page.getByRole('row', { name: /Five step browser walk.*pending_approval.*Taylor Walker/i })).toBeVisible();
     await expect(page.getByText('Browser moderation walk')).toHaveCount(0);
 });
+
+test('persists a managed Walk image through draft resume', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'One desktop browser flow proves the critical upload checkpoint contract.');
+
+    await signIn(page, 'walk.wizard@example.test');
+    await page.goto('/admin/walks/create');
+    await page.getByLabel('Title').fill('Managed image browser walk');
+    await page.getByLabel('Starts at').fill('2026-10-10T09:30');
+    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('button', { name: 'Next' }).click();
+
+    await expect(page.getByText('Description, route and image', { exact: true })).toBeVisible();
+    await expect(page.locator('[id="form.featured_image_upload"]')).toBeVisible();
+    await page.locator('[id="form.featured_image_upload"] input[type="file"]').setInputFiles(resolve('public/images/demo/woodland-walk-768.webp'));
+    await page.getByLabel('Image description').fill('Walkers following a sunlit woodland path');
+    await expect(page.getByText('Temporary preview selected. Your image will be saved when you continue from Step 4.')).toBeVisible();
+    await expect(page.locator('[data-testid="managed-image-preview"]')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.getByText('Draft saved', { exact: true })).toBeVisible();
+    const draftUrl = new URL(page.url());
+    draftUrl.searchParams.set('step', 'description-route-and-image');
+
+    await page.goto('/admin/walks');
+    await page.goto(draftUrl.toString());
+    await expect(page.getByText('Description, route and image', { exact: true })).toBeVisible();
+    await expect(page.locator('[data-testid="managed-image-preview"] img')).toHaveAttribute('alt', 'Walkers following a sunlit woodland path');
+    await expect(page.getByLabel('Image description')).toHaveValue('Walkers following a sunlit woodland path');
+    await expect(page.locator('[data-testid="managed-image-status"]')).toHaveAttribute('role', 'status');
+    await expect(page.locator('[data-testid="managed-image-status"]')).toHaveAttribute('aria-live', 'polite');
+    await expectAccessible(page);
+});

@@ -4,6 +4,8 @@ namespace Tests\Feature\Walks;
 
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Models\Event;
+use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
+use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Domain\Walks\Actions\CreateWalk as CreateWalkAction;
 use App\Domain\Walks\Actions\SaveWalkDraft;
 use App\Domain\Walks\Actions\SubmitWalkForPublication;
@@ -104,6 +106,31 @@ final class WalkAdministrationTest extends TestCase
             'Description, route and image',
             'Leader and publishing',
         ], $labels);
+    }
+
+    public function test_walk_image_form_is_upload_first_and_hides_storage_implementation_details(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+
+        $component = Livewire::actingAs($administrator)
+            ->test(CreateWalk::class)
+            ->assertFormFieldDoesNotExist('featured_image_path')
+            ->assertFormFieldDoesNotExist('featured_image_media_id')
+            ->assertFormFieldDoesNotExist('storage_disk')
+            ->assertFormFieldDoesNotExist('storage_key')
+            ->assertFormFieldVisible('featured_image_source')
+            ->assertFormFieldVisible('featured_image_upload')
+            ->assertFormFieldHidden('featured_image_external_url')
+            ->assertFormFieldVisible('featured_image_alt_text')
+            ->assertFormFieldExists('featured_image_upload', null, fn ($field): bool => ! $field->shouldStoreFiles())
+            ->assertSee('Local upload is recommended')
+            ->assertSee('Your selected image is saved when you continue from Step 4.');
+
+        $component
+            ->fillForm(['featured_image_source' => 'external'])
+            ->assertFormFieldHidden('featured_image_upload')
+            ->assertFormFieldVisible('featured_image_external_url')
+            ->assertSee('Use an external image instead');
     }
 
     public function test_walk_list_exposes_an_obvious_add_walk_action(): void
@@ -274,7 +301,7 @@ final class WalkAdministrationTest extends TestCase
 
         $this->actingAs($leader);
         $component = Livewire::test(EditWalk::class, ['record' => $walk->id]);
-        foreach (['grade_id', 'tag_ids', 'co_leader_ids', 'terrain_notes', 'meeting_location_name', 'meeting_address', 'meeting_postcode', 'latitude', 'longitude', 'what3words', 'os_grid_reference', 'directions', 'is_public_transport_friendly', 'public_transport_station_stop', 'public_transport_notes', 'public_transport_url', 'parking_notes', 'toilet_information', 'cafe_pub_information', 'dog_guidance', 'accessibility_notes', 'kit_checklist', 'kit_notes', 'capacity', 'availability', 'featured_image_path', 'attachments', 'private_organiser_notes'] as $field) {
+        foreach (['grade_id', 'tag_ids', 'co_leader_ids', 'terrain_notes', 'meeting_location_name', 'meeting_address', 'meeting_postcode', 'latitude', 'longitude', 'what3words', 'os_grid_reference', 'directions', 'is_public_transport_friendly', 'public_transport_station_stop', 'public_transport_notes', 'public_transport_url', 'parking_notes', 'toilet_information', 'cafe_pub_information', 'dog_guidance', 'accessibility_notes', 'kit_checklist', 'kit_notes', 'capacity', 'availability', 'attachments', 'private_organiser_notes'] as $field) {
             $component->assertFormFieldVisible($field);
         }
         $component->fillForm([
@@ -303,7 +330,6 @@ final class WalkAdministrationTest extends TestCase
             'kit_notes' => 'Bring lunch.',
             'capacity' => 20,
             'availability' => 'Spaces available',
-            'featured_image_path' => 'walks/featured/north-gate.jpg',
             'attachments' => [['path' => 'walks/attachments/route-sheet.pdf', 'name' => 'Route sheet.pdf', 'mime_type' => 'application/pdf', 'size_bytes' => 2048]],
             'private_organiser_notes' => 'Check gate access.',
         ])->call('save')->assertHasNoFormErrors();
@@ -318,6 +344,113 @@ final class WalkAdministrationTest extends TestCase
         $this->assertSame(['Water', 'Waterproof'], $walk->kit_checklist);
         $this->assertSame('walks/attachments/route-sheet.pdf', $walk->attachments[0]['path']);
         $this->assertSame('Check gate access.', $walk->private_organiser_notes);
+    }
+
+    public function test_edit_walk_replaces_and_removes_managed_image_through_the_owner_action(): void
+    {
+        Storage::fake('local');
+        config()->set('gallery.photos.disk', 'local');
+        $leader = User::factory()->walkLeader()->create();
+        $walk = Walk::query()->create([
+            'event_id' => Event::factory()->for($leader, 'organiser')->create()->id,
+            'primary_leader_id' => $leader->id,
+            'featured_image_path' => '/images/demo/woodland-walk.png',
+        ]);
+
+        $this->actingAs($leader);
+        Livewire::test(EditWalk::class, ['record' => $walk->id])
+            ->fillForm([
+                'featured_image_source' => 'managed',
+                'featured_image_upload' => UploadedFile::fake()->image('first.jpg', 120, 80),
+                'featured_image_alt_text' => 'Walkers beneath woodland trees',
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $walk->refresh();
+        $firstMediaId = $walk->featured_image_media_id;
+        $this->assertNotNull($firstMediaId);
+        $this->assertSame(SiteMediaPurpose::WalkFeaturedImage, SiteMedia::query()->findOrFail($firstMediaId)->purpose);
+
+        $edit = Livewire::test(EditWalk::class, ['record' => $walk->id])
+            ->assertFormSet([
+                'featured_image_source' => 'managed',
+                'featured_image_alt_text' => 'Walkers beneath woodland trees',
+            ])
+            ->assertSee('A saved external fallback is retained');
+        $preview = $edit->get('data.featured_image_preview');
+        $this->assertIsArray($preview);
+        $this->assertNotEmpty($preview['url']);
+
+        $edit
+            ->fillForm([
+                'featured_image_source' => 'managed',
+                'featured_image_upload' => UploadedFile::fake()->image('replacement.jpg', 120, 80),
+                'featured_image_alt_text' => 'Walkers crossing an open hillside',
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $walk->refresh();
+        $replacementMediaId = $walk->featured_image_media_id;
+        $this->assertNotSame($firstMediaId, $replacementMediaId);
+        $this->assertNotNull(SiteMedia::query()->findOrFail($firstMediaId)->orphaned_at);
+
+        Livewire::test(EditWalk::class, ['record' => $walk->id])
+            ->fillForm([
+                'featured_image_source' => 'none',
+                'featured_image_alt_text' => null,
+                'featured_image_remove_fallback' => 'clear',
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $walk->refresh();
+        $this->assertNull($walk->featured_image_media_id);
+        $this->assertNull($walk->featured_image_path);
+        $this->assertNull($walk->featured_image_alt_text);
+        $this->assertNotNull(SiteMedia::query()->findOrFail($replacementMediaId)->orphaned_at);
+    }
+
+    public function test_walk_image_validation_is_attached_to_the_relevant_control_and_preserves_saved_media(): void
+    {
+        Storage::fake('local');
+        config()->set('gallery.photos.disk', 'local');
+        $leader = User::factory()->walkLeader()->create();
+        $walk = Walk::query()->create([
+            'event_id' => Event::factory()->for($leader, 'organiser')->create()->id,
+            'primary_leader_id' => $leader->id,
+        ]);
+
+        $this->actingAs($leader);
+        Livewire::test(EditWalk::class, ['record' => $walk->id])
+            ->fillForm([
+                'featured_image_source' => 'managed',
+                'featured_image_upload' => UploadedFile::fake()->image('saved.jpg', 120, 80),
+                'featured_image_alt_text' => 'A saved Walk image',
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+        $mediaId = $walk->fresh()->featured_image_media_id;
+
+        Livewire::test(EditWalk::class, ['record' => $walk->id])
+            ->fillForm([
+                'featured_image_source' => 'external',
+                'featured_image_external_url' => 'http://unsafe.example/walk.jpg',
+                'featured_image_alt_text' => '',
+            ])
+            ->call('save')
+            ->assertHasFormErrors([
+                'featured_image_external_url',
+                'featured_image_alt_text',
+            ])
+            ->assertFormSet([
+                'featured_image_external_url' => 'http://unsafe.example/walk.jpg',
+            ]);
+
+        $walk->refresh();
+        $this->assertSame($mediaId, $walk->featured_image_media_id);
+        $this->assertSame('A saved Walk image', $walk->featured_image_alt_text);
     }
 
     public function test_disabled_optional_fields_are_hidden_on_the_walk_form_without_erasing_existing_values(): void

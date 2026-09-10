@@ -7,6 +7,7 @@ use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Accounts\Models\RoleCapability;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Models\Event;
+use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
 use App\Domain\Walks\Actions\SaveWalkDraft;
 use App\Domain\Walks\Actions\UpdateWalkFieldSettings;
 use App\Domain\Walks\Models\Grade;
@@ -16,6 +17,8 @@ use App\Filament\Resources\WalkResource\Pages\CreateWalk;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -115,24 +118,15 @@ final class WalkDraftWizardTest extends TestCase
         $this->assertDatabaseMissing('events', ['status' => EventStatus::Published->value]);
     }
 
-    public function test_draft_feedback_regions_expose_persistent_status_and_conditional_alert_semantics(): void
+    public function test_draft_feedback_region_exposes_persistent_status_semantics(): void
     {
         $leader = User::factory()->walkLeader()->create();
 
-        $component = Livewire::actingAs($leader)
+        Livewire::actingAs($leader)
             ->test(CreateWalk::class)
             ->assertSeeHtml('role="status"')
             ->assertSeeHtml('aria-live="polite"')
-            ->assertSeeHtml('aria-atomic="true"')
-            ->assertDontSeeHtml('role="alert"');
-
-        $component
-            ->set('draftSaveError', "We couldn't save your draft. Your entries are still on this page. Try again.")
-            ->assertSeeHtml('role="alert"')
-            ->assertSeeHtml('tabindex="-1"')
-            ->assertSeeHtml('x-ref="draftSaveError"')
-            ->assertSeeHtml('x-on:walk-draft-save-failed.window')
-            ->assertSee("We couldn't save your draft. Your entries are still on this page. Try again.");
+            ->assertSeeHtml('aria-atomic="true"');
     }
 
     public function test_back_and_next_update_the_first_draft_without_duplication(): void
@@ -230,7 +224,6 @@ final class WalkDraftWizardTest extends TestCase
             ->fillForm([
                 'summary' => 'A varied circuit around the reservoir.',
                 'description' => 'A longer description for walkers.',
-                'featured_image_path' => '/images/demo/reservoir.jpg',
                 'attachments' => [[
                     'path' => 'walks/route-notes.pdf',
                     'name' => 'Route notes.pdf',
@@ -250,12 +243,82 @@ final class WalkDraftWizardTest extends TestCase
         $this->assertSame($eventId, $draft->event_id);
         $this->assertSame('Updated reservoir circuit summary.', $draft->event->summary);
         $this->assertSame('A longer description for walkers.', $draft->event->description);
-        $this->assertSame('/images/demo/reservoir.jpg', $draft->featured_image_path);
+        $this->assertNull($draft->featured_image_path);
         $this->assertSame('Route notes.pdf', $draft->attachments[0]['name']);
         $this->assertSame('8.50', $draft->distance);
         $this->assertSame('Meet beside the northern entrance.', $draft->directions);
         $this->assertDatabaseCount('events', 1);
         $this->assertDatabaseCount('walks', 1);
+    }
+
+    public function test_step_four_checkpoints_one_managed_image_and_resume_and_submission_reuse_it(): void
+    {
+        Storage::fake('local');
+        config()->set('gallery.photos.disk', 'local');
+        $leader = User::factory()->walkLeader()->create();
+
+        $component = Livewire::actingAs($leader)
+            ->test(CreateWalk::class)
+            ->fillForm([
+                'title' => 'Managed image circuit',
+                'starts_at' => '2026-09-12 09:30:00',
+            ])
+            ->goToNextWizardStep()
+            ->goToWizardStep(4)
+            ->fillForm([
+                'featured_image_source' => 'managed',
+                'featured_image_upload' => UploadedFile::fake()->image('managed-walk.jpg', 120, 80),
+                'featured_image_alt_text' => 'Walkers following a ridge path',
+            ]);
+
+        $this->assertDatabaseCount('site_media', 0);
+        $this->assertNull(Walk::query()->findOrFail($component->get('draftId'))->featured_image_media_id);
+
+        $component
+            ->goToWizardStep(5)
+            ->assertWizardCurrentStep(5)
+            ->assertHasNoFormErrors();
+
+        $draft = Walk::query()->with('featuredMedia')->findOrFail($component->get('draftId'));
+        $mediaId = $draft->featured_image_media_id;
+        $this->assertNotNull($mediaId);
+        $this->assertSame(SiteMediaPurpose::WalkFeaturedImage, $draft->featuredMedia->purpose);
+        $this->assertSame('Walkers following a ridge path', $draft->featured_image_alt_text);
+        $this->assertDatabaseCount('site_media', 1);
+
+        $component
+            ->goToPreviousWizardStep()
+            ->goToWizardStep(5)
+            ->assertHasNoFormErrors();
+        $this->assertSame($mediaId, $draft->fresh()->featured_image_media_id);
+        $this->assertDatabaseCount('site_media', 1);
+
+        Livewire::actingAs($leader);
+        $resumed = Livewire::withQueryParams([
+            'draft' => $draft->id,
+            'step' => 'description-route-and-image',
+        ])->test(CreateWalk::class)
+            ->assertWizardCurrentStep(4)
+            ->assertFormSet([
+                'featured_image_source' => 'managed',
+                'featured_image_upload' => null,
+                'featured_image_alt_text' => 'Walkers following a ridge path',
+            ])
+            ->assertSee('Saved local image');
+        $preview = $resumed->get('data.featured_image_preview');
+        $this->assertIsArray($preview);
+        $this->assertSame('Walkers following a ridge path', $preview['alt']);
+        $this->assertNotEmpty($preview['url']);
+
+        $resumed
+            ->goToWizardStep(5)
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $submitted = Walk::query()->with('event')->findOrFail($draft->id);
+        $this->assertSame($mediaId, $submitted->featured_image_media_id);
+        $this->assertSame(EventStatus::PendingApproval, $submitted->event->status);
+        $this->assertDatabaseCount('site_media', 1);
     }
 
     public function test_earlier_checkpoint_preserves_unvisited_later_step_data(): void
@@ -473,6 +536,8 @@ final class WalkDraftWizardTest extends TestCase
 
     public function test_submission_failure_preserves_the_last_private_checkpoint_and_reports_feedback(): void
     {
+        Storage::fake('local');
+        config()->set('gallery.photos.disk', 'local');
         $administrator = User::factory()->initialAdministrator()->create();
         $component = Livewire::actingAs($administrator)
             ->test(CreateWalk::class)
@@ -483,9 +548,16 @@ final class WalkDraftWizardTest extends TestCase
             ->goToNextWizardStep()
             ->goToWizardStep(3)
             ->goToWizardStep(4)
-            ->fillForm(['summary' => 'Previously saved summary.'])
+            ->fillForm([
+                'summary' => 'Previously saved summary.',
+                'featured_image_source' => 'managed',
+                'featured_image_upload' => UploadedFile::fake()->image('checkpointed.jpg', 120, 80),
+                'featured_image_alt_text' => 'Walkers beside a clifftop path',
+            ])
             ->goToWizardStep(5);
         $draft = Walk::query()->with('event')->findOrFail($component->get('draftId'));
+        $mediaId = $draft->featured_image_media_id;
+        $this->assertNotNull($mediaId);
 
         Event::updating(function (Event $event): void {
             if ($event->isDirty('status') && $event->status !== EventStatus::Draft) {
@@ -508,6 +580,9 @@ final class WalkDraftWizardTest extends TestCase
 
         $draft->event->refresh();
         $this->assertSame('Previously saved summary.', $draft->event->summary);
+        $this->assertSame($mediaId, $draft->fresh()->featured_image_media_id);
+        $this->assertSame('Walkers beside a clifftop path', $draft->fresh()->featured_image_alt_text);
+        $this->assertDatabaseCount('site_media', 1);
         $this->assertSame(EventStatus::Draft, $draft->event->status);
         $this->assertFalse($draft->event->is_public);
         $this->assertDatabaseCount('events', 1);

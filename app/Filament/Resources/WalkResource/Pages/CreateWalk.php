@@ -2,12 +2,16 @@
 
 namespace App\Filament\Resources\WalkResource\Pages;
 
+use App\Domain\Content\Presentation\PublicImageReference;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Walks\Actions\CreateWalk as CreateWalkAction;
 use App\Domain\Walks\Actions\SaveWalkDraft;
+use App\Domain\Walks\Actions\UpdateWalkFeaturedImage;
+use App\Domain\Walks\Data\WalkFeaturedImageInput;
 use App\Domain\Walks\Models\Walk;
 use App\Filament\Components\AccessibleWizard;
 use App\Filament\Resources\WalkResource;
+use App\Filament\Resources\WalkResource\Support\WalkFeaturedImageFields;
 use App\Filament\Resources\WalkResource\Support\WalkFormData;
 use App\Models\User;
 use Filament\Actions\Action;
@@ -21,6 +25,7 @@ use Filament\Support\Exceptions\Halt;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
 use Throwable;
 
@@ -70,7 +75,6 @@ final class CreateWalk extends CreateRecord
         4 => [
             'summary',
             'description',
-            'featured_image_path',
             'attachments',
         ],
     ];
@@ -120,7 +124,7 @@ final class CreateWalk extends CreateRecord
                 ->afterValidation(fn () => $this->checkpointStep(3)),
             Step::make('Description, route and image')
                 ->id('description-route-and-image')
-                ->schema($this->fields(self::CHECKPOINT_FIELDS[4]))
+                ->schema($this->fields($this->checkpointFields(4)))
                 ->afterValidation(fn () => $this->checkpointStep(4)),
             Step::make('Leader and publishing')
                 ->id('leader-and-publishing')
@@ -199,6 +203,22 @@ final class CreateWalk extends CreateRecord
                     $actor,
                     $attributes,
                 );
+
+            if ($step === 4) {
+                $draft = app(UpdateWalkFeaturedImage::class)->handle(
+                    $actor,
+                    $draft,
+                    $this->featuredImageInput($draft, $this->data),
+                );
+                $this->data = [
+                    ...$this->data,
+                    ...Arr::only(WalkFormData::from($draft), WalkFeaturedImageFields::stateNames()),
+                ];
+            }
+        } catch (ValidationException $exception) {
+            $this->draftSaveError = null;
+
+            throw $exception;
         } catch (Throwable $exception) {
             report($exception);
 
@@ -243,7 +263,11 @@ final class CreateWalk extends CreateRecord
         $draft = $this->draftId === null ? null : $this->resolveDraft();
 
         try {
-            $walk = app(CreateWalkAction::class)->handle($user, $data, $draft);
+            $walk = app(CreateWalkAction::class)->handle(
+                $user,
+                Arr::except($data, WalkFeaturedImageFields::stateNames()),
+                $draft,
+            );
         } catch (Throwable $exception) {
             report($exception);
 
@@ -257,5 +281,56 @@ final class CreateWalk extends CreateRecord
         $this->draftId = null;
 
         return $walk;
+    }
+
+    /** @return list<string> */
+    private function checkpointFields(int $step): array
+    {
+        return $step === 4
+            ? [...self::CHECKPOINT_FIELDS[4], ...WalkFeaturedImageFields::stateNames()]
+            : self::CHECKPOINT_FIELDS[$step];
+    }
+
+    /** @param array<string, mixed> $state */
+    private function featuredImageInput(Walk $draft, array $state): WalkFeaturedImageInput
+    {
+        $source = $state['featured_image_source'] ?? 'none';
+        $input = Arr::only($state, WalkFeaturedImageFields::stateNames());
+        unset($input['featured_image_preview'], $input['featured_image_remove_fallback']);
+        $input['featured_image_upload'] = WalkFeaturedImageFields::uploadedFile($input['featured_image_upload'] ?? null);
+
+        if ($source === 'managed') {
+            $input['featured_image_external_url'] = null;
+
+            if ($input['featured_image_upload'] === null && $draft->featured_image_media_id === null) {
+                $input = $this->emptyFeaturedImageInput();
+            }
+        } elseif ($source === 'external') {
+            $input['featured_image_upload'] = null;
+        } elseif (($state['featured_image_remove_fallback'] ?? null) === 'reveal'
+            && $draft->featured_image_media_id !== null
+            && PublicImageReference::isAllowed($draft->featured_image_path)) {
+            $input = [
+                'featured_image_source' => 'external',
+                'featured_image_upload' => null,
+                'featured_image_external_url' => $draft->featured_image_path,
+                'featured_image_alt_text' => $state['featured_image_alt_text'] ?? $draft->featured_image_alt_text,
+            ];
+        } else {
+            $input = $this->emptyFeaturedImageInput();
+        }
+
+        return WalkFeaturedImageInput::from($input);
+    }
+
+    /** @return array<string, mixed> */
+    private function emptyFeaturedImageInput(): array
+    {
+        return [
+            'featured_image_source' => 'none',
+            'featured_image_upload' => null,
+            'featured_image_external_url' => null,
+            'featured_image_alt_text' => null,
+        ];
     }
 }
