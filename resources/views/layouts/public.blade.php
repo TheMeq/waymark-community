@@ -27,7 +27,7 @@
         @endforeach
         <link rel="manifest" href="{{ $manifestUrl }}">
         <meta name="theme-color" content="{{ $theme->primaryColour }}">
-        @if ($branding['favicon_url'])<link rel="icon" href="{{ $branding['favicon_url'] }}">@endif
+        @if ($branding['favicon_url'])<link rel="icon" href="{{ $branding['favicon_url'] }}"@if($branding['favicon_type'] ?? null) type="{{ $branding['favicon_type'] }}"@endif>@endif
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         <x-public.analytics :analytics="$analytics" />

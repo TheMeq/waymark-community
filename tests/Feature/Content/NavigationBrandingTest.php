@@ -8,13 +8,18 @@ use App\Domain\Content\Models\NavigationItem;
 use App\Domain\Content\Queries\PublicFooterSections;
 use App\Domain\Content\Queries\PublicNavigationItems;
 use App\Domain\Operations\Actions\CreateBrandingPreview;
+use App\Domain\Operations\Actions\UpdateBrandingImage;
 use App\Domain\Operations\Actions\UpdateSiteProfile;
+use App\Domain\Operations\Data\BrandingImageInput;
 use App\Domain\Operations\Models\BrandingConfigurationSnapshot;
 use App\Domain\Operations\Models\SiteProfile;
+use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
 use App\Filament\Pages\BrandingSettings;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -22,6 +27,14 @@ use Tests\TestCase;
 final class NavigationBrandingTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Storage::fake('local');
+        config()->set('gallery.photos.disk', 'local');
+    }
 
     public function test_navigation_is_flat_guardrailed_ordered_and_module_aware(): void
     {
@@ -81,14 +94,25 @@ final class NavigationBrandingTest extends TestCase
             'group_name' => 'Peak Pathfinders',
             'short_name' => 'PP',
             'contact_email' => 'hello@example.org',
-            'logo_path' => '/images/demo/waymark-logo.svg',
-            'favicon_path' => '/images/demo/favicon.png',
             'hero_default_path' => '/images/demo/hero-walkers.png',
             'social_links' => ['Instagram' => 'https://instagram.com/peak-pathfinders'],
             'terminology' => ['walks' => 'Rambles', 'members' => 'Community', 'join' => 'Join our circle'],
             'affiliation_name' => 'County Walking Network',
             'affiliation_url' => 'https://example.org/network',
         ], $administrator);
+        $profile = SiteProfile::query()->findOrFail(SiteProfile::SINGLETON_ID);
+        app(UpdateBrandingImage::class)->handle(
+            $administrator,
+            $profile,
+            SiteMediaPurpose::SiteLogo,
+            BrandingImageInput::from(['logo_source' => 'external', 'logo_path' => '/images/demo/waymark-logo.svg'], SiteMediaPurpose::SiteLogo),
+        );
+        app(UpdateBrandingImage::class)->handle(
+            $administrator,
+            $profile->fresh(),
+            SiteMediaPurpose::SiteFavicon,
+            BrandingImageInput::from(['favicon_source' => 'external', 'favicon_path' => '/images/demo/favicon.png'], SiteMediaPurpose::SiteFavicon),
+        );
 
         $this->actingAs($administrator)->get('/admin/branding')->assertOk()
             ->assertSeeText('Group name')->assertSeeText('Social links')->assertSeeText('Terminology aliases')
@@ -98,6 +122,78 @@ final class NavigationBrandingTest extends TestCase
             ->assertSeeText('Peak Pathfinders')->assertSeeText('Rambles')->assertSeeText('Community')->assertSeeText('Join our circle')
             ->assertSeeText('Instagram')->assertSee('https://instagram.com/peak-pathfinders', false)
             ->assertSeeText('County Walking Network')->assertSee('href="/images/demo/favicon.png"', false);
+    }
+
+    public function test_managed_branding_renders_one_resolved_logo_in_header_footer_and_seo_and_png_favicon_without_changing_pwa_icons(): void
+    {
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
+        $profile = app(UpdateSiteProfile::class)->handle(['group_name' => 'Managed Pathfinders']);
+        $profile = app(UpdateBrandingImage::class)->handle(
+            $administrator,
+            $profile,
+            SiteMediaPurpose::SiteLogo,
+            BrandingImageInput::from([
+                'logo_source' => 'managed',
+                'logo_upload' => UploadedFile::fake()->image('logo.png', 80, 60),
+            ], SiteMediaPurpose::SiteLogo),
+        );
+        $profile = app(UpdateBrandingImage::class)->handle(
+            $administrator,
+            $profile,
+            SiteMediaPurpose::SiteFavicon,
+            BrandingImageInput::from([
+                'favicon_source' => 'managed',
+                'favicon_upload' => UploadedFile::fake()->image('favicon.png', 64, 64),
+            ], SiteMediaPurpose::SiteFavicon),
+        );
+        $logoUrl = route('site-media.stream', [$profile->logoMedia, 'medium']);
+        $faviconUrl = route('site-media.stream', [$profile->faviconMedia, 'favicon']);
+
+        $content = $this->get('/')->assertOk()->getContent();
+        $this->assertIsString($content);
+        $this->assertSame(2, substr_count($content, 'src="'.$logoUrl.'" alt=""'));
+        $this->assertGreaterThanOrEqual(2, substr_count($content, 'Managed Pathfinders'));
+        $this->assertStringContainsString('aria-label="Managed Pathfinders home"', $content);
+        $this->assertStringContainsString('<link rel="icon" href="'.$faviconUrl.'" type="image/png">', $content);
+        $this->assertStringContainsString('"logo":"'.$logoUrl.'"', $content);
+
+        $this->get('/manifest.webmanifest')
+            ->assertOk()
+            ->assertJsonPath('icons.0.src', '/images/pwa/icon-192.png')
+            ->assertJsonPath('icons.1.src', '/images/pwa/icon-512.png');
+    }
+
+    public function test_branding_preview_keeps_saved_managed_logo_while_previewing_unsaved_ordinary_values(): void
+    {
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
+        $profile = app(UpdateSiteProfile::class)->handle(['group_name' => 'Saved Walkers']);
+        $profile = app(UpdateBrandingImage::class)->handle(
+            $administrator,
+            $profile,
+            SiteMediaPurpose::SiteLogo,
+            BrandingImageInput::from([
+                'logo_source' => 'managed',
+                'logo_upload' => UploadedFile::fake()->image('logo.png', 80, 60),
+            ], SiteMediaPurpose::SiteLogo),
+        );
+        $logoUrl = route('site-media.stream', [$profile->logoMedia, 'medium']);
+
+        $preview = app(CreateBrandingPreview::class)->handle($administrator, ['group_name' => 'Unsaved Pathfinders']);
+
+        $this->actingAs($administrator)->get(route('branding.preview', ['token' => $preview->token, 'viewport' => 'desktop']))
+            ->assertOk()
+            ->assertSeeText('Unsaved Pathfinders')
+            ->assertSee('src="'.$logoUrl.'" alt=""', false);
+
+        $externalPreview = app(CreateBrandingPreview::class)->handle($administrator, [
+            'group_name' => 'External Preview',
+            'logo_source' => 'external',
+            'logo_path' => 'https://images.example.org/preview-logo.png',
+        ]);
+        $this->actingAs($administrator)->get(route('branding.preview', ['token' => $externalPreview->token, 'viewport' => 'desktop']))
+            ->assertOk()
+            ->assertSee('src="https://images.example.org/preview-logo.png" alt=""', false)
+            ->assertDontSee('src="'.$logoUrl.'" alt=""', false);
     }
 
     public function test_fallback_public_links_use_current_named_routes(): void

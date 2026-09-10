@@ -22,8 +22,6 @@ final class UpdateSiteProfile
         'distance_unit',
         'ascent_unit',
         'start_year',
-        'logo_path',
-        'favicon_path',
         'hero_default_path',
         'primary_colour',
         'accent_colour',
@@ -38,7 +36,12 @@ final class UpdateSiteProfile
     /** @param array<string, mixed> $validated */
     public function handle(array $validated, ?User $actor = null): SiteProfile
     {
-        $this->brandingValidator->validate($validated);
+        $this->brandingValidator->validate(Arr::except($validated, [
+            'logo_media_id',
+            'logo_path',
+            'favicon_media_id',
+            'favicon_path',
+        ]));
 
         return DB::transaction(function () use ($validated, $actor): SiteProfile {
             $profile = SiteProfile::query()

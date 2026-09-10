@@ -2,11 +2,12 @@
 @php($activeBranding = $brandingOverride ?? $branding)
 @php($siteName = $activeBranding['name'] ?? $site['name'])
 @php($terms = $activeBranding['terminology'] ?? [])
+@php($logoUrl = $activeBranding['logo_url'] ?? null)
 
 <header {{ $attributes->class('wm-print-hidden border-b border-border bg-surface-raised') }}>
     <div class="wm-container flex min-h-20 items-center justify-between gap-2 py-3 sm:gap-5">
         <a class="inline-flex min-w-0 items-center gap-3 text-sm font-semibold text-ink no-underline sm:text-base" href="{{ route('home') }}" aria-label="{{ $siteName }} home">
-            @if ($activeBranding['logo_url'] ?? null)<img class="size-10 rounded-full object-contain" src="{{ $activeBranding['logo_url'] }}" alt="">@else<span class="grid size-10 place-items-center rounded-full bg-brand text-lg font-semibold text-on-brand" aria-hidden="true">{{ mb_substr($activeBranding['short_name'] ?? 'W', 0, 2) }}</span>@endif
+            @if ($logoUrl)<img class="size-10 rounded-full object-contain" src="{{ $logoUrl }}" alt="">@else<span class="grid size-10 place-items-center rounded-full bg-brand text-lg font-semibold text-on-brand" aria-hidden="true">{{ mb_substr($activeBranding['short_name'] ?? 'W', 0, 2) }}</span>@endif
             <span class="min-w-0 leading-tight">
                 <span class="block break-words">{{ $siteName }}</span>
                 @if (! empty($site['strapline']))

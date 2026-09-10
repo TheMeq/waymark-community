@@ -5,6 +5,7 @@ namespace App\Domain\Content\Presentation;
 use App\Domain\Content\Data\SeoMetadata;
 use App\Domain\Content\Models\CmsPage;
 use App\Domain\Content\Models\NewsArticle;
+use App\Domain\Content\Queries\PublicBranding;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
@@ -14,9 +15,12 @@ use Illuminate\Support\Str;
 
 final class PublicSeo
 {
+    public function __construct(private readonly PublicBranding $branding) {}
+
     public function home(SiteProfile $profile): SeoMetadata
     {
         $name = $this->siteName($profile);
+        $logo = $this->absolute($this->branding->forProfile($profile)['logo_url'] ?? null);
 
         return new SeoMetadata(
             title: $name,
@@ -28,7 +32,7 @@ final class PublicSeo
                 '@type' => 'Organization',
                 'name' => $name,
                 'url' => route('home'),
-                ...($this->absolute($profile->logo_path) === null ? [] : ['logo' => $this->absolute($profile->logo_path)]),
+                ...($logo === null ? [] : ['logo' => $logo]),
             ]],
         );
     }

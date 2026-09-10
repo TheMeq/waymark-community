@@ -1,12 +1,13 @@
 @props(['site', 'brandingOverride' => null])
 @php($activeBranding = $brandingOverride ?? $branding)
 @php($siteName = $activeBranding['name'] ?? $site['name'])
+@php($logoUrl = $activeBranding['logo_url'] ?? null)
 
 <footer {{ $attributes->class('wm-print-hidden bg-surface-strong py-4 text-[var(--wm-text-inverse)] lg:py-2.5') }}>
     <div class="wm-container grid gap-8 md:grid-cols-[1fr_auto] md:items-end">
         <div class="sm:flex sm:items-center sm:gap-5">
             <a class="inline-flex items-center gap-3 font-semibold text-white" href="{{ route('home') }}" aria-label="{{ $siteName }} home">
-                @if ($activeBranding['logo_url'] ?? null)<img class="size-9 rounded-full object-contain lg:size-8" src="{{ $activeBranding['logo_url'] }}" alt="">@else<span class="grid size-9 place-items-center rounded-full bg-brand text-on-brand lg:size-8" aria-hidden="true">{{ mb_substr($activeBranding['short_name'] ?? 'W', 0, 2) }}</span>@endif
+                @if ($logoUrl)<img class="size-9 rounded-full object-contain lg:size-8" src="{{ $logoUrl }}" alt="">@else<span class="grid size-9 place-items-center rounded-full bg-brand text-on-brand lg:size-8" aria-hidden="true">{{ mb_substr($activeBranding['short_name'] ?? 'W', 0, 2) }}</span>@endif
                 <span>{{ $siteName }}</span>
             </a>
             <p class="mt-2 max-w-md text-xs text-white/70 sm:mt-0">Good walks, shared well.</p>

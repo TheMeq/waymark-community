@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Content;
 
+use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Content\Models\FooterSection;
 use App\Domain\Content\Models\HomepageSection;
 use App\Domain\Content\Models\NavigationItem;
@@ -11,7 +12,12 @@ use App\Domain\Content\Queries\PublicFooterSections;
 use App\Domain\Content\Queries\PublicNavigationItems;
 use App\Domain\Content\Queries\VisibleHomepageSections;
 use App\Domain\Content\Support\CmsBlockPresenter;
+use App\Domain\Operations\Actions\UpdateBrandingImage;
 use App\Domain\Operations\Actions\UpdateSiteProfile;
+use App\Domain\Operations\Data\BrandingImageInput;
+use App\Domain\Operations\Models\SiteProfile;
+use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
+use App\Models\User;
 use App\ViewModels\HomepageViewModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\URL;
@@ -60,15 +66,27 @@ final class PublicUrlPresentationTest extends TestCase
 
     public function test_branding_cms_links_and_demo_assets_are_prefix_aware(): void
     {
+        $administrator = User::factory()->create(['role' => AccountRole::Administrator]);
         app(UpdateSiteProfile::class)->handle([
             'group_name' => 'Prefix Walkers',
-            'logo_path' => '/images/demo/waymark-logo.svg',
-            'favicon_path' => '/images/demo/favicon.png',
             'hero_default_path' => '/images/demo/hero-walkers.png',
             'social_links' => ['Local guide' => '/documents'],
             'affiliation_name' => 'Partner',
             'affiliation_url' => '/pages/partner',
         ]);
+        $profile = SiteProfile::query()->findOrFail(SiteProfile::SINGLETON_ID);
+        app(UpdateBrandingImage::class)->handle(
+            $administrator,
+            $profile,
+            SiteMediaPurpose::SiteLogo,
+            BrandingImageInput::from(['logo_source' => 'external', 'logo_path' => '/images/demo/waymark-logo.svg'], SiteMediaPurpose::SiteLogo),
+        );
+        app(UpdateBrandingImage::class)->handle(
+            $administrator,
+            $profile->fresh(),
+            SiteMediaPurpose::SiteFavicon,
+            BrandingImageInput::from(['favicon_source' => 'external', 'favicon_path' => '/images/demo/favicon.png'], SiteMediaPurpose::SiteFavicon),
+        );
 
         $branding = app(PublicBranding::class)->get();
         $this->assertSame('/demo-site/ndwg/images/demo/waymark-logo.svg', $branding['logo_url']);
