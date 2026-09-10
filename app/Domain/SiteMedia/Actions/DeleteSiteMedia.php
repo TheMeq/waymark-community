@@ -2,66 +2,108 @@
 
 namespace App\Domain\SiteMedia\Actions;
 
+use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
 use App\Domain\SiteMedia\Models\SiteMedia;
+use App\Domain\SiteMedia\Queries\SiteMediaUsage;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 final class DeleteSiteMedia
 {
     use ManagesSiteMedia;
 
+    public function __construct(
+        private readonly SiteMediaUsage $usage,
+        private readonly SiteMediaNamespaceCleaner $cleaner,
+    ) {}
+
     public function handle(User $actor, SiteMedia $media): bool
     {
         $this->authorizeSiteMedia($actor);
-        $directory = DB::transaction(function () use ($actor, $media): string {
+
+        return DB::transaction(function () use ($actor, $media): bool {
             $locked = SiteMedia::query()->lockForUpdate()->findOrFail($media->id);
-            $before = $this->snapshot($locked);
-            $locked->forceFill(['processing_status' => 'removed', 'health_status' => 'deletion_pending', 'processed_variants' => []])->save();
-            $this->audit($actor, $locked, 'removal_requested', $before, $this->snapshot($locked));
+            $this->refuseIfUsed($locked);
 
-            return 'site-media/'.$locked->storage_key;
+            return $this->removeLocked($actor, $locked);
         });
-
-        return $this->cleanup($actor, SiteMedia::query()->findOrFail($media->id), $directory);
     }
 
     public function retry(User $actor, SiteMedia $media): bool
     {
         $this->authorizeSiteMedia($actor);
-        $locked = SiteMedia::query()->findOrFail($media->id);
-        if (! in_array($locked->health_status, ['deletion_pending', 'deletion_failed'], true)) {
-            return $locked->health_status === 'removed';
-        }
 
-        return $this->cleanup($actor, $locked, 'site-media/'.$locked->storage_key);
+        return DB::transaction(function () use ($actor, $media): bool {
+            $locked = SiteMedia::query()->lockForUpdate()->findOrFail($media->id);
+            $this->refuseIfUsed($locked);
+
+            if (! in_array($locked->health_status, ['deletion_pending', 'deletion_failed'], true)) {
+                return $locked->health_status === 'removed';
+            }
+
+            return $this->cleanupLocked($actor, $locked);
+        });
     }
 
-    private function cleanup(User $actor, SiteMedia $media, string $directory): bool
+    public function discardOrphan(User $actor, SiteMedia $media): bool
     {
+        return DB::transaction(function () use ($actor, $media): bool {
+            $locked = SiteMedia::query()->lockForUpdate()->findOrFail($media->id);
+
+            if ($locked->purpose === SiteMediaPurpose::Library || $locked->orphaned_at === null || $this->usage->isUsed($locked)) {
+                return false;
+            }
+
+            return $this->removeLocked($actor, $locked);
+        });
+    }
+
+    private function removeLocked(User $actor, SiteMedia $media): bool
+    {
+        if (! in_array($media->health_status, ['deletion_pending', 'deletion_failed'], true)) {
+            $before = $this->snapshot($media);
+            $media->forceFill(['processing_status' => 'removed', 'health_status' => 'deletion_pending', 'processed_variants' => []])->save();
+            $this->audit($actor, $media, 'removal_requested', $before, $this->snapshot($media));
+        }
+
+        return $this->cleanupLocked($actor, $media);
+    }
+
+    private function cleanupLocked(User $actor, SiteMedia $media): bool
+    {
+        if ($this->usage->isUsed($media)) {
+            return false;
+        }
+
         try {
-            if (! Storage::disk($media->storage_disk)->deleteDirectory($directory)) {
+            if (! $this->cleaner->delete($media->storage_disk, $media->storage_key)) {
                 throw new \RuntimeException('Site media files could not be deleted.');
             }
         } catch (\Throwable) {
-            DB::transaction(function () use ($actor, $media): void {
-                $locked = SiteMedia::query()->lockForUpdate()->findOrFail($media->id);
-                if ($locked->health_status !== 'deletion_failed') {
-                    $before = $this->snapshot($locked);
-                    $locked->forceFill(['health_status' => 'deletion_failed'])->save();
-                    $this->audit($actor, $locked, 'deletion_failed', $before, $this->snapshot($locked));
-                }
-            });
+            if ($media->health_status !== 'deletion_failed') {
+                $before = $this->snapshot($media);
+                $media->forceFill(['health_status' => 'deletion_failed'])->save();
+                $this->audit($actor, $media, 'deletion_failed', $before, $this->snapshot($media));
+            }
 
             return false;
         }
-        DB::transaction(function () use ($actor, $media): void {
-            $locked = SiteMedia::query()->lockForUpdate()->findOrFail($media->id);
-            $before = $this->snapshot($locked);
-            $locked->forceFill(['health_status' => 'removed'])->save();
-            $this->audit($actor, $locked, 'removed', $before, $this->snapshot($locked));
-        });
+
+        $before = $this->snapshot($media);
+        $media->forceFill(['health_status' => 'removed'])->save();
+        $this->audit($actor, $media, 'removed', $before, $this->snapshot($media));
 
         return true;
+    }
+
+    private function refuseIfUsed(SiteMedia $media): void
+    {
+        $labels = $this->usage->labelsFor($media);
+        if ($labels !== []) {
+            throw ValidationException::withMessages([
+                'media' => 'This media item is currently used as: '.implode(', ', $labels).'. Remove that reference before deleting it.',
+            ]);
+        }
     }
 }
