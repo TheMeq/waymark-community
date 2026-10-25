@@ -2,6 +2,7 @@
 
 namespace App\Domain\Socials\Actions;
 
+use App\Domain\Events\Actions\GenerateEventSlug;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
@@ -14,15 +15,22 @@ use Illuminate\Support\Facades\Validator;
 
 final readonly class CreateSocial
 {
-    public function __construct(private SaveSocialDetails $saveSocialDetails) {}
+    public function __construct(
+        private SaveSocialDetails $saveSocialDetails,
+        private GenerateEventSlug $generateSlug,
+    ) {}
 
     /** @param array<string, mixed> $attributes */
     public function handle(User $organiser, array $attributes): Social
     {
         Gate::forUser($organiser)->authorize('create', Social::class);
+        if (is_string($attributes['slug'] ?? null) && trim($attributes['slug']) === '') {
+            $attributes['slug'] = null;
+        }
+
         $common = Validator::make($attributes, [
             'title' => ['required', 'string', 'max:255'],
-            'slug' => ['required', 'string', 'max:255', 'unique:events,slug'],
+            'slug' => ['nullable', 'string', 'max:255', 'unique:events,slug'],
             'summary' => ['nullable', 'string', 'max:65535'],
             'description' => ['nullable', 'string', 'max:65535'],
             'starts_at' => ['required', 'date'],
@@ -32,6 +40,7 @@ final readonly class CreateSocial
         return DB::transaction(function () use ($organiser, $attributes, $common): Social {
             $event = Event::query()->create([
                 ...Arr::only($common, ['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at']),
+                'slug' => $common['slug'] ?? $this->generateSlug->handle($common['title'], $common['starts_at'], EventType::Social),
                 'type' => EventType::Social,
                 'status' => EventStatus::Draft,
                 'is_public' => false,

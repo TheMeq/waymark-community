@@ -33,7 +33,7 @@ final class HolidayResource extends Resource
     {
         return $schema->components([
             TextInput::make('title')->required()->maxLength(255)->columnSpanFull(),
-            TextInput::make('slug')->required()->maxLength(255),
+            TextInput::make('slug')->required()->maxLength(255)->visibleOn('edit'),
             DateTimePicker::make('starts_at')->required(),
             DateTimePicker::make('ends_at')->required(),
             Textarea::make('summary')->maxLength(65535)->columnSpanFull(),

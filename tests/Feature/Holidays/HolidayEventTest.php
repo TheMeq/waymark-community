@@ -108,7 +108,6 @@ final class HolidayEventTest extends TestCase
         Livewire::test(CreateHolidayPage::class)
             ->fillForm([
                 'title' => 'Autumn coast weekend',
-                'slug' => 'autumn-coast-weekend',
                 'starts_at' => '2026-10-02 16:00:00',
                 'ends_at' => '2026-10-05 10:00:00',
                 'destination' => 'Northumberland',
@@ -117,7 +116,7 @@ final class HolidayEventTest extends TestCase
             ->call('create')
             ->assertHasNoFormErrors();
 
-        $event = Event::query()->where('slug', 'autumn-coast-weekend')->firstOrFail();
+        $event = Event::query()->where('slug', 'autumn-coast-weekend-2026-10-02')->firstOrFail();
         $this->assertSame(EventType::Holiday, $event->type);
         $this->assertSame('Northumberland', $event->holiday->destination);
     }

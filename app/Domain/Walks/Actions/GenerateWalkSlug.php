@@ -2,27 +2,15 @@
 
 namespace App\Domain\Walks\Actions;
 
-use App\Domain\Events\Models\Event;
-use Carbon\CarbonImmutable;
-use Carbon\CarbonInterface;
-use Illuminate\Support\Str;
+use App\Domain\Events\Actions\GenerateEventSlug;
+use App\Domain\Events\Enums\EventType;
 
-final class GenerateWalkSlug
+final readonly class GenerateWalkSlug
 {
+    public function __construct(private GenerateEventSlug $generator) {}
+
     public function handle(string $title, mixed $startsAt): string
     {
-        $date = $startsAt instanceof CarbonInterface
-            ? $startsAt
-            : CarbonImmutable::parse((string) $startsAt);
-        $dateSuffix = '-'.$date->format('Y-m-d');
-        $titleSlug = Str::slug($title) ?: 'walk';
-        $slug = Str::limit($titleSlug, 255 - strlen($dateSuffix), '').$dateSuffix;
-
-        for ($suffix = 2; Event::query()->where('slug', $slug)->exists(); $suffix++) {
-            $suffixText = '-'.$suffix;
-            $slug = Str::limit($titleSlug, 255 - strlen($dateSuffix) - strlen($suffixText), '').$dateSuffix.$suffixText;
-        }
-
-        return $slug;
+        return $this->generator->handle($title, $startsAt, EventType::Walk);
     }
 }

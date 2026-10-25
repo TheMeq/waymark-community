@@ -27,6 +27,13 @@ This document records conceptual entities, not final table names. The implementa
 
 Holiday may parent child Walk/Social events.
 
+New walks, holidays and socials generate slugs from their title and start date
+using the shared event slug generator. Numeric suffixes avoid collisions across
+all event types while keeping the complete date within the 255-character limit.
+Holiday and social creation forms do not ask for a slug; existing explicit
+slugs remain supported by their domain actions, and editing a title or date
+does not automatically change an existing URL.
+
 ### Walk publication and removal
 
 Walk owners with Manage Own Walks, and administrators with Manage All Walks,
