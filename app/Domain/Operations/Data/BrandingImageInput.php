@@ -81,8 +81,9 @@ final readonly class BrandingImageInput
         return match ($purpose) {
             SiteMediaPurpose::SiteLogo => 'logo',
             SiteMediaPurpose::SiteFavicon => 'favicon',
+            SiteMediaPurpose::SiteHero => 'hero',
             default => throw ValidationException::withMessages([
-                'branding' => 'Branding images must use the logo or favicon purpose.',
+                'branding' => 'Branding images must use the logo, favicon or default hero purpose.',
             ]),
         };
     }

@@ -86,6 +86,11 @@ final class HomeController
             'summary' => $heroSection?->supporting_copy,
             'image_url' => $branding->get()['hero_url'],
         ], fn ($value): bool => filled($value));
+        if ($siteProfile->exists) {
+            $heroOverrides['image_url'] = $branding->get()['hero_url'];
+            $heroOverrides['image_alt'] = '';
+            $heroOverrides['focal_position'] = '50% 50%';
+        }
         if ($heroSection?->content_mode === 'pinned') {
             $media = SiteMedia::query()->find($heroSection->pinned_id);
             $presentation = $media instanceof SiteMedia ? $mediaPresenter->present($media) : null;

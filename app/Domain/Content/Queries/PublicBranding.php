@@ -35,6 +35,12 @@ final class PublicBranding
         $faviconMedia = $profile->relationLoaded('faviconMedia')
             ? $profile->getRelation('faviconMedia')
             : $profile->faviconMedia()->first();
+        $heroMedia = $profile->relationLoaded('heroMedia')
+            ? $profile->getRelation('heroMedia')
+            : $profile->heroMedia()->first();
+        $managedHero = $heroMedia?->purpose === SiteMediaPurpose::SiteHero
+            ? $this->mediaPresenter->present($heroMedia, 'large')
+            : null;
         $managedLogo = $logoMedia?->purpose === SiteMediaPurpose::SiteLogo
             ? $this->mediaPresenter->present($logoMedia, 'medium')
             : null;
@@ -58,7 +64,7 @@ final class PublicBranding
             'logo_url' => $managedLogo?->url ?? PublicImageReference::resolve($profile->logo_path),
             'favicon_url' => $managedFavicon?->url ?? PublicImageReference::resolve($profile->favicon_path),
             'favicon_type' => $managedFavicon === null ? null : 'image/png',
-            'hero_url' => PublicUrl::asset($profile->hero_default_path),
+            'hero_url' => $managedHero?->url ?? PublicImageReference::resolve($profile->hero_default_path),
             'social_links' => $socialLinks,
             'terminology' => $terminology,
             'affiliation_name' => trim((string) $profile->affiliation_name),

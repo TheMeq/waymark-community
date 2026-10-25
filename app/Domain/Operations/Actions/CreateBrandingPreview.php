@@ -29,7 +29,7 @@ final class CreateBrandingPreview
         $submittedValues = $values;
         $ordinaryValues = $submittedValues;
 
-        foreach (['logo', 'favicon'] as $slot) {
+        foreach (['logo', 'favicon', 'hero'] as $slot) {
             if (array_key_exists($slot.'_source', $values)) {
                 unset(
                     $ordinaryValues[$slot.'_source'],
@@ -60,12 +60,14 @@ final class CreateBrandingPreview
             [
                 'logo_media_id' => $profile->logo_media_id,
                 'favicon_media_id' => $profile->favicon_media_id,
+                'hero_media_id' => $profile->hero_media_id,
             ],
         );
 
         foreach ([
             'logo' => SiteMediaPurpose::SiteLogo,
             'favicon' => SiteMediaPurpose::SiteFavicon,
+            'hero' => SiteMediaPurpose::SiteHero,
         ] as $slot => $purpose) {
             if (array_key_exists($slot.'_source', $submittedValues)) {
                 $input = BrandingImageInput::from($submittedValues, $purpose);
@@ -73,10 +75,12 @@ final class CreateBrandingPreview
                     ? $profile->{$slot.'_media_id'}
                     : null;
 
+                $pathColumn = $slot === 'hero' ? 'hero_default_path' : $slot.'_path';
+
                 if ($input->source === ManagedImageSource::External) {
-                    $values[$slot.'_path'] = $input->externalUrl;
-                } elseif ($input->source === ManagedImageSource::None && $input->removeFallback) {
-                    $values[$slot.'_path'] = null;
+                    $values[$pathColumn] = $input->externalUrl;
+                } elseif ($input->source === ManagedImageSource::None && ($input->removeFallback || $profile->{$slot.'_media_id'} === null)) {
+                    $values[$pathColumn] = null;
                 }
             }
         }

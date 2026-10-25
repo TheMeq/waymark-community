@@ -3,6 +3,7 @@
 return [
     'profiles' => [
         'library' => [],
+        'site_hero' => [],
         'walk_featured_image' => [],
         'site_logo' => [
             'preferred_output_mime_types' => ['image/png'],

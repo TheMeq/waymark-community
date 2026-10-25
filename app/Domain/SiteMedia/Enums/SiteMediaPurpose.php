@@ -8,13 +8,14 @@ enum SiteMediaPurpose: string
     case WalkFeaturedImage = 'walk_featured_image';
     case SiteLogo = 'site_logo';
     case SiteFavicon = 'site_favicon';
+    case SiteHero = 'site_hero';
 
     public function requiredDecorativeState(): ?bool
     {
         return match ($this) {
             self::Library => null,
             self::WalkFeaturedImage => false,
-            self::SiteLogo, self::SiteFavicon => true,
+            self::SiteLogo, self::SiteFavicon, self::SiteHero => true,
         };
     }
 }

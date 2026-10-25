@@ -54,6 +54,9 @@ final class BrandingSettings extends Page
     /** @var array<string, mixed>|null */
     public ?array $faviconPreview = null;
 
+    /** @var array<string, mixed>|null */
+    public ?array $heroPreview = null;
+
     public string $saveStatus = '';
 
     public static function getSlug(?Panel $panel = null): string
@@ -71,7 +74,7 @@ final class BrandingSettings extends Page
     public function mount(): void
     {
         $profile = SiteProfile::query()
-            ->with(['logoMedia', 'faviconMedia'])
+            ->with(['logoMedia', 'faviconMedia', 'heroMedia'])
             ->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
 
         $this->fillFromProfile($profile);
@@ -89,7 +92,8 @@ final class BrandingSettings extends Page
             Section::make('Favicon')
                 ->description('This small square image appears in browser tabs and bookmarks. Choose a square image around 512 by 512 pixels or larger; the enforced minimum is 32 by 32 pixels.')
                 ->schema($this->brandingImageComponents('favicon')),
-            TextInput::make('hero_default_path')->label('Default hero image URL')->maxLength(2048),
+            Section::make('Default hero image')
+                ->schema($this->brandingImageComponents('hero')),
             ColorPicker::make('primary_colour')
                 ->label('Primary colour')
                 ->live()
@@ -117,6 +121,7 @@ final class BrandingSettings extends Page
         foreach ([
             'logo' => SiteMediaPurpose::SiteLogo,
             'favicon' => SiteMediaPurpose::SiteFavicon,
+            'hero' => SiteMediaPurpose::SiteHero,
         ] as $slot => $purpose) {
             if (! $this->brandingImageChangeRequested($profile, $slot, $state)) {
                 continue;
@@ -137,6 +142,7 @@ final class BrandingSettings extends Page
         $state = $this->form->getState();
         $state['logo_upload'] = $this->uploadedFile($state['logo_upload'] ?? null);
         $state['favicon_upload'] = $this->uploadedFile($state['favicon_upload'] ?? null);
+        $state['hero_upload'] = $this->uploadedFile($state['hero_upload'] ?? null);
         $preview = app(CreateBrandingPreview::class)->handle($actor, $state);
 
         $this->previewLinks = collect(['desktop', 'tablet', 'mobile'])
@@ -150,7 +156,11 @@ final class BrandingSettings extends Page
     private function brandingImageComponents(string $slot): array
     {
         $isFavicon = $slot === 'favicon';
-        $label = $isFavicon ? 'favicon' : 'logo';
+        $label = match ($slot) {
+            'favicon' => 'favicon',
+            'hero' => 'hero image',
+            default => 'logo',
+        };
 
         return [
             Radio::make($slot.'_source')
@@ -164,7 +174,7 @@ final class BrandingSettings extends Page
                 ->live()
                 ->helperText('A local upload stays under your group’s control.'),
             FileUpload::make($slot.'_upload')
-                ->label(ucfirst($label).' image')
+                ->label($slot === 'hero' ? 'Hero image' : ucfirst($label).' image')
                 ->image()
                 ->editableSvgs(false)
                 ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/avif'])
@@ -192,7 +202,7 @@ final class BrandingSettings extends Page
                 ->view('filament.forms.components.managed-image-preview')
                 ->viewData(fn (Get $get): array => [
                     'slot' => $slot,
-                    'preview' => $slot === 'logo' ? $this->logoPreview : $this->faviconPreview,
+                    'preview' => $this->{$slot.'Preview'},
                     'pendingUpload' => filled($get($slot.'_upload')),
                     'pendingMessage' => 'Temporary '.$label.' preview selected. It will be saved when you save branding.',
                     'savedManagedMessage' => 'Saved local '.$label.'.',
@@ -205,15 +215,17 @@ final class BrandingSettings extends Page
 
     private function fillFromProfile(SiteProfile $profile): void
     {
-        $profile->loadMissing(['logoMedia', 'faviconMedia']);
+        $profile->loadMissing(['logoMedia', 'faviconMedia', 'heroMedia']);
         $branding = app(PublicBranding::class)->forProfile($profile);
         [$logoState, $this->logoPreview] = $this->brandingImageState($profile, $branding, 'logo');
         [$faviconState, $this->faviconPreview] = $this->brandingImageState($profile, $branding, 'favicon');
+        [$heroState, $this->heroPreview] = $this->brandingImageState($profile, $branding, 'hero');
 
         $this->form->fill([
-            ...$profile->only(['group_name', 'short_name', 'contact_email', 'hero_default_path', 'primary_colour', 'accent_colour', 'typography_option', 'social_links', 'terminology', 'affiliation_name', 'affiliation_url']),
+            ...$profile->only(['group_name', 'short_name', 'contact_email', 'primary_colour', 'accent_colour', 'typography_option', 'social_links', 'terminology', 'affiliation_name', 'affiliation_url']),
             ...$logoState,
             ...$faviconState,
+            ...$heroState,
         ]);
     }
 
@@ -223,7 +235,7 @@ final class BrandingSettings extends Page
     private function brandingImageState(SiteProfile $profile, array $branding, string $slot): array
     {
         $url = $branding[$slot.'_url'] ?? null;
-        $external = PublicImageReference::resolve($profile->{$slot.'_path'});
+        $external = PublicImageReference::resolve($profile->{$slot === 'hero' ? 'hero_default_path' : $slot.'_path'});
         $managedActive = filled($profile->{$slot.'_media_id'}) && filled($url) && $url !== $external;
         $activeSource = $managedActive ? 'managed' : (filled($external) && $url === $external ? 'external' : 'none');
         $source = $activeSource === 'none' ? 'managed' : $activeSource;
@@ -287,9 +299,9 @@ final class BrandingSettings extends Page
             return true;
         }
 
-        $profile->loadMissing(['logoMedia', 'faviconMedia']);
+        $profile->loadMissing(['logoMedia', 'faviconMedia', 'heroMedia']);
         $branding = app(PublicBranding::class)->forProfile($profile);
-        $external = PublicImageReference::resolve($profile->{$slot.'_path'});
+        $external = PublicImageReference::resolve($profile->{$slot === 'hero' ? 'hero_default_path' : $slot.'_path'});
         $url = $branding[$slot.'_url'] ?? null;
         $managedActive = filled($profile->{$slot.'_media_id'}) && filled($url) && $url !== $external;
         $activeSource = $managedActive ? 'managed' : (filled($external) && $url === $external ? 'external' : 'none');
@@ -309,7 +321,7 @@ final class BrandingSettings extends Page
 
     private function removingManagedWithFallback(string $slot, Get $get): bool
     {
-        $preview = $slot === 'logo' ? $this->logoPreview : $this->faviconPreview;
+        $preview = $this->{$slot.'Preview'};
 
         return $get($slot.'_source') === 'none'
             && is_array($preview)
@@ -350,6 +362,11 @@ final class BrandingSettings extends Page
             'favicon_path',
             'favicon_remove_fallback',
             'favicon_preview',
+            'hero_source',
+            'hero_upload',
+            'hero_path',
+            'hero_remove_fallback',
+            'hero_preview',
         ];
     }
 }

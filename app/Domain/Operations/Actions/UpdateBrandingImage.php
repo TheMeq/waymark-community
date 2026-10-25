@@ -53,7 +53,7 @@ final readonly class UpdateBrandingImage
                 $lockedProfile = SiteProfile::query()->lockForUpdate()->findOrFail(SiteProfile::SINGLETON_ID);
                 $this->authorize($actor);
                 $mediaColumn = $slot.'_media_id';
-                $pathColumn = $slot.'_path';
+                $pathColumn = $slot === 'hero' ? 'hero_default_path' : $slot.'_path';
                 $formerMedia = $lockedProfile->{$mediaColumn} === null
                     ? null
                     : SiteMedia::query()->lockForUpdate()->findOrFail($lockedProfile->{$mediaColumn});
@@ -106,7 +106,7 @@ final readonly class UpdateBrandingImage
                     $formerMedia = null;
                 }
 
-                return [$lockedProfile->refresh()->load(['logoMedia', 'faviconMedia']), $formerMedia];
+                return [$lockedProfile->refresh()->load(['logoMedia', 'faviconMedia', 'heroMedia']), $formerMedia];
             });
         } catch (\Throwable $exception) {
             if ($createdMedia !== null) {
@@ -143,8 +143,9 @@ final readonly class UpdateBrandingImage
         return match ($purpose) {
             SiteMediaPurpose::SiteLogo => 'logo',
             SiteMediaPurpose::SiteFavicon => 'favicon',
+            SiteMediaPurpose::SiteHero => 'hero',
             default => throw ValidationException::withMessages([
-                'branding' => 'Branding images must use the logo or favicon purpose.',
+                'branding' => 'Branding images must use the logo, favicon or default hero purpose.',
             ]),
         };
     }

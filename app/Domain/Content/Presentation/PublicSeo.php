@@ -20,13 +20,14 @@ final class PublicSeo
     public function home(SiteProfile $profile): SeoMetadata
     {
         $name = $this->siteName($profile);
-        $logo = $this->absolute($this->branding->forProfile($profile)['logo_url'] ?? null);
+        $branding = $this->branding->forProfile($profile);
+        $logo = $this->absolute($branding['logo_url'] ?? null);
 
         return new SeoMetadata(
             title: $name,
             description: 'Walks, weekends away and a welcoming local community.',
             canonical: route('home'),
-            image: $this->absolute($profile->hero_default_path),
+            image: $this->absolute($branding['hero_url'] ?? null),
             structuredData: [[
                 '@context' => 'https://schema.org',
                 '@type' => 'Organization',

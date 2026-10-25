@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'logo_path',
     'favicon_media_id',
     'favicon_path',
+    'hero_media_id',
     'hero_default_path',
     'primary_colour',
     'accent_colour',
@@ -67,5 +68,11 @@ final class SiteProfile extends Model
     public function faviconMedia(): BelongsTo
     {
         return $this->belongsTo(SiteMedia::class, 'favicon_media_id');
+    }
+
+    /** @return BelongsTo<SiteMedia, $this> */
+    public function heroMedia(): BelongsTo
+    {
+        return $this->belongsTo(SiteMedia::class, 'hero_media_id');
     }
 }

@@ -39,6 +39,10 @@ final class SiteMediaUsage
             $labels[] = 'Site favicon';
         }
 
+        if (SiteProfile::query()->where('hero_media_id', $media->id)->exists()) {
+            $labels[] = 'Site default hero';
+        }
+
         return $labels;
     }
 

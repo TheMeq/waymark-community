@@ -8,6 +8,7 @@ use App\Domain\Accounts\Models\RoleCapability;
 use App\Domain\Content\Queries\PublicBranding;
 use App\Domain\Content\Support\PublicContentCache;
 use App\Domain\Membership\Enums\AccountStatus;
+use App\Domain\Operations\Actions\CreateBrandingPreview;
 use App\Domain\Operations\Actions\UpdateBrandingImage;
 use App\Domain\Operations\Actions\UpdateSiteProfile;
 use App\Domain\Operations\Data\BrandingImageInput;
@@ -15,6 +16,7 @@ use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
 use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Domain\SiteMedia\Models\SiteMediaAudit;
+use App\Domain\SiteMedia\Queries\SiteMediaUsage;
 use App\Filament\Pages\BrandingSettings;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -548,6 +550,126 @@ final class BrandingMediaManagementTest extends TestCase
         $this->assertSame($savedFaviconId, $profile->fresh()->favicon_media_id);
         $this->assertSame($savedPreviewUrl, $component->get('faviconPreview')['url']);
         $this->assertNotNull($component->get('data.favicon_upload'));
+    }
+
+    public function test_default_hero_upload_external_and_none_round_trip_with_saved_preview(): void
+    {
+        $manager = $this->contentManager();
+        $profile = SiteProfile::query()->create([
+            'group_name' => 'Trail Friends',
+            'typography_option' => 'instrument',
+            'hero_default_path' => 'https://images.example.org/old-hero.jpg',
+        ]);
+        $this->actingAs($manager);
+        $component = Livewire::test(BrandingSettings::class)
+            ->assertFormSet(['hero_source' => 'external', 'hero_path' => $profile->hero_default_path])
+            ->assertFormFieldVisible('hero_path')
+            ->assertFormFieldHidden('hero_upload')
+            ->assertFormFieldDoesNotExist('hero_media_id')
+            ->assertSee('Saved external hero image.')
+            ->fillForm(['hero_source' => 'managed', 'hero_upload' => $this->image('hero.jpg', 1200, 600)])
+            ->call('save')
+            ->assertHasNoFormErrors()
+            ->assertFormSet(['hero_source' => 'managed'])
+            ->assertSee('Saved local hero image.');
+
+        $media = $profile->fresh()->heroMedia;
+        $this->assertNotNull($media);
+        $this->assertSame(SiteMediaPurpose::SiteHero, $media->purpose);
+        $this->assertTrue($media->is_decorative);
+        $this->assertNull($media->orphaned_at);
+        $url = route('site-media.stream', [$media, 'large']);
+        $this->assertSame($url, $component->get('heroPreview')['url']);
+        $this->assertSame($url, app(PublicBranding::class)->forProfile($profile->fresh())['hero_url']);
+        $response = $this->get($url);
+        $this->assertSame(200, $response->status(), (string) $response->headers->get('Location'));
+        $this->get('/')->assertOk()->assertSee('src="'.$url.'"', false);
+        $this->assertContains('Site default hero', app(SiteMediaUsage::class)->labelsFor($media));
+
+        $component->fillForm(['hero_source' => 'none'])
+            ->assertFormFieldVisible('hero_remove_fallback')
+            ->call('save')->assertHasNoFormErrors()
+            ->assertFormSet(['hero_source' => 'external']);
+        $this->assertNotNull($media->fresh()->orphaned_at);
+        $this->assertSame('https://images.example.org/old-hero.jpg', $profile->fresh()->hero_default_path);
+
+        $component->fillForm(['hero_path' => 'https://images.example.org/new-hero.jpg'])
+            ->call('save')->assertHasNoFormErrors();
+        $this->assertSame('https://images.example.org/new-hero.jpg', $component->get('heroPreview')['url']);
+        $component->fillForm(['hero_source' => 'none'])->call('save')->assertHasNoFormErrors();
+        $this->assertNull($profile->fresh()->hero_media_id);
+        $this->assertNull($profile->fresh()->hero_default_path);
+        $this->assertNull($component->get('heroPreview'));
+    }
+
+    public function test_default_hero_rejects_unsafe_urls_and_invalid_uploads_without_replacing_saved_image(): void
+    {
+        $manager = $this->contentManager();
+        $profile = SiteProfile::query()->create(['group_name' => 'Trail Friends', 'typography_option' => 'instrument']);
+        $this->actingAs($manager);
+        $component = Livewire::test(BrandingSettings::class)
+            ->assertFormSet(['hero_source' => 'managed'])
+            ->assertFormFieldVisible('hero_upload')
+            ->fillForm(['hero_upload' => $this->image('hero.jpg', 1200, 600)])
+            ->call('save')->assertHasNoFormErrors();
+        $savedId = $profile->fresh()->hero_media_id;
+        $component->fillForm(['hero_source' => 'external', 'hero_path' => 'javascript:alert(1)'])
+            ->call('save')->assertHasFormErrors(['hero_path']);
+        $this->assertSame($savedId, $profile->fresh()->hero_media_id);
+        $component->fillForm(['hero_source' => 'managed', 'hero_upload' => UploadedFile::fake()->createWithContent('broken.png', 'invalid')])
+            ->call('save')->assertHasFormErrors(['hero_upload']);
+        $this->assertSame($savedId, $profile->fresh()->hero_media_id);
+    }
+
+    public function test_default_hero_preview_changes_do_not_save_branding(): void
+    {
+        $manager = $this->contentManager();
+        $profile = SiteProfile::query()->create(['group_name' => 'Trail Friends', 'hero_default_path' => '/images/old.jpg']);
+        foreach (['external' => 'https://images.example.org/preview.jpg', 'none' => null] as $source => $url) {
+            $preview = app(CreateBrandingPreview::class)->handle($manager, [
+                'hero_source' => $source, 'hero_path' => $url,
+            ]);
+            $values = Cache::store('file')->get('branding-preview:'.$preview->token)['values'];
+            $this->assertSame($url, $values['hero_default_path']);
+            $this->assertNull($values['hero_media_id']);
+            $this->assertSame('/images/old.jpg', $profile->fresh()->hero_default_path);
+            $response = $this->actingAs($manager)->get(route('branding.preview', ['token' => $preview->token]));
+            $response->assertOk()->assertViewHas('branding', fn ($branding): bool => $branding['hero_url'] === $url);
+            if ($url !== null) {
+                $response->assertSee('src="'.$url.'"', false);
+            }
+
+        }
+    }
+
+    public function test_default_hero_none_does_not_replace_the_removed_image_with_demo_photography(): void
+    {
+        SiteProfile::query()->create(['group_name' => 'Trail Friends']);
+        $this->get('/')->assertOk()->assertViewHas('homepage', fn ($homepage): bool => $homepage->hero['image_url'] === null);
+    }
+
+    public function test_default_hero_missing_variant_uses_safe_fallback_and_complete_removal_clears_it(): void
+    {
+        $manager = $this->contentManager();
+        $profile = SiteProfile::query()->create(['group_name' => 'Trail Friends', 'hero_default_path' => '/images/fallback.jpg']);
+        $profile = app(UpdateBrandingImage::class)->handle($manager, $profile, SiteMediaPurpose::SiteHero,
+            BrandingImageInput::from(['hero_source' => 'managed', 'hero_upload' => $this->image('hero.jpg', 1200, 600)], SiteMediaPurpose::SiteHero));
+        $media = $profile->heroMedia;
+        Storage::disk('local')->delete($media->processed_variants['large']);
+        $this->assertSame('/images/fallback.jpg', app(PublicBranding::class)->forProfile($profile)['hero_url']);
+        $profile = app(UpdateBrandingImage::class)->handle($manager, $profile, SiteMediaPurpose::SiteHero,
+            BrandingImageInput::from(['hero_source' => 'none', 'hero_remove_fallback' => true], SiteMediaPurpose::SiteHero));
+        $this->assertNull($profile->hero_media_id);
+        $this->assertNull($profile->hero_default_path);
+        $this->assertNotNull($media->fresh()->orphaned_at);
+    }
+
+    public function test_default_hero_upload_requires_content_management_permission(): void
+    {
+        $profile = SiteProfile::query()->create(['group_name' => 'Trail Friends']);
+        $this->expectException(ValidationException::class);
+        app(UpdateBrandingImage::class)->handle(User::factory()->create(), $profile, SiteMediaPurpose::SiteHero,
+            BrandingImageInput::from(['hero_source' => 'managed', 'hero_upload' => $this->image('hero.jpg', 1200, 600)], SiteMediaPurpose::SiteHero));
     }
 
     private function contentManager(AccountStatus $status = AccountStatus::Active): User

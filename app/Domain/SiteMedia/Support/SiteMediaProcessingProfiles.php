@@ -24,6 +24,7 @@ final readonly class SiteMediaProcessingProfiles
         return match ($purpose) {
             SiteMediaPurpose::Library,
             SiteMediaPurpose::WalkFeaturedImage,
+            SiteMediaPurpose::SiteHero,
             SiteMediaPurpose::SiteLogo => ['master', 'large', 'medium', 'thumbnail'],
             SiteMediaPurpose::SiteFavicon => ['favicon'],
         };

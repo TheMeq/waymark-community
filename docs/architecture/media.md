@@ -9,9 +9,9 @@ Do not collapse these workflows into one generic upload bucket.
 
 ## Managed site and Walk images
 
-Walk featured images, the site logo and the site favicon use the existing
+Walk featured images, the site logo, site favicon and default hero use the existing
 `SiteMedia` model and secure ingestion pipeline. They are purpose-bound as
-`walk_featured_image`, `site_logo` or `site_favicon`; general Media-library
+`walk_featured_image`, `site_logo`, `site_favicon` or `site_hero`; general Media-library
 records remain `library` media.
 
 Local upload is the recommended source. An administrator may instead select a
@@ -25,13 +25,22 @@ managed or external image is selected. The description stored on the Walk is
 the authoritative public alt text; the initially uploaded `SiteMedia` also
 receives the description as generic metadata. Editing one Walk's description
 does not change shared `SiteMedia` metadata. Logo and favicon media are
-decorative because the public logo remains beside the visible group name.
+decorative because the public logo remains beside the visible group name. The
+default hero is decorative background photography behind the hero text.
 
 Owner changes are process-first and atomic: a replacement is fully validated
 and processed before the Walk or singleton site profile switches reference.
 Failed replacement leaves the previous image active. Referenced media cannot
 be deleted. Unreferenced purpose-bound media may be marked orphaned for later,
 retryable cleanup; forms do not delete physical files during navigation.
+
+The Branding screen offers Upload, External and None for the default hero, with
+an upload preview and saved-image status, using the same fallback-removal rules
+as logo and favicon. Existing `hero_default_path` values remain external
+fallbacks; `site_profiles.hero_media_id` references a managed upload. The public
+hero and homepage sharing metadata resolve the managed `large` variant first.
+Clearing both sources leaves no default photograph rather than substituting a
+demo image; an explicitly pinned homepage hero still takes precedence.
 
 ## Processing and delivery
 
@@ -42,7 +51,7 @@ through the documented gallery processing configuration. Declared and decoded
 MIME types must agree, orientation is normalised and only transformed output is
 stored. SVG, GIF and ICO are not accepted.
 
-Photographic Walk images use the responsive `master`, `large`, `medium` and
+Photographic Walk and default hero images use the responsive `master`, `large`, `medium` and
 `thumbnail` variants. Logos use PNG output so transparency is retained.
 Favicons accept one square raster of at least 32 by 32 pixels and produce a PNG
 `favicon` variant; roughly 512 by 512 pixels is recommended, not required. PWA

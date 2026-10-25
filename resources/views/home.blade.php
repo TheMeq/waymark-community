@@ -11,6 +11,7 @@
     <div class="flex flex-col">
     @if ($homepageSections->has('hero'))
     <section data-homepage-section="hero" data-layout="{{ $homepageSections['hero']->layout_variant }}" class="wm-hero wm-home-layout-{{ $homepageSections['hero']->layout_variant }} relative isolate overflow-hidden bg-surface-raised" style="order: {{ $homepageSections['hero']->sort_order }}">
+        @if (filled($homepage->hero['image_url']))
         <img
             class="absolute inset-0 -z-20 size-full object-cover"
             style="object-position: {{ $homepage->hero['focal_position'] }}"
@@ -19,6 +20,7 @@
             alt="{{ $homepage->hero['image_alt'] }}"
             fetchpriority="high"
         >
+        @endif
         <div class="wm-hero-shade absolute inset-0 -z-10"></div>
 
         <div class="wm-hero-frame wm-container flex items-center">
