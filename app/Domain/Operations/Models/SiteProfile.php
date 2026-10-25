@@ -29,6 +29,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'terminology',
     'affiliation_name',
     'affiliation_url',
+    'affiliation_placement',
+    'affiliation_logo_path',
+    'affiliation_logo_media_id',
     'module_configuration',
 ])]
 final class SiteProfile extends Model
@@ -40,6 +43,7 @@ final class SiteProfile extends Model
     /** @var array<string, mixed> */
     protected $attributes = [
         'id' => self::SINGLETON_ID,
+        'affiliation_placement' => 'footer',
         'timezone' => 'Europe/London',
         'locale' => 'en',
         'distance_unit' => 'miles',
@@ -68,6 +72,12 @@ final class SiteProfile extends Model
     public function faviconMedia(): BelongsTo
     {
         return $this->belongsTo(SiteMedia::class, 'favicon_media_id');
+    }
+
+    /** @return BelongsTo<SiteMedia, $this> */
+    public function affiliationLogoMedia(): BelongsTo
+    {
+        return $this->belongsTo(SiteMedia::class, 'affiliation_logo_media_id');
     }
 
     /** @return BelongsTo<SiteMedia, $this> */

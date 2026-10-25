@@ -44,6 +44,10 @@ final class SiteMediaUsage
             $labels[] = 'Site default hero';
         }
 
+        if (SiteProfile::query()->where('affiliation_logo_media_id', $media->id)->exists()) {
+            $labels[] = 'Site affiliate logo';
+        }
+
         if (Holiday::query()->where('featured_image_media_id', $media->id)->exists()) {
             $labels[] = 'Holiday featured image';
         }

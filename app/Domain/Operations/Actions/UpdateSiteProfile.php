@@ -30,6 +30,7 @@ final class UpdateSiteProfile
         'terminology',
         'affiliation_name',
         'affiliation_url',
+        'affiliation_placement',
         'module_configuration',
     ];
 

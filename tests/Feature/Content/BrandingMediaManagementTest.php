@@ -13,6 +13,7 @@ use App\Domain\Operations\Actions\UpdateBrandingImage;
 use App\Domain\Operations\Actions\UpdateSiteProfile;
 use App\Domain\Operations\Data\BrandingImageInput;
 use App\Domain\Operations\Models\SiteProfile;
+use App\Domain\Operations\Queries\CurrentSiteProfile;
 use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
 use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Domain\SiteMedia\Models\SiteMediaAudit;
@@ -670,6 +671,71 @@ final class BrandingMediaManagementTest extends TestCase
         $this->expectException(ValidationException::class);
         app(UpdateBrandingImage::class)->handle(User::factory()->create(), $profile, SiteMediaPurpose::SiteHero,
             BrandingImageInput::from(['hero_source' => 'managed', 'hero_upload' => $this->image('hero.jpg', 1200, 600)], SiteMediaPurpose::SiteHero));
+    }
+
+    public function test_affiliate_logo_upload_preview_placement_and_removal(): void
+    {
+        $manager = $this->contentManager();
+        $profile = SiteProfile::query()->create(['group_name' => 'Trail Friends', 'affiliation_name' => 'Trail Alliance', 'affiliation_url' => 'https://example.org/alliance']);
+        $this->actingAs($manager);
+        Livewire::test(BrandingSettings::class)
+            ->set('data.affiliation_logo_source', 'managed')
+            ->set('data.affiliation_logo_upload', [$this->image('affiliate.png', 160, 80)])
+            ->set('data.affiliation_placement', 'header')
+            ->call('save')->assertHasNoErrors();
+        $profile->refresh();
+        $this->assertNotNull($profile->affiliationLogoMedia);
+        $this->assertSame('image/png', $profile->affiliationLogoMedia->mime_type);
+        $this->assertTrue(app(SiteMediaUsage::class)->isUsed($profile->affiliationLogoMedia));
+        Livewire::test(BrandingSettings::class)->assertSet('affiliationLogoPreview.source', 'managed');
+        $this->app->forgetInstance(CurrentSiteProfile::class);
+        $this->app->forgetInstance(PublicBranding::class);
+        $html = $this->get('/')->assertOk()->getContent();
+        $this->assertStringContainsString('Trail Alliance', explode('</header>', $html)[0]);
+        $this->assertStringNotContainsString('Trail Alliance', explode('<footer', $html)[1]);
+        Livewire::test(BrandingSettings::class)
+            ->set('data.affiliation_logo_source', 'external')
+            ->set('data.affiliation_logo_path', 'https://example.org/affiliate.png')
+            ->set('data.affiliation_placement', 'footer')
+            ->call('save')->assertHasNoErrors();
+        $this->app->forgetInstance(CurrentSiteProfile::class);
+        $this->app->forgetInstance(PublicBranding::class);
+        $html = $this->get('/')->assertOk()->getContent();
+        $this->assertStringNotContainsString('https://example.org/affiliate.png', explode('</header>', $html)[0]);
+        $this->assertStringContainsString('https://example.org/affiliate.png', explode('<footer', $html)[1]);
+        Livewire::test(BrandingSettings::class)->set('data.affiliation_logo_source', 'none')->call('save')->assertHasNoErrors();
+        $this->assertNull($profile->fresh()->affiliation_logo_path);
+        $this->app->forgetInstance(CurrentSiteProfile::class);
+        $this->app->forgetInstance(PublicBranding::class);
+        $this->get('/')->assertOk()->assertSee('Trail Alliance')->assertDontSee('https://example.org/affiliate.png');
+    }
+
+    public function test_affiliation_defaults_to_footer_and_rejects_invalid_placement(): void
+    {
+        $manager = $this->contentManager();
+        $profile = SiteProfile::query()->create(['group_name' => 'Trail Friends', 'affiliation_name' => 'Trail Alliance', 'affiliation_url' => 'https://example.org/alliance']);
+        $this->assertSame('footer', app(PublicBranding::class)->forProfile($profile)['affiliation_placement']);
+        $this->actingAs($manager);
+        Livewire::test(BrandingSettings::class)->set('data.affiliation_placement', 'invalid')->call('save')->assertHasErrors(['data.affiliation_placement']);
+    }
+
+    public function test_affiliate_preview_is_unsaved_and_external_images_reject_unsafe_urls(): void
+    {
+        $manager = $this->contentManager();
+        $profile = SiteProfile::query()->create(['group_name' => 'Trail Friends', 'affiliation_name' => 'Trail Alliance', 'affiliation_url' => 'https://example.org/alliance']);
+        $preview = app(CreateBrandingPreview::class)->handle($manager, [
+            'affiliation_placement' => 'header',
+            'affiliation_logo_source' => 'external',
+            'affiliation_logo_path' => 'https://example.org/preview.png',
+        ]);
+        $this->actingAs($manager)->get(route('branding.preview', ['token' => $preview->token, 'viewport' => 'mobile']))
+            ->assertOk()->assertSee('https://example.org/preview.png');
+        $this->assertNull($profile->fresh()->affiliation_logo_path);
+        $this->assertSame('footer', $profile->fresh()->affiliation_placement);
+        Livewire::test(BrandingSettings::class)
+            ->set('data.affiliation_logo_source', 'external')
+            ->set('data.affiliation_logo_path', 'javascript:alert(1)')
+            ->call('save')->assertHasErrors(['data.affiliation_logo_path']);
     }
 
     private function contentManager(AccountStatus $status = AccountStatus::Active): User

@@ -26,6 +26,7 @@ final readonly class SiteMediaProcessingProfiles
             SiteMediaPurpose::ContentImage,
             SiteMediaPurpose::WalkFeaturedImage,
             SiteMediaPurpose::SiteHero,
+            SiteMediaPurpose::SiteAffiliationLogo,
             SiteMediaPurpose::SiteLogo => ['master', 'large', 'medium', 'thumbnail'],
             SiteMediaPurpose::SiteFavicon => ['favicon'],
         };

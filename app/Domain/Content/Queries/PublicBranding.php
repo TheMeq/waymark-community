@@ -38,6 +38,12 @@ final class PublicBranding
         $heroMedia = $profile->relationLoaded('heroMedia')
             ? $profile->getRelation('heroMedia')
             : ($profile->hero_media_id === null ? null : $profile->heroMedia()->first());
+        $affiliateMedia = $profile->relationLoaded('affiliationLogoMedia')
+            ? $profile->getRelation('affiliationLogoMedia')
+            : ($profile->affiliation_logo_media_id === null ? null : $profile->affiliationLogoMedia()->first());
+        $managedAffiliate = $affiliateMedia?->purpose === SiteMediaPurpose::SiteAffiliationLogo
+            ? $this->mediaPresenter->present($affiliateMedia, 'medium')
+            : null;
         $managedHero = $heroMedia?->purpose === SiteMediaPurpose::SiteHero
             ? $this->mediaPresenter->present($heroMedia, 'large')
             : null;
@@ -67,6 +73,8 @@ final class PublicBranding
             'hero_url' => $managedHero?->url ?? PublicImageReference::resolve($profile->hero_default_path),
             'social_links' => $socialLinks,
             'terminology' => $terminology,
+            'affiliation_logo_url' => $managedAffiliate?->url ?? PublicImageReference::resolve($profile->affiliation_logo_path),
+            'affiliation_placement' => $profile->affiliation_placement === 'header' ? 'header' : 'footer',
             'affiliation_name' => trim((string) $profile->affiliation_name),
             'affiliation_url' => PublicUrl::resolve($profile->affiliation_url),
         ];

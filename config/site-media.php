@@ -6,6 +6,10 @@ return [
         'content_image' => [],
         'site_hero' => [],
         'walk_featured_image' => [],
+        'site_affiliation_logo' => [
+            'preferred_output_mime_types' => ['image/png'],
+            'required_output_mime_type' => 'image/png',
+        ],
         'site_logo' => [
             'preferred_output_mime_types' => ['image/png'],
             'required_output_mime_type' => 'image/png',

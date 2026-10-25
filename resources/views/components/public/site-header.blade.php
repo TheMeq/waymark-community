@@ -16,6 +16,9 @@
             </span>
         </a>
 
+        @if (($activeBranding['affiliation_placement'] ?? 'footer') === 'header')
+            <x-public.affiliation-link :branding="$activeBranding" class="ml-auto shrink-0 lg:hidden" />
+        @endif
         <details class="group relative shrink-0 lg:hidden">
             <summary class="grid min-h-11 min-w-11 cursor-pointer list-none place-items-center rounded-full border border-border bg-surface-raised text-ink [&::-webkit-details-marker]:hidden" aria-label="Open navigation">
                 <svg class="size-5 group-open:hidden" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -52,6 +55,9 @@
                 <li><a class="hover:text-brand" href="{{ auth()->check() ? route('account.profile.edit') : route('login') }}">{{ $terms['members'] ?? 'Members' }}</a></li>
                 <li><a class="grid size-10 place-items-center rounded-full hover:bg-surface-soft" href="{{ route('search') }}" aria-label="Search"><svg class="size-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" stroke-linecap="round" /></svg></a></li>
                 <li><x-public.button :href="route('new-here')">{{ $terms['join'] ?? 'Join us' }}</x-public.button></li>
+                @if (($activeBranding['affiliation_placement'] ?? 'footer') === 'header')
+                    <li><x-public.affiliation-link :branding="$activeBranding" /></li>
+                @endif
             </ul>
         </nav>
     </div>

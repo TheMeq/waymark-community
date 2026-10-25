@@ -57,6 +57,8 @@ final class BrandingSettings extends Page
     /** @var array<string, mixed>|null */
     public ?array $heroPreview = null;
 
+    public ?array $affiliationLogoPreview = null;
+
     public string $saveStatus = '';
 
     public static function getSlug(?Panel $panel = null): string
@@ -74,7 +76,7 @@ final class BrandingSettings extends Page
     public function mount(): void
     {
         $profile = SiteProfile::query()
-            ->with(['logoMedia', 'faviconMedia', 'heroMedia'])
+            ->with(['logoMedia', 'faviconMedia', 'heroMedia', 'affiliationLogoMedia'])
             ->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
 
         $this->fillFromProfile($profile);
@@ -107,6 +109,11 @@ final class BrandingSettings extends Page
             KeyValue::make('terminology')->label('Terminology aliases')->keyLabel('Approved key')->valueLabel('Public label'),
             TextInput::make('affiliation_name')->label('Affiliation name')->maxLength(255),
             TextInput::make('affiliation_url')->label('Affiliation URL')->url()->maxLength(2048),
+            Radio::make('affiliation_placement')->label('Affiliation placement')->options([
+                'header' => 'Header, to the right of Join us',
+                'footer' => 'Footer',
+            ])->required(),
+            Section::make('Affiliate logo')->schema($this->brandingImageComponents('affiliation_logo')),
         ])->statePath('data');
     }
 
@@ -122,6 +129,7 @@ final class BrandingSettings extends Page
             'logo' => SiteMediaPurpose::SiteLogo,
             'favicon' => SiteMediaPurpose::SiteFavicon,
             'hero' => SiteMediaPurpose::SiteHero,
+            'affiliation_logo' => SiteMediaPurpose::SiteAffiliationLogo,
         ] as $slot => $purpose) {
             if (! $this->brandingImageChangeRequested($profile, $slot, $state)) {
                 continue;
@@ -142,6 +150,7 @@ final class BrandingSettings extends Page
         $state = $this->form->getState();
         $state['logo_upload'] = $this->uploadedFile($state['logo_upload'] ?? null);
         $state['favicon_upload'] = $this->uploadedFile($state['favicon_upload'] ?? null);
+        $state['affiliation_logo_upload'] = $this->uploadedFile($state['affiliation_logo_upload'] ?? null);
         $state['hero_upload'] = $this->uploadedFile($state['hero_upload'] ?? null);
         $preview = app(CreateBrandingPreview::class)->handle($actor, $state);
 
@@ -159,6 +168,7 @@ final class BrandingSettings extends Page
         $label = match ($slot) {
             'favicon' => 'favicon',
             'hero' => 'hero image',
+            'affiliation_logo' => 'affiliate logo',
             default => 'logo',
         };
 
@@ -202,7 +212,7 @@ final class BrandingSettings extends Page
                 ->view('filament.forms.components.managed-image-preview')
                 ->viewData(fn (Get $get): array => [
                     'slot' => $slot,
-                    'preview' => $this->{$slot.'Preview'},
+                    'preview' => $this->{$slot === 'affiliation_logo' ? 'affiliationLogoPreview' : $slot.'Preview'},
                     'pendingUpload' => filled($get($slot.'_upload')),
                     'pendingMessage' => 'Temporary '.$label.' preview selected. It will be saved when you save branding.',
                     'savedManagedMessage' => 'Saved local '.$label.'.',
@@ -215,17 +225,20 @@ final class BrandingSettings extends Page
 
     private function fillFromProfile(SiteProfile $profile): void
     {
-        $profile->loadMissing(['logoMedia', 'faviconMedia', 'heroMedia']);
+        $profile->loadMissing(['logoMedia', 'faviconMedia', 'heroMedia', 'affiliationLogoMedia']);
         $branding = app(PublicBranding::class)->forProfile($profile);
         [$logoState, $this->logoPreview] = $this->brandingImageState($profile, $branding, 'logo');
         [$faviconState, $this->faviconPreview] = $this->brandingImageState($profile, $branding, 'favicon');
         [$heroState, $this->heroPreview] = $this->brandingImageState($profile, $branding, 'hero');
 
+        [$affiliationState, $this->affiliationLogoPreview] = $this->brandingImageState($profile, $branding, 'affiliation_logo');
+
         $this->form->fill([
-            ...$profile->only(['group_name', 'short_name', 'contact_email', 'primary_colour', 'accent_colour', 'typography_option', 'social_links', 'terminology', 'affiliation_name', 'affiliation_url']),
+            ...$profile->only(['group_name', 'short_name', 'contact_email', 'primary_colour', 'accent_colour', 'typography_option', 'social_links', 'terminology', 'affiliation_name', 'affiliation_url', 'affiliation_placement']),
             ...$logoState,
             ...$faviconState,
             ...$heroState,
+            ...$affiliationState,
         ]);
     }
 
@@ -299,7 +312,7 @@ final class BrandingSettings extends Page
             return true;
         }
 
-        $profile->loadMissing(['logoMedia', 'faviconMedia', 'heroMedia']);
+        $profile->loadMissing(['logoMedia', 'faviconMedia', 'heroMedia', 'affiliationLogoMedia']);
         $branding = app(PublicBranding::class)->forProfile($profile);
         $external = PublicImageReference::resolve($profile->{$slot === 'hero' ? 'hero_default_path' : $slot.'_path'});
         $url = $branding[$slot.'_url'] ?? null;
@@ -321,7 +334,7 @@ final class BrandingSettings extends Page
 
     private function removingManagedWithFallback(string $slot, Get $get): bool
     {
-        $preview = $this->{$slot.'Preview'};
+        $preview = $this->{$slot === 'affiliation_logo' ? 'affiliationLogoPreview' : $slot.'Preview'};
 
         return $get($slot.'_source') === 'none'
             && is_array($preview)
@@ -367,6 +380,11 @@ final class BrandingSettings extends Page
             'hero_path',
             'hero_remove_fallback',
             'hero_preview',
+            'affiliation_logo_source',
+            'affiliation_logo_upload',
+            'affiliation_logo_path',
+            'affiliation_logo_remove_fallback',
+            'affiliation_logo_preview',
         ];
     }
 }

@@ -106,7 +106,7 @@ final readonly class UpdateBrandingImage
                     $formerMedia = null;
                 }
 
-                return [$lockedProfile->refresh()->load(['logoMedia', 'faviconMedia', 'heroMedia']), $formerMedia];
+                return [$lockedProfile->refresh()->load(['logoMedia', 'faviconMedia', 'heroMedia', 'affiliationLogoMedia']), $formerMedia];
             });
         } catch (\Throwable $exception) {
             if ($createdMedia !== null) {
@@ -144,6 +144,7 @@ final readonly class UpdateBrandingImage
             SiteMediaPurpose::SiteLogo => 'logo',
             SiteMediaPurpose::SiteFavicon => 'favicon',
             SiteMediaPurpose::SiteHero => 'hero',
+            SiteMediaPurpose::SiteAffiliationLogo => 'affiliation_logo',
             default => throw ValidationException::withMessages([
                 'branding' => 'Branding images must use the logo, favicon or default hero purpose.',
             ]),

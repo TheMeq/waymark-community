@@ -29,7 +29,7 @@ final class CreateBrandingPreview
         $submittedValues = $values;
         $ordinaryValues = $submittedValues;
 
-        foreach (['logo', 'favicon', 'hero'] as $slot) {
+        foreach (['logo', 'favicon', 'hero', 'affiliation_logo'] as $slot) {
             if (array_key_exists($slot.'_source', $values)) {
                 unset(
                     $ordinaryValues[$slot.'_source'],
@@ -55,12 +55,15 @@ final class CreateBrandingPreview
                 'terminology',
                 'affiliation_name',
                 'affiliation_url',
+                'affiliation_placement',
+                'affiliation_logo_path',
             ]),
             $this->validator->validate($ordinaryValues),
             [
                 'logo_media_id' => $profile->logo_media_id,
                 'favicon_media_id' => $profile->favicon_media_id,
                 'hero_media_id' => $profile->hero_media_id,
+                'affiliation_logo_media_id' => $profile->affiliation_logo_media_id,
             ],
         );
 
@@ -68,6 +71,7 @@ final class CreateBrandingPreview
             'logo' => SiteMediaPurpose::SiteLogo,
             'favicon' => SiteMediaPurpose::SiteFavicon,
             'hero' => SiteMediaPurpose::SiteHero,
+            'affiliation_logo' => SiteMediaPurpose::SiteAffiliationLogo,
         ] as $slot => $purpose) {
             if (array_key_exists($slot.'_source', $submittedValues)) {
                 $input = BrandingImageInput::from($submittedValues, $purpose);

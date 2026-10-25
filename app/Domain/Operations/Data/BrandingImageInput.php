@@ -82,6 +82,7 @@ final readonly class BrandingImageInput
             SiteMediaPurpose::SiteLogo => 'logo',
             SiteMediaPurpose::SiteFavicon => 'favicon',
             SiteMediaPurpose::SiteHero => 'hero',
+            SiteMediaPurpose::SiteAffiliationLogo => 'affiliation_logo',
             default => throw ValidationException::withMessages([
                 'branding' => 'Branding images must use the logo, favicon or default hero purpose.',
             ]),

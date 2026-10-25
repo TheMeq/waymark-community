@@ -14,7 +14,7 @@
         </div>
 
         <nav aria-label="Footer navigation">
-            <ul class="flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/80">
+            <ul class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/80">
                 @forelse ($footerSections->flatMap(fn ($section) => $section->links) as $link)
                     <li><a class="hover:text-white" href="{{ $link['url'] }}">{{ $link['label'] }}</a></li>
                 @empty
@@ -24,7 +24,9 @@
                 @endforelse
                 @foreach ($activeBranding['social_links'] ?? [] as $social)<li><a class="hover:text-white" href="{{ $social['url'] }}" rel="noopener">{{ $social['label'] }}</a></li>@endforeach
                 <li><a class="hover:text-white" href="{{ route('cookie-settings.edit') }}">Cookie settings</a></li>
-                @if (($activeBranding['affiliation_name'] ?? '') !== '' && ($activeBranding['affiliation_url'] ?? null))<li><a class="hover:text-white" href="{{ $activeBranding['affiliation_url'] }}" rel="noopener">{{ $activeBranding['affiliation_name'] }}</a></li>@endif
+                @if (($activeBranding['affiliation_placement'] ?? 'footer') === 'footer')
+                    <li><x-public.affiliation-link :branding="$activeBranding" class="hover:text-white" /></li>
+                @endif
             </ul>
         </nav>
     </div>

@@ -22,6 +22,7 @@ final class BrandingConfigurationValidator
         'terminology',
         'affiliation_name',
         'affiliation_url',
+        'affiliation_placement',
     ];
 
     /** @param array<string, mixed> $values
@@ -42,6 +43,7 @@ final class BrandingConfigurationValidator
             'social_links' => ['sometimes', 'nullable', 'array', 'max:10'],
             'terminology' => ['sometimes', 'nullable', 'array', 'max:5'],
             'affiliation_name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'affiliation_placement' => ['sometimes', 'required', 'in:header,footer'],
             'affiliation_url' => ['sometimes', 'nullable', 'string', 'max:2048'],
         ])->validate();
 
