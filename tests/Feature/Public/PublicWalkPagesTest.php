@@ -42,7 +42,7 @@ final class PublicWalkPagesTest extends TestCase
             ->assertDontSee('Social event');
     }
 
-    public function test_completed_public_walk_remains_available_to_detail_and_gpx_download_but_not_upcoming_surfaces(): void
+    public function test_completed_public_walk_remains_in_listing_and_detail_but_not_homepage(): void
     {
         Storage::fake('local');
         config()->set('walks.gpx.disk', 'local');
@@ -55,7 +55,7 @@ final class PublicWalkPagesTest extends TestCase
 
         $this->get('/walks')
             ->assertOk()
-            ->assertDontSee('Completed route');
+            ->assertSee('Completed route');
         $this->get('/')->assertDontSee('Completed route');
         $this->get('/walks/'.$event->slug)
             ->assertOk()
@@ -64,11 +64,11 @@ final class PublicWalkPagesTest extends TestCase
         $this->get('/walks/'.$event->slug.'/route.gpx')->assertOk();
     }
 
-    public function test_future_dated_walk_marked_completed_by_override_is_not_in_upcoming_list_or_homepage(): void
+    public function test_future_dated_completed_override_is_listed_but_not_promoted_on_homepage(): void
     {
         $event = $this->publishedWalk('Override-completed route', '+2 weeks', ['completion_override' => true]);
 
-        $this->get('/walks')->assertDontSee($event->title);
+        $this->get('/walks')->assertSee($event->title);
         $this->get('/')->assertDontSee($event->title);
         $this->get('/walks/'.$event->slug)->assertOk();
     }
@@ -585,6 +585,61 @@ final class PublicWalkPagesTest extends TestCase
             ->assertOk()
             ->assertSeeInOrder([$weekday->title, $weekendOne->title, $weekendTwo->title])
             ->assertDontSee($weekendThree->title);
+    }
+
+    public function test_walk_listing_includes_history_after_upcoming_walks_with_recent_history_first(): void
+    {
+        $this->travelTo('2026-09-08 18:00:00');
+        $older = $this->publishedWalk('Older public walk', '-2 weeks');
+        $recent = $this->publishedWalk('Recent completed walk', '-2 days', ['status' => EventStatus::Completed]);
+        $later = $this->publishedWalk('Later public walk', '+2 days');
+        $next = $this->publishedWalk('Next public walk', '+1 day');
+        $this->publishedWalk('Private historical walk', '-3 days', ['is_public' => false]);
+        $this->publishedWalk('Archived historical walk', '-4 days', ['status' => EventStatus::Archived]);
+        $this->publishedWalk('Unpublished historical walk', '-5 days', ['status' => EventStatus::Draft, 'published_at' => null]);
+
+        $this->get('/walks')->assertOk()
+            ->assertSeeInOrder([$next->title, $later->title, $recent->title, $older->title])
+            ->assertDontSee('Private historical walk')
+            ->assertDontSee('Archived historical walk')
+            ->assertDontSee('Unpublished historical walk');
+    }
+
+    public function test_historical_walks_can_be_filtered_by_date_and_their_leader(): void
+    {
+        $this->travelTo('2026-09-08 18:00:00');
+        $past = $this->publishedWalk('Historical leader route', '-2 days');
+        $future = $this->publishedWalk('Future leader route', '+2 days');
+        $this->get('/walks?date_from=2026-09-01&date_to=2026-09-07&leader='.$past->walk->primary_leader_id)
+            ->assertOk()->assertSee($past->title)->assertDontSee($future->title)
+            ->assertViewHas('leaders', fn ($leaders): bool => $leaders->contains('id', $past->walk->primary_leader_id));
+    }
+
+    public function test_homepage_keeps_todays_walks_after_the_start_and_end_time_but_not_yesterdays(): void
+    {
+        $this->travelTo('2026-09-08 18:00:00');
+        $today = $this->publishedWalk('Morning walk today', 'today 09:00');
+        $noEnd = $this->publishedWalk('Today without end time', 'today 10:00', ['ends_at' => null]);
+        $tomorrow = $this->publishedWalk('Tomorrow walk', 'tomorrow 09:00');
+        $this->publishedWalk('Yesterday walk', 'yesterday 09:00');
+        $this->publishedWalk('Private walk today', 'today 08:00', ['is_public' => false]);
+        $this->publishedWalk('Scheduled publication today', 'today 07:00', ['published_at' => now()->addHour()]);
+
+        $this->get('/')->assertOk()
+            ->assertSeeInOrder([$today->title, $noEnd->title, $tomorrow->title])
+            ->assertDontSee('Yesterday walk')->assertDontSee('Private walk today')
+            ->assertDontSee('Scheduled publication today');
+
+        $this->travelTo('2026-09-09 00:00:00');
+        $this->get('/')->assertOk()->assertDontSee($today->title)->assertDontSee($noEnd->title)->assertSee($tomorrow->title);
+    }
+
+    public function test_homepage_includes_midnight_today_and_ongoing_overnight_walks(): void
+    {
+        $this->travelTo('2026-09-08 18:00:00');
+        $midnight = $this->publishedWalk('Midnight today walk', 'today 00:00', ['ends_at' => null]);
+        $overnight = $this->publishedWalk('Ongoing overnight walk', 'yesterday 23:00', ['ends_at' => now()->addHour()]);
+        $this->get('/')->assertOk()->assertSee($midnight->title)->assertSee($overnight->title);
     }
 
     /** @param array<string, mixed> $overrides */

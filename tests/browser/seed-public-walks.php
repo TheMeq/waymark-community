@@ -12,6 +12,8 @@ use App\Domain\Holidays\Actions\SaveHolidayDetails;
 use App\Domain\Operations\Actions\UpdateSiteProfile;
 use App\Domain\Socials\Actions\SaveSocialDetails;
 use App\Domain\Walks\Actions\SaveWalkDetails;
+use App\Domain\Walks\Actions\UpdateWalkFeaturedImage;
+use App\Domain\Walks\Data\WalkFeaturedImageInput;
 use App\Domain\Walks\Models\Grade;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -190,7 +192,7 @@ foreach ([
         'organiser_id' => $leader->id,
     ]);
 
-    app(SaveWalkDetails::class)->handle($event, [
+    $walk = app(SaveWalkDetails::class)->handle($event, [
         'primary_leader_id' => $leader->id,
         'grade_id' => $grade->id,
         'distance' => $distance,
@@ -198,9 +200,13 @@ foreach ([
         'meeting_location_name' => 'Example meeting point',
         'terrain_notes' => 'Mixed paths with uneven ground in places.',
         'availability' => 'Places available',
-        'featured_image_path' => '/images/demo/'.$image,
         'private_organiser_notes' => 'Check the route access before leaving.',
     ]);
+    app(UpdateWalkFeaturedImage::class)->handle($leader, $walk, WalkFeaturedImageInput::from([
+        'featured_image_source' => 'external',
+        'featured_image_external_url' => '/images/demo/'.$image,
+        'featured_image_alt_text' => $title.' featured image',
+    ]));
 }
 
 $createEvent = function (EventType $type, string $title, string $slug, string $start, string $end, string $summary) use ($leader): Event {

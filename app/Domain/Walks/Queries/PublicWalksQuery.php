@@ -24,15 +24,35 @@ final class PublicWalksQuery
             ->orderBy('id');
     }
 
+    /** @return Builder<Event> */
+    public function todayAndUpcoming(): Builder
+    {
+        $query = Event::query();
+        $this->applyUpcomingVisibility($query, includeToday: true);
+
+        return $query
+            ->with(['walk.grade', 'walk.primaryLeader', 'walk.featuredMedia'])
+            ->orderBy('starts_at')
+            ->orderBy('id');
+    }
+
     /** @param Builder<Event> $query */
-    private function applyUpcomingVisibility(Builder $query): void
+    private function applyUpcomingVisibility(Builder $query, bool $includeToday = false): void
     {
         $query
             ->where('type', EventType::Walk)
             ->where('is_public', true)
             ->whereNotNull('published_at')
             ->where('published_at', '<=', now())
-            ->currentOrUpcoming()
+            ->where(function (Builder $dates) use ($includeToday): void {
+                $dates->currentOrUpcoming();
+
+                if ($includeToday) {
+                    $dates->orWhere(fn (Builder $today) => $today
+                        ->whereNull('completion_override')
+                        ->where('starts_at', '>=', now()->startOfDay()));
+                }
+            })
             ->whereIn('status', [
                 EventStatus::Published,
                 EventStatus::Changed,
@@ -45,7 +65,16 @@ final class PublicWalksQuery
     /** @return Builder<Event> */
     public function published(): Builder
     {
-        return Event::query()
+        $query = Event::query();
+        $this->applyPublishedVisibility($query);
+
+        return $query->with(['walk.grade', 'walk.primaryLeader', 'walk.coLeaders', 'walk.tags', 'walk.featuredMedia']);
+    }
+
+    /** @param Builder<Event> $query */
+    private function applyPublishedVisibility(Builder $query): void
+    {
+        $query
             ->where('type', EventType::Walk)
             ->where('is_public', true)
             ->whereNotNull('published_at')
@@ -57,8 +86,7 @@ final class PublicWalksQuery
                 EventStatus::Cancelled,
                 EventStatus::Completed,
             ])
-            ->whereHas('walk')
-            ->with(['walk.grade', 'walk.primaryLeader', 'walk.coLeaders', 'walk.tags', 'walk.featuredMedia']);
+            ->whereHas('walk');
     }
 
     /** @return Builder<Event> */
@@ -88,11 +116,45 @@ final class PublicWalksQuery
             ->get();
     }
 
+    /** @return Collection<int, User> */
+    public function publishedLeaders(): Collection
+    {
+        return User::query()
+            ->where(function (Builder $users): void {
+                $users->whereHas('primaryLedWalks.event', function (Builder $events): void {
+                    $this->applyPublishedVisibility($events);
+                })->orWhereHas('coLedWalks.event', function (Builder $events): void {
+                    $this->applyPublishedVisibility($events);
+                });
+            })
+            ->orderBy('name')
+            ->get();
+    }
+
+    /** @return Builder<Event> */
+    public function filteredPublished(PublicWalkFilters $filters): Builder
+    {
+        $today = now()->startOfDay();
+        $query = $this->published()
+            ->orderByRaw('CASE WHEN starts_at >= ? THEN 0 ELSE 1 END', [$today])
+            ->orderByRaw('CASE WHEN starts_at >= ? THEN starts_at END ASC', [$today])
+            ->orderByRaw('CASE WHEN starts_at < ? THEN starts_at END DESC', [$today])
+            ->orderBy('id');
+
+        return $this->applyFilters($query, $filters);
+    }
+
     /** @return Builder<Event> */
     public function filteredUpcoming(PublicWalkFilters $filters): Builder
     {
-        $query = $this->upcoming();
+        return $this->applyFilters($this->upcoming(), $filters);
+    }
 
+    /** @param Builder<Event> $query
+     * @return Builder<Event>
+     */
+    private function applyFilters(Builder $query, PublicWalkFilters $filters): Builder
+    {
         if ($filters->dateFrom !== null) {
             $query->where('starts_at', '>=', $filters->dateFrom->startOfDay());
         }

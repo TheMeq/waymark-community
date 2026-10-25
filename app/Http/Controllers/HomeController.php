@@ -29,10 +29,10 @@ final class HomeController
     {
         $siteProfile = $currentProfile->get();
         $homepageSections = $sections->get()->keyBy('section_key');
-        $walkEvents = $walks->upcoming()->limit(3)->get();
+        $walkEvents = $walks->todayAndUpcoming()->limit(3)->get();
         $walkSection = $homepageSections->get('whats_on');
         if ($walkSection?->content_mode === 'pinned') {
-            $pinnedWalk = $walks->upcoming()->whereKey($walkSection->pinned_id)->first();
+            $pinnedWalk = $walks->todayAndUpcoming()->whereKey($walkSection->pinned_id)->first();
             if ($pinnedWalk !== null) {
                 $walkEvents = collect([$pinnedWalk])->concat($walkEvents)->unique('id')->take(3)->values();
             }

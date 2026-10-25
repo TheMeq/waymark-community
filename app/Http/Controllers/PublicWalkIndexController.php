@@ -28,8 +28,8 @@ final class PublicWalkIndexController
             'filters' => $filters,
             'grades' => Grade::query()->orderBy('display_order')->orderBy('name')->get(),
             'tags' => Tag::query()->orderBy('name')->get(),
-            'leaders' => $walks->upcomingLeaders(),
-            'walks' => $walks->filteredUpcoming($filters)
+            'leaders' => $walks->publishedLeaders(),
+            'walks' => $walks->filteredPublished($filters)
                 ->paginate(9)
                 ->withQueryString()
                 ->through(fn ($event) => PublicWalkCardViewModel::fromEvent($event, $siteProfile)),
