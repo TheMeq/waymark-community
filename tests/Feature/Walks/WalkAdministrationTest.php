@@ -563,4 +563,54 @@ final class WalkAdministrationTest extends TestCase
         $this->assertSame(EventStatus::Published, $walk->event->status);
         $this->assertTrue($walk->event->is_public);
     }
+
+    public function test_edit_page_confirms_publication_updates_status_and_removes_submit_action(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+        $walk = Walk::query()->create([
+            'event_id' => Event::factory()->for($administrator, 'organiser')->create(['status' => EventStatus::Draft])->id,
+            'primary_leader_id' => $administrator->id,
+        ]);
+
+        Livewire::actingAs($administrator)->test(EditWalk::class, ['record' => $walk->id])
+            ->assertSee('Status: Draft')
+            ->assertActionVisible('submitForPublication')
+            ->callAction('submitForPublication')
+            ->assertHasNoActionErrors()
+            ->assertNotified('Walk published')
+            ->assertSee('Status: Published')
+            ->assertActionHidden('submitForPublication');
+
+        $this->assertSame(EventStatus::Published, $walk->event->fresh()->status);
+        Livewire::test(EditWalk::class, ['record' => $walk->id])
+            ->assertSee('Status: Published')
+            ->assertActionHidden('submitForPublication');
+    }
+
+    public function test_edit_page_confirms_pending_approval_and_keeps_an_admin_publication_action(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        app(UpdateWalkFieldSettings::class)->handle([], leadersCanPublishDirectly: false);
+        $walk = Walk::query()->create([
+            'event_id' => Event::factory()->for($leader, 'organiser')->create(['status' => EventStatus::Draft])->id,
+            'primary_leader_id' => $leader->id,
+        ]);
+
+        Livewire::actingAs($leader)->test(EditWalk::class, ['record' => $walk->id])
+            ->callAction('submitForPublication')
+            ->assertHasNoActionErrors()
+            ->assertNotified('Walk submitted for approval')
+            ->assertSee('Status: Pending approval')
+            ->assertActionHidden('submitForPublication');
+
+        $this->assertSame(EventStatus::PendingApproval, $walk->event->fresh()->status);
+        $administrator = User::factory()->initialAdministrator()->create();
+        Livewire::actingAs($administrator)->test(EditWalk::class, ['record' => $walk->id])
+            ->assertActionVisible('submitForPublication')
+            ->assertActionHasLabel('submitForPublication', 'Publish walk')
+            ->callAction('submitForPublication')
+            ->assertNotified('Walk published')
+            ->assertSee('Status: Published')
+            ->assertActionHidden('submitForPublication');
+    }
 }

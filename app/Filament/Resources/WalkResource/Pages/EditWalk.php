@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\WalkResource\Pages;
 
+use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Content\Presentation\PublicImageReference;
 use App\Domain\Events\Actions\AddEventUpdate;
 use App\Domain\Events\Enums\EventStatus;
@@ -20,6 +21,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
@@ -30,6 +32,11 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 final class EditWalk extends EditRecord
 {
     protected static string $resource = WalkResource::class;
+
+    public function getSubheading(): string
+    {
+        return 'Status: '.ucfirst(str_replace('_', ' ', $this->getRecord()->event->status->value));
+    }
 
     /** @param array<string, mixed> $data */
     protected function mutateFormDataBeforeFill(array $data): array
@@ -116,12 +123,22 @@ final class EditWalk extends EditRecord
                     app(UpdateWalkRecap::class)->handle($this->getRecord(), $user, $data);
                 }),
             Action::make('submitForPublication')
-                ->label('Submit for publication')
+                ->label(fn (): string => $this->getRecord()->event->status === EventStatus::PendingApproval ? 'Publish walk' : 'Submit for publication')
+                ->visible(fn (): bool => Gate::allows('publish', $this->getRecord()) && (
+                    $this->getRecord()->event->status === EventStatus::Draft
+                    || ($this->getRecord()->event->status === EventStatus::PendingApproval && (
+                        auth()->user()->hasCapability(ModuleCapability::ManageAllWalks)
+                        || WalkFieldSettings::current()->leaders_can_publish_directly
+                    ))
+                ))
                 ->action(function (): void {
                     /** @var User $user */
                     $user = auth()->user();
-                    app(SubmitWalkForPublication::class)->handle($this->getRecord(), $user);
+                    $walk = app(SubmitWalkForPublication::class)->handle($this->getRecord(), $user);
                     $this->refreshFormData(['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at']);
+                    Notification::make()->success()
+                        ->title($walk->event->status === EventStatus::Published ? 'Walk published' : 'Walk submitted for approval')
+                        ->send();
                 }),
         ];
     }
