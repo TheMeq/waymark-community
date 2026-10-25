@@ -8,11 +8,13 @@ use App\Domain\Events\Actions\AddEventUpdate;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Walks\Actions\StoreWalkGpx;
 use App\Domain\Walks\Actions\SubmitWalkForPublication;
+use App\Domain\Walks\Actions\UnpublishWalk;
 use App\Domain\Walks\Actions\UpdateWalk;
 use App\Domain\Walks\Actions\UpdateWalkFeaturedImage;
 use App\Domain\Walks\Actions\UpdateWalkRecap;
 use App\Domain\Walks\Data\WalkFeaturedImageInput;
 use App\Domain\Walks\Models\WalkFieldSettings;
+use App\Filament\Actions\DeleteWalkAction;
 use App\Filament\Resources\WalkResource;
 use App\Filament\Resources\WalkResource\Support\WalkFeaturedImageFields;
 use App\Filament\Resources\WalkResource\Support\WalkFormData;
@@ -122,6 +124,24 @@ final class EditWalk extends EditRecord
                     $user = auth()->user();
                     app(UpdateWalkRecap::class)->handle($this->getRecord(), $user, $data);
                 }),
+            Action::make('unpublish')
+                ->label('Unpublish walk')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->modalHeading('Unpublish walk?')
+                ->modalDescription('Return this walk to Draft and remove it from public pages. Saved details and photos will be kept.')
+                ->visible(fn (): bool => Gate::allows('unpublish', $this->getRecord()) && (
+                    $this->getRecord()->event->status !== EventStatus::Draft
+                    || $this->getRecord()->event->is_public
+                    || $this->getRecord()->event->published_at !== null
+                ))
+                ->action(function (): void {
+                    /** @var User $actor */
+                    $actor = auth()->user();
+                    app(UnpublishWalk::class)->handle($this->getRecord(), $actor);
+                    Notification::make()->success()->title('Walk unpublished')->send();
+                }),
+            DeleteWalkAction::make(),
             Action::make('submitForPublication')
                 ->label(fn (): string => $this->getRecord()->event->status === EventStatus::PendingApproval ? 'Publish walk' : 'Submit for publication')
                 ->visible(fn (): bool => Gate::allows('publish', $this->getRecord()) && (

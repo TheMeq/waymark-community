@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'event_id',
@@ -51,6 +52,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 ])]
 final class Walk extends Model
 {
+    use SoftDeletes;
+
     protected static function booted(): void
     {
         self::updated(function (Walk $walk): void {

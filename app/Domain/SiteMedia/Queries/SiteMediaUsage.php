@@ -29,7 +29,7 @@ final class SiteMediaUsage
         if (CommitteeRole::query()->where('public_photo_media_id', $media->id)->exists()) {
             $labels[] = 'Committee role public photo';
         }
-        if (Walk::query()->where('featured_image_media_id', $media->id)->exists()) {
+        if (Walk::withTrashed()->where('featured_image_media_id', $media->id)->exists()) {
             $labels[] = 'Walk featured image';
         }
         if (SiteProfile::query()->where('logo_media_id', $media->id)->exists()) {

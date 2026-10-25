@@ -27,6 +27,17 @@ This document records conceptual entities, not final table names. The implementa
 
 Holiday may parent child Walk/Social events.
 
+### Walk publication and removal
+
+Walk owners with Manage Own Walks, and administrators with Manage All Walks,
+can unpublish or delete a walk after confirmation. Unpublish clears publication
+fields and returns the event to Draft while preserving its details and media.
+Delete soft-deletes the Walk and makes its retained event private and Archived
+in one transaction. Public pages, calendars, galleries and normal admin lists
+exclude the deleted walk. Photos, files and event history are retained; managed
+featured images remain referenced for cleanup protection. No permanent purge
+or restore interface is exposed by these actions.
+
 ## Gallery/media
 
 - Gallery/Album context

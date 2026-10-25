@@ -11,6 +11,7 @@ use App\Domain\Walks\Models\Grade;
 use App\Domain\Walks\Models\Tag;
 use App\Domain\Walks\Models\Walk;
 use App\Domain\Walks\Queries\CurrentWalkFieldSettings;
+use App\Filament\Actions\DeleteWalkAction;
 use App\Filament\Actions\DuplicateWalkAction;
 use App\Filament\Resources\WalkResource\Pages\CreateWalk;
 use App\Filament\Resources\WalkResource\Pages\EditWalk;
@@ -177,6 +178,7 @@ final class WalkResource extends Resource
                         ? self::getUrl('create', ['draft' => $record->getKey()])
                         : self::getUrl('edit', ['record' => $record])),
                 DuplicateWalkAction::make(),
+                DeleteWalkAction::make(),
             ]);
     }
 
