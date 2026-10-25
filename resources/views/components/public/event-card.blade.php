@@ -5,7 +5,8 @@
         ['label' => 'Distance', 'value' => $event['distance'] ?? null, 'symbol' => '↔︎'],
         ['label' => 'Ascent', 'value' => $event['ascent'] ?? null, 'symbol' => '↗︎'],
         ['label' => 'Difficulty', 'value' => $event['difficulty'] ?? null, 'symbol' => '▲'],
-        ['label' => 'Spaces', 'value' => $event['capacity'] ?? null, 'symbol' => '●'],
+        ['label' => 'Duration', 'value' => $event['duration'] ?? null, 'symbol' => '◷'],
+        ['label' => $event['capacity_label'] ?? 'Spaces', 'value' => $event['capacity'] ?? null, 'symbol' => '●'],
     ], fn (array $item): bool => filled($item['value'])));
 @endphp
 

@@ -13,6 +13,7 @@ final readonly class PublicHolidayCardViewModel
     {
         $holiday = $event->holiday;
         $image = HolidayFeaturedImage::forHoliday($holiday);
+        $nights = $event->ends_at === null ? null : $event->starts_at->diffInDays($event->ends_at);
 
         return [
             'title' => $event->title,
@@ -26,7 +27,8 @@ final readonly class PublicHolidayCardViewModel
             'location' => $holiday?->destination,
             'distance' => null,
             'ascent' => null,
-            'difficulty' => $event->ends_at === null ? null : $event->starts_at->diffInDays($event->ends_at).' nights',
+            'duration' => $nights === null ? null : $nights.' '.($nights == 1 ? 'night' : 'nights'),
+            'capacity_label' => 'Capacity',
             'capacity' => $holiday?->capacity === null ? null : (string) $holiday->capacity,
             'leader_label' => 'Organised by',
             'leader' => $event->organiser?->publicDisplayName(),
