@@ -89,7 +89,9 @@
                 </div>
                 @if ($homepage->holiday !== [])<article class="group mt-5 overflow-hidden rounded-[var(--wm-radius-md)] border border-border bg-surface-raised shadow-[var(--wm-shadow-card)] md:grid md:grid-cols-[1.55fr_1fr] lg:mt-3 lg:block">
                     <div class="relative overflow-hidden">
+                    @if (filled($homepage->holiday['image_url']))
                         <img class="aspect-[16/7] w-full object-cover transition-transform duration-300 group-hover:scale-[1.025] md:h-full md:min-h-56 md:object-cover lg:aspect-[16/6] lg:min-h-0" src="{{ $homepage->holiday['image_url'] }}" alt="{{ $homepage->holiday['image_alt'] }}" loading="lazy">
+                    @endif
                         <x-public.badge class="absolute left-4 top-4" tone="brand">{{ $homepage->holiday['duration'] }}</x-public.badge>
                     </div>
                     <div class="p-3">
@@ -140,7 +142,7 @@
                         <p class="text-xs font-semibold uppercase tracking-[0.15em] text-brand">New here?</p>
                         <h2 class="mt-2 text-3xl lg:mt-1 lg:text-2xl">{{ $homepageSections['join']->heading ?: ($joinPage?->title ?: 'Join us!') }}</h2>
                         <p class="mt-3 text-sm text-ink-muted lg:mt-2 lg:text-xs">{{ $homepageSections['join']->supporting_copy ?: 'A friendly, volunteer-led group for people who enjoy the outdoors.' }}</p>
-                        @if (! $configuredSectionKeys->contains('testimonial') && filled($homepage->testimonial))<blockquote class="mt-3 text-xs italic text-ink-muted lg:mt-2">{{ $homepage->testimonial }}</blockquote>@endif
+                        @if (! $configuredSectionKeys->contains('testimonial') && filled($homepage->testimonial))<blockquote class="mt-3 text-xs italic text-ink-muted lg:mt-2">@if($testimonialImage ?? null)<img class="mb-2 size-12 rounded-full object-cover" src="{{ $testimonialImage->url }}" alt="{{ $testimonialImage->alt }}">@endif{{ $homepage->testimonial }}</blockquote>@endif
                     </div>
 
                     <div class="wm-join-benefits grid gap-4 md:flex-[2_1_20rem] lg:gap-3">
@@ -171,7 +173,9 @@
         @if(filled($homepageSections['holiday']->supporting_copy))<p class="mt-2 text-sm text-ink-muted">{{ $homepageSections['holiday']->supporting_copy }}</p>@endif
         @if($homepage->holiday === [])<p class="mt-5 text-sm text-ink-muted">No upcoming trips away.</p>@else
         <article class="mt-5 overflow-hidden rounded-[var(--wm-radius-md)] border border-border bg-surface shadow-[var(--wm-shadow-card)] md:grid {{ $homepageSections['holiday']->layout_variant === 'wide' ? 'md:grid-cols-[1.8fr_1fr]' : 'md:grid-cols-[1.3fr_1fr]' }}">
+                    @if (filled($homepage->holiday['image_url']))
             <img data-homepage-holiday-image class="h-full w-full object-cover" src="{{ $homepage->holiday['image_url'] }}" alt="{{ $homepage->holiday['image_alt'] }}" loading="lazy">
+                    @endif
             <div data-homepage-holiday-content class="p-5"><h3 class="text-xl"><a href="{{ $homepage->holiday['url'] }}">{{ $homepage->holiday['title'] }}</a></h3><p class="mt-2 text-sm text-ink-muted">{{ $homepage->holiday['date'] }} · {{ $homepage->holiday['location'] }}</p><p class="mt-2 text-sm">{{ $homepage->holiday['summary'] }}</p></div>
         </article>@endif
         <a class="mt-4 inline-flex text-sm font-semibold text-brand" href="{{ $homepageSections['holiday']->cta_url ?: route('holidays.index') }}">{{ $homepageSections['holiday']->cta_label ?: 'View all' }} <span aria-hidden="true">&rarr;</span></a></div>
@@ -182,7 +186,7 @@
     <section data-homepage-section="testimonial" data-layout="{{ $homepageSections['testimonial']->layout_variant }}" class="wm-home-layout-{{ $homepageSections['testimonial']->layout_variant }} bg-surface-soft py-7" style="order: {{ $homepageSections['testimonial']->sort_order }}">
         <div class="wm-container"><h2 class="text-2xl">{{ $homepageSections['testimonial']->heading ?: 'From our members' }}</h2>
         @if(filled($homepageSections['testimonial']->supporting_copy))<p class="mt-2 text-sm text-ink-muted">{{ $homepageSections['testimonial']->supporting_copy }}</p>@endif
-        @if(filled($homepage->testimonial))<blockquote class="mt-4 text-lg italic">{{ $homepage->testimonial }}</blockquote>@else<p class="mt-4 text-sm text-ink-muted">No member story is currently featured.</p>@endif
+        @if(filled($homepage->testimonial))<blockquote class="mt-4 text-lg italic">@if($testimonialImage ?? null)<img class="mb-2 size-12 rounded-full object-cover" src="{{ $testimonialImage->url }}" alt="{{ $testimonialImage->alt }}">@endif{{ $homepage->testimonial }}</blockquote>@else<p class="mt-4 text-sm text-ink-muted">No member story is currently featured.</p>@endif
         @if(filled($homepageSections['testimonial']->cta_label))<a class="mt-4 inline-flex text-sm font-semibold text-brand" href="{{ $homepageSections['testimonial']->cta_url ?: route('new-here') }}">{{ $homepageSections['testimonial']->cta_label }} <span aria-hidden="true">&rarr;</span></a>@endif</div>
     </section>
     @endif

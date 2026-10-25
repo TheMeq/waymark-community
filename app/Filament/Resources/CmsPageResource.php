@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Content\Models\CmsPage;
 use App\Domain\SiteMedia\Models\SiteMedia;
+use App\Filament\Forms\ContentImageFields;
 use App\Filament\Resources\CmsPageResource\Pages\CreateCmsPage;
 use App\Filament\Resources\CmsPageResource\Pages\EditCmsPage;
 use App\Filament\Resources\CmsPageResource\Pages\ListCmsPages;
@@ -14,6 +15,7 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
@@ -43,10 +45,10 @@ final class CmsPageResource extends Resource
             TextInput::make('slug')->required()->alphaDash()->maxLength(255)->unique(ignoreRecord: true),
             Select::make('publication_state')->options(['draft' => 'Draft', 'published' => 'Published'])->required(),
             DateTimePicker::make('publish_at')->label('Publish from'),
-            Select::make('hero_media_id')->relationship('heroMedia', 'alt_text')->searchable()->preload(),
+            ...ContentImageFields::components('Hero image'),
             Builder::make('blocks')->required()->blocks([
                 Block::make('rich_text')->schema([RichEditor::make('content')->required()]),
-                Block::make('image_text')->label('Image and text')->schema([Select::make('media_id')->options($mediaOptions)->required()->searchable(), TextInput::make('heading'), Textarea::make('body')->required()]),
+                Block::make('image_text')->label('Image and text')->schema([Hidden::make('media_id'), ...ContentImageFields::components('Block image'), TextInput::make('heading'), Textarea::make('body')->required()]),
                 Block::make('callout')->schema([TextInput::make('heading'), Textarea::make('body')->required()]),
                 Block::make('faq')->schema([Repeater::make('items')->schema([TextInput::make('question')->required(), Textarea::make('answer')->required()])]),
                 Block::make('quote')->schema([Textarea::make('quote')->required(), TextInput::make('attribution')]),

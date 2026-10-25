@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources\CommitteeRoleResource\Pages;
 
+use App\Filament\Pages\EditResourceRecord as EditRecord;
 use App\Filament\Resources\CommitteeRoleResource;
 use Filament\Actions\DeleteAction;
-use Filament\Resources\Pages\EditRecord;
 
 final class EditCommitteeRole extends EditRecord
 {

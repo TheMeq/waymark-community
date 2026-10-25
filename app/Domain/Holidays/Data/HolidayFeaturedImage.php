@@ -3,6 +3,9 @@
 namespace App\Domain\Holidays\Data;
 
 use App\Domain\Content\Presentation\PublicUrl;
+use App\Domain\Holidays\Models\Holiday;
+use App\Domain\SiteMedia\ContentImagePresenter;
+use App\Domain\SiteMedia\Enums\ContentImageSlot;
 
 final readonly class HolidayFeaturedImage
 {
@@ -23,6 +26,20 @@ final readonly class HolidayFeaturedImage
             'lakeside-friends.png', 'lakeside-friends-768.webp', 'lakeside-friends-1536.webp' => 'Friends pausing beside an upland lake',
             default => 'A group enjoying a walking holiday',
         });
+    }
+
+    public static function forHoliday(?Holiday $holiday): ?self
+    {
+        if ($holiday === null) {
+            return null;
+        }
+        $image = app(ContentImagePresenter::class)->present($holiday, ContentImageSlot::Holiday);
+        if ($image === null) {
+            return null;
+        }
+        $legacy = self::resolve($holiday->featured_image_path);
+
+        return new self($image->url, $holiday->featured_image_alt_text ?: ($image->id === 0 ? ($legacy?->alt ?? $image->alt) : $image->alt));
     }
 
     /** @return array{url: string, alt: string} */

@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Content\Models\NewsArticle;
+use App\Filament\Forms\ContentImageFields;
 use App\Filament\Resources\NewsArticleResource\Pages\CreateNewsArticle;
 use App\Filament\Resources\NewsArticleResource\Pages\EditNewsArticle;
 use App\Filament\Resources\NewsArticleResource\Pages\ListNewsArticles;
@@ -40,7 +41,7 @@ final class NewsArticleResource extends Resource
         return $schema->components([
             TextInput::make('title')->required()->maxLength(255), TextInput::make('slug')->required()->alphaDash()->unique(ignoreRecord: true), Textarea::make('summary')->maxLength(1000),
             Builder::make('blocks')->required()->blocks([Block::make('rich_text')->schema([RichEditor::make('content')->required()]), Block::make('callout')->schema([TextInput::make('heading'), Textarea::make('body')])]),
-            Select::make('featured_media_id')->relationship('featuredMedia', 'alt_text')->searchable()->preload(), Select::make('author_id')->relationship('author', 'name')->required()->searchable()->preload(),
+            ...ContentImageFields::components('Featured image'), Select::make('author_id')->relationship('author', 'name')->required()->searchable()->preload(),
             TextInput::make('primary_category')->required()->maxLength(100), TagsInput::make('tags'), Select::make('publication_state')->options(['draft' => 'Draft', 'published' => 'Published'])->required(),
             DateTimePicker::make('publish_at'), DateTimePicker::make('expires_at'), Toggle::make('featured_on_homepage'), TextInput::make('share_title'), Textarea::make('share_description'),
         ]);

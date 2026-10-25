@@ -76,3 +76,24 @@ Managed `SiteMedia` belongs to runtime storage, not a Git checkout or release
 archive. Code deployments and Git pulls do not own or overwrite it. Waymark
 backups include the database records, owner foreign keys and private processed
 variants together, and restore them as one verified recovery set.
+
+## Content image forms
+
+Holiday images, page heroes, news featured images, testimonial portraits,
+committee photos and image-and-text blocks use the same Upload / External URL /
+None controls with previews. New uploads use the resource module capability,
+the existing private raster-processing pipeline and the `content_image` purpose.
+They do not require separate Media-library permission. Existing media-library
+references and holiday fallback paths remain readable.
+
+A prepared upload remains an orphan candidate until its owner saves. Failed
+validation preserves the previous owner reference; unattached processed files
+remain reference-checked cleanup candidates. Saved block references are included
+in media usage checks, including soft-deleted content. External URLs are
+validated without server-side downloads. None clears the selected image; when
+a local image has a retained external fallback, the form offers to clear both.
+
+Resource create/edit pages share a validation boundary that reports errors
+visibly and maps domain fields to their form state paths. Page/news Builder
+state is converted to the canonical flat block format on save and back to
+Builder state on edit.

@@ -46,7 +46,7 @@ final readonly class PublicHolidayDetailViewModel
                     'url' => $child->type === EventType::Walk ? route('walks.show', $child->slug) : route('socials.show', $child->slug),
                 ])->values()->all(),
             'gallery_source' => HolidayGallerySource::forPublic($event)->eventIds,
-            'image' => HolidayFeaturedImage::resolve($holiday?->featured_image_path)?->toArray(),
+            'image' => HolidayFeaturedImage::forHoliday($holiday)?->toArray(),
             'attachments' => $holiday === null ? [] : HolidayAttachment::availableFor($holiday),
         ];
     }

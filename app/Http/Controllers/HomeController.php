@@ -15,6 +15,8 @@ use App\Domain\Gallery\Queries\PublicCommunityPhotos;
 use App\Domain\Holidays\Queries\PublicHolidaysQuery;
 use App\Domain\Operations\Queries\CurrentSiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
+use App\Domain\SiteMedia\ContentImagePresenter;
+use App\Domain\SiteMedia\Enums\ContentImageSlot;
 use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Domain\SiteMedia\SiteMediaPresenter;
 use App\Domain\Walks\Queries\PublicWalksQuery;
@@ -66,8 +68,8 @@ final class HomeController
             ])
             ->all();
         $homeNews = $homepageSections->has('news')
-            ? $news->get($homepageSections['news'])->map(function ($article) use ($mediaPresenter): array {
-                $image = $article->featuredMedia === null ? null : $mediaPresenter->present($article->featuredMedia);
+            ? $news->get($homepageSections['news'])->map(function ($article): array {
+                $image = app(ContentImagePresenter::class)->present($article, ContentImageSlot::News);
 
                 return [
                     'title' => $article->title,
@@ -116,6 +118,7 @@ final class HomeController
             'configuredSectionKeys' => HomepageSection::query()->pluck('section_key'),
             'homeNews' => $homeNews,
             'joinPage' => $joinPage,
+            'testimonialImage' => $testimonial === null ? null : app(ContentImagePresenter::class)->present($testimonial, ContentImageSlot::Testimonial),
             'theme' => BrandTheme::fromSiteProfile($siteProfile),
             'seo' => app(PublicSeo::class)->home($siteProfile),
         ]);

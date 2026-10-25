@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['title', 'person_id', 'public_name', 'sort_order', 'start_date', 'end_date', 'active', 'publicly_visible', 'public_photo_media_id', 'public_details', 'private_email', 'private_phone', 'private_notes'])]
+#[Fillable(['title', 'person_id', 'public_name', 'sort_order', 'start_date', 'end_date', 'active', 'publicly_visible', 'public_photo_media_id', 'public_photo_path', 'public_photo_alt_text', 'public_details', 'private_email', 'private_phone', 'private_notes'])]
 final class CommitteeRole extends Model
 {
     protected function casts(): array

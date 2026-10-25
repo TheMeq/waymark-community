@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\FooterSectionResource\Pages;
 
+use App\Filament\Pages\CreateResourceRecord as CreateRecord;
 use App\Filament\Resources\FooterSectionResource;
-use Filament\Resources\Pages\CreateRecord;
 
 final class CreateFooterSection extends CreateRecord
 {

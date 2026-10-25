@@ -32,7 +32,7 @@ final class SocialResource extends Resource
             TextInput::make('title')->required()->maxLength(255)->columnSpanFull(),
             TextInput::make('slug')->required()->maxLength(255)->visibleOn('edit'),
             DateTimePicker::make('starts_at')->required(),
-            DateTimePicker::make('ends_at'),
+            DateTimePicker::make('ends_at')->afterOrEqual('starts_at'),
             Textarea::make('summary')->maxLength(65535)->columnSpanFull(),
             Textarea::make('description')->maxLength(65535)->columnSpanFull(),
             TextInput::make('venue_name')->maxLength(255),

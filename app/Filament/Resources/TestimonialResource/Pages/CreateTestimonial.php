@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\TestimonialResource\Pages;
 
+use App\Filament\Pages\CreateResourceRecord as CreateRecord;
 use App\Filament\Resources\TestimonialResource;
-use Filament\Resources\Pages\CreateRecord;
 
 final class CreateTestimonial extends CreateRecord
 {

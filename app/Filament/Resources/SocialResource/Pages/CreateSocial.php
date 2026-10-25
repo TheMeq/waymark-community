@@ -3,9 +3,9 @@
 namespace App\Filament\Resources\SocialResource\Pages;
 
 use App\Domain\Socials\Actions\CreateSocial as CreateSocialAction;
+use App\Filament\Pages\CreateResourceRecord as CreateRecord;
 use App\Filament\Resources\SocialResource;
 use App\Models\User;
-use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 
 final class CreateSocial extends CreateRecord
@@ -19,5 +19,10 @@ final class CreateSocial extends CreateRecord
         $user = auth()->user();
 
         return app(CreateSocialAction::class)->handle($user, $data);
+    }
+
+    protected function getCreatedNotificationTitle(): ?string
+    {
+        return 'Social draft created';
     }
 }

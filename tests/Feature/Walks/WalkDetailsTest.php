@@ -155,7 +155,6 @@ final class WalkDetailsTest extends TestCase
             'kit_checklist' => ['Waterproof', 'Water'],
             'kit_notes' => 'Bring a packed lunch.',
             'availability' => 'Spaces available',
-            'featured_image_path' => 'walks/featured/north-gate.jpg',
             'attachments' => [[
                 'path' => 'walks/attachments/route-sheet.pdf',
                 'name' => 'Route sheet.pdf',
@@ -178,7 +177,6 @@ final class WalkDetailsTest extends TestCase
         $this->assertSame('https://example.test/travel', $walk->public_transport_url);
         $this->assertSame(['Waterproof', 'Water'], $walk->kit_checklist);
         $this->assertSame('Spaces available', $walk->availability);
-        $this->assertSame('walks/featured/north-gate.jpg', $walk->featured_image_path);
         $this->assertSame('walks/attachments/route-sheet.pdf', $walk->attachments[0]['path']);
         $this->assertSame('Check the gate is unlocked.', $walk->private_organiser_notes);
         $this->assertSame('Dry weather and good views.', $walk->recap);

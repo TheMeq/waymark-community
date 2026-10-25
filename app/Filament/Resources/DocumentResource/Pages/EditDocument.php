@@ -6,13 +6,13 @@ use App\Domain\Governance\Actions\ApproveControlledDocument;
 use App\Domain\Governance\Actions\PublishDocumentVersion;
 use App\Domain\Governance\Actions\UploadDocumentVersion;
 use App\Domain\Governance\Models\DocumentVersion;
+use App\Filament\Pages\EditResourceRecord as EditRecord;
 use App\Filament\Resources\DocumentResource;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
-use Filament\Resources\Pages\EditRecord;
 use Illuminate\Validation\ValidationException;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 

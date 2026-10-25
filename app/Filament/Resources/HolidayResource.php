@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Domain\Holidays\Models\Holiday;
+use App\Filament\Forms\ContentImageFields;
 use App\Filament\Resources\HolidayResource\Pages\CreateHoliday;
 use App\Filament\Resources\HolidayResource\Pages\EditHoliday;
 use App\Filament\Resources\HolidayResource\Pages\ListHolidays;
@@ -15,6 +16,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -35,15 +37,15 @@ final class HolidayResource extends Resource
             TextInput::make('title')->required()->maxLength(255)->columnSpanFull(),
             TextInput::make('slug')->required()->maxLength(255)->visibleOn('edit'),
             DateTimePicker::make('starts_at')->required(),
-            DateTimePicker::make('ends_at')->required(),
+            DateTimePicker::make('ends_at')->required()->afterOrEqual('starts_at'),
             Textarea::make('summary')->maxLength(65535)->columnSpanFull(),
             Textarea::make('description')->maxLength(65535)->columnSpanFull(),
             TextInput::make('destination')->maxLength(255),
             Checkbox::make('show_child_events_in_global_calendar')->label('Show child walks and socials in the global calendar')->default(true),
             Textarea::make('accommodation')->maxLength(5000),
-            Select::make('pricing_type')->options(['free' => 'Free', 'tbc' => 'TBC', 'fixed' => 'Fixed', 'from' => 'From']),
-            TextInput::make('price_amount')->numeric()->minValue(0),
-            TextInput::make('currency')->maxLength(3),
+            Select::make('pricing_type')->live()->options(['free' => 'Free', 'tbc' => 'TBC', 'fixed' => 'Fixed', 'from' => 'From']),
+            TextInput::make('price_amount')->numeric()->minValue(0)->required(fn (Get $get): bool => in_array($get('pricing_type'), ['fixed', 'from'], true)),
+            TextInput::make('currency')->length(3)->required(fn (Get $get): bool => in_array($get('pricing_type'), ['fixed', 'from'], true)),
             TextInput::make('deposit_amount')->numeric()->minValue(0),
             Textarea::make('pricing_notes')->maxLength(5000),
             TextInput::make('capacity')->integer()->minValue(0)->maxValue(65535),
@@ -55,7 +57,7 @@ final class HolidayResource extends Resource
             Textarea::make('booking_contact')->maxLength(5000),
             Textarea::make('travel_details')->maxLength(10000),
             Textarea::make('itinerary_notes')->maxLength(65535)->columnSpanFull(),
-            TextInput::make('featured_image_path')->maxLength(2048),
+            ...ContentImageFields::components('Holiday image'),
             Repeater::make('attachments')->schema([
                 TextInput::make('path')->required()->maxLength(2048),
                 TextInput::make('name')->required()->maxLength(255),

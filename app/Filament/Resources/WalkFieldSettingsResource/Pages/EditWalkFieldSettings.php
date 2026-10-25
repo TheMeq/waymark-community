@@ -3,8 +3,8 @@
 namespace App\Filament\Resources\WalkFieldSettingsResource\Pages;
 
 use App\Domain\Walks\Actions\UpdateWalkFieldSettings;
+use App\Filament\Pages\EditResourceRecord as EditRecord;
 use App\Filament\Resources\WalkFieldSettingsResource;
-use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 
 final class EditWalkFieldSettings extends EditRecord

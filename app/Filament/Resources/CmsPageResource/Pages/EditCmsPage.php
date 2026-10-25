@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources\CmsPageResource\Pages;
 
+use App\Filament\Pages\EditResourceRecord as EditRecord;
 use App\Filament\Resources\CmsPageResource;
 use Filament\Actions\DeleteAction;
-use Filament\Resources\Pages\EditRecord;
 
 final class EditCmsPage extends EditRecord
 {

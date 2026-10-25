@@ -3,9 +3,9 @@
 namespace App\Filament\Resources\TagResource\Pages;
 
 use App\Domain\Walks\Actions\CreateTag as CreateTagAction;
+use App\Filament\Pages\CreateResourceRecord as CreateRecord;
 use App\Filament\Resources\TagResource;
 use App\Models\User;
-use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 
 final class CreateTag extends CreateRecord

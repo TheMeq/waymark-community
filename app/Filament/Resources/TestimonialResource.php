@@ -4,13 +4,13 @@ namespace App\Filament\Resources;
 
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Content\Models\Testimonial;
+use App\Filament\Forms\ContentImageFields;
 use App\Filament\Resources\TestimonialResource\Pages\CreateTestimonial;
 use App\Filament\Resources\TestimonialResource\Pages\EditTestimonial;
 use App\Filament\Resources\TestimonialResource\Pages\ListTestimonials;
 use App\Models\User;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -30,7 +30,7 @@ final class TestimonialResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([Textarea::make('quote')->required()->maxLength(5000), TextInput::make('display_name')->required(), Select::make('image_media_id')->relationship('imageMedia', 'alt_text')->searchable()->preload(), TextInput::make('member_since'), Toggle::make('active')->default(true), Toggle::make('featured'), TextInput::make('sort_order')->numeric()->required()]);
+        return $schema->components([Textarea::make('quote')->required()->maxLength(5000), TextInput::make('display_name')->required(), ...ContentImageFields::components('Portrait'), TextInput::make('member_since'), Toggle::make('active')->default(true), Toggle::make('featured'), TextInput::make('sort_order')->numeric()->required()]);
     }
 
     public static function table(Table $table): Table

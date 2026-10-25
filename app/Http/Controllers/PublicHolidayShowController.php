@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Domain\Accounts\Queries\FavouriteablePublicEventsQuery;
 use App\Domain\Content\Presentation\PublicSeo;
 use App\Domain\Gallery\Queries\HolidayCommunityPhotos;
+use App\Domain\Holidays\Data\HolidayFeaturedImage;
 use App\Domain\Holidays\Queries\PublicHolidaysQuery;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
@@ -28,7 +29,7 @@ final class PublicHolidayShowController
             'favourite' => FavouriteControlViewModel::for($event, $request->user(), $favourites),
             'site' => ['name' => $siteProfile->group_name ?? 'Waymark Community', 'strapline' => 'A local walking community'],
             'theme' => BrandTheme::fromSiteProfile($siteProfile),
-            'seo' => app(PublicSeo::class)->event($event, $siteProfile),
+            'seo' => app(PublicSeo::class)->event($event, $siteProfile, HolidayFeaturedImage::forHoliday($event->holiday)?->url),
         ]);
     }
 }

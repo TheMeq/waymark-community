@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\NewsletterResource\Pages;
 
+use App\Filament\Pages\EditResourceRecord as EditRecord;
 use App\Filament\Resources\NewsletterResource;
-use Filament\Resources\Pages\EditRecord;
 
 final class EditNewsletter extends EditRecord
 {

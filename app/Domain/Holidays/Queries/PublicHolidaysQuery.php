@@ -21,7 +21,7 @@ final readonly class PublicHolidaysQuery
     public function published(): Builder
     {
         return Event::query()
-            ->with(['holiday', 'organiser'])
+            ->with(['holiday.featuredMedia', 'organiser'])
             ->where('type', EventType::Holiday)
             ->whereIn('status', [EventStatus::Published, EventStatus::Changed, EventStatus::Postponed, EventStatus::Cancelled, EventStatus::Completed])
             ->where('is_public', true)

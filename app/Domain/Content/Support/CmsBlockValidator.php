@@ -3,6 +3,7 @@
 namespace App\Domain\Content\Support;
 
 use App\Domain\Content\Models\NavigationItem;
+use App\Rules\PublicImageReferenceRule;
 use Illuminate\Support\Facades\Validator;
 
 final class CmsBlockValidator
@@ -23,6 +24,8 @@ final class CmsBlockValidator
             'blocks.*.body' => ['nullable', 'string', 'max:10000'],
             'blocks.*.quote' => ['nullable', 'string', 'max:5000'],
             'blocks.*.attribution' => ['nullable', 'string', 'max:255'],
+            'blocks.*.image_path' => ['nullable', 'string', 'max:2048', new PublicImageReferenceRule],
+            'blocks.*.image_alt_text' => ['nullable', 'string', 'max:2000'],
             'blocks.*.media_id' => ['nullable', 'integer', 'exists:site_media,id'],
             'blocks.*.media_ids' => ['nullable', 'array', 'max:6'],
             'blocks.*.media_ids.*' => ['integer', 'distinct', 'exists:site_media,id'],
@@ -45,7 +48,7 @@ final class CmsBlockValidator
                 $items = is_array($block['items'] ?? null) ? $block['items'] : [];
                 $required = match ($block['type']) {
                     'rich_text' => filled($block['content'] ?? null),
-                    'image_text' => isset($block['media_id']) && (filled($block['heading'] ?? null) || filled($block['body'] ?? null)),
+                    'image_text' => filled($block['heading'] ?? null) || filled($block['body'] ?? null),
                     'callout' => filled($block['heading'] ?? null) || filled($block['body'] ?? null),
                     'faq' => $items !== [] && collect($items)->every(fn ($item): bool => is_array($item) && filled($item['question'] ?? null) && filled($item['answer'] ?? null)),
                     'quote' => filled($block['quote'] ?? null),

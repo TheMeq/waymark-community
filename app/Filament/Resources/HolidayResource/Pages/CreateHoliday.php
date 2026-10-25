@@ -3,9 +3,9 @@
 namespace App\Filament\Resources\HolidayResource\Pages;
 
 use App\Domain\Holidays\Actions\CreateHoliday as CreateHolidayAction;
+use App\Filament\Pages\CreateResourceRecord as CreateRecord;
 use App\Filament\Resources\HolidayResource;
 use App\Models\User;
-use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 
 final class CreateHoliday extends CreateRecord
@@ -19,5 +19,10 @@ final class CreateHoliday extends CreateRecord
         $user = auth()->user();
 
         return app(CreateHolidayAction::class)->handle($user, $data);
+    }
+
+    protected function getCreatedNotificationTitle(): ?string
+    {
+        return 'Holiday draft created';
     }
 }

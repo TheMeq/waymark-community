@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources\CommitteeHubLinkResource\Pages;
 
+use App\Filament\Pages\EditResourceRecord as EditRecord;
 use App\Filament\Resources\CommitteeHubLinkResource;
 use Filament\Actions\DeleteAction;
-use Filament\Resources\Pages\EditRecord;
 
 final class EditCommitteeHubLink extends EditRecord
 {

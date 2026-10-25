@@ -3,9 +3,9 @@
 namespace App\Filament\Resources\GradeResource\Pages;
 
 use App\Domain\Walks\Actions\CreateGrade as CreateGradeAction;
+use App\Filament\Pages\CreateResourceRecord as CreateRecord;
 use App\Filament\Resources\GradeResource;
 use App\Models\User;
-use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 
 final class CreateGrade extends CreateRecord

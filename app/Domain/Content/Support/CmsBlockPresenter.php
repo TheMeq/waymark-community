@@ -2,7 +2,9 @@
 
 namespace App\Domain\Content\Support;
 
+use App\Domain\Content\Presentation\PublicImageReference;
 use App\Domain\Content\Presentation\PublicUrl;
+use App\Domain\SiteMedia\Data\SiteMediaPresentation;
 use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Domain\SiteMedia\SiteMediaPresenter;
 
@@ -28,6 +30,16 @@ final readonly class CmsBlockPresenter
             if (isset($block['media_id'])) {
                 $item = $media->get((int) $block['media_id']);
                 $block['media'] = $item instanceof SiteMedia ? $this->media->present($item) : null;
+            }
+            if ($block['type'] === 'image_text') {
+                $block['media'] ??= null;
+                if ($block['media'] !== null && filled($block['image_alt_text'] ?? null)) {
+                    $image = $block['media'];
+                    $block['media'] = new SiteMediaPresentation($image->id, $image->url, $block['image_alt_text'], $image->width, $image->height, $image->focalPointX, $image->focalPointY);
+                }
+                if ($block['media'] === null && ($url = PublicImageReference::resolve($block['image_path'] ?? null)) !== null) {
+                    $block['media'] = new SiteMediaPresentation(0, $url, $block['image_alt_text'] ?? '', 1, 1, 0.5, 0.5);
+                }
             }
             if ($block['type'] === 'gallery') {
                 $block['media'] = collect((array) ($block['media_ids'] ?? []))->map(function ($id) use ($media) {

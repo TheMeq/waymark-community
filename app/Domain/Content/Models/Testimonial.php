@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['quote', 'display_name', 'image_media_id', 'member_since', 'active', 'featured', 'sort_order'])]
+#[Fillable(['quote', 'display_name', 'image_media_id', 'image_path', 'image_alt_text', 'member_since', 'active', 'featured', 'sort_order'])]
 final class Testimonial extends Model
 {
     protected function casts(): array

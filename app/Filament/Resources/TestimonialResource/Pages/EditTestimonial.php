@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources\TestimonialResource\Pages;
 
+use App\Filament\Pages\EditResourceRecord as EditRecord;
 use App\Filament\Resources\TestimonialResource;
 use Filament\Actions\DeleteAction;
-use Filament\Resources\Pages\EditRecord;
 
 final class EditTestimonial extends EditRecord
 {

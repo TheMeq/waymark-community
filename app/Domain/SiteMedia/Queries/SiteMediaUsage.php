@@ -6,6 +6,7 @@ use App\Domain\Content\Models\CmsPage;
 use App\Domain\Content\Models\NewsArticle;
 use App\Domain\Content\Models\Testimonial;
 use App\Domain\Governance\Models\CommitteeRole;
+use App\Domain\Holidays\Models\Holiday;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Domain\Walks\Models\Walk;
@@ -41,6 +42,19 @@ final class SiteMediaUsage
 
         if (SiteProfile::query()->where('hero_media_id', $media->id)->exists()) {
             $labels[] = 'Site default hero';
+        }
+
+        if (Holiday::query()->where('featured_image_media_id', $media->id)->exists()) {
+            $labels[] = 'Holiday featured image';
+        }
+
+        foreach ([CmsPage::class => 'Page content block', NewsArticle::class => 'News content block'] as $model => $label) {
+            if ($model::withTrashed()->select(['id', 'blocks'])->where('blocks', 'like', '%'.$media->id.'%')->cursor()->contains(function ($owner) use ($media): bool {
+                return collect((array) $owner->blocks)->contains(fn (array $block): bool => (int) ($block['media_id'] ?? 0) === (int) $media->id
+                    || in_array((int) $media->id, array_map('intval', (array) ($block['media_ids'] ?? [])), true));
+            })) {
+                $labels[] = $label;
+            }
         }
 
         return $labels;

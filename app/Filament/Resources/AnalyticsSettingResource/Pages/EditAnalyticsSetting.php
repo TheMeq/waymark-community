@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\AnalyticsSettingResource\Pages;
 
+use App\Filament\Pages\EditResourceRecord as EditRecord;
 use App\Filament\Resources\AnalyticsSettingResource;
-use Filament\Resources\Pages\EditRecord;
 
 final class EditAnalyticsSetting extends EditRecord
 {

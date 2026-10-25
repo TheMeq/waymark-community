@@ -13,6 +13,9 @@
         @endif
         <article class="mx-auto max-w-4xl">
             <h1 class="wm-heading-xl">{{ $page->title }}</h1>
+            @if ($heroImage ?? null)
+                <img class="mt-8 aspect-[16/9] w-full rounded-xl object-cover" src="{{ $heroImage->url }}" alt="{{ $heroImage->alt }}">
+            @endif
             <x-content.blocks class="mt-10" :blocks="$blocks" />
         </article>
     </div>

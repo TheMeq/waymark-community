@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['title', 'slug', 'summary', 'blocks', 'featured_media_id', 'author_id', 'primary_category', 'tags', 'publication_state', 'publish_at', 'expires_at', 'featured_on_homepage', 'share_title', 'share_description'])]
+#[Fillable(['title', 'slug', 'summary', 'blocks', 'featured_media_id', 'featured_image_path', 'featured_image_alt_text', 'author_id', 'primary_category', 'tags', 'publication_state', 'publish_at', 'expires_at', 'featured_on_homepage', 'share_title', 'share_description'])]
 final class NewsArticle extends Model
 {
     use SoftDeletes;

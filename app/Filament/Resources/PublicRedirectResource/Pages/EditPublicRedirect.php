@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources\PublicRedirectResource\Pages;
 
+use App\Filament\Pages\EditResourceRecord as EditRecord;
 use App\Filament\Resources\PublicRedirectResource;
 use Filament\Actions\DeleteAction;
-use Filament\Resources\Pages\EditRecord;
 
 final class EditPublicRedirect extends EditRecord
 {

@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources\TagResource\Pages;
 
+use App\Filament\Pages\EditResourceRecord as EditRecord;
 use App\Filament\Resources\TagResource;
 use Filament\Actions\DeleteAction;
-use Filament\Resources\Pages\EditRecord;
 
 final class EditTag extends EditRecord
 {

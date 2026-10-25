@@ -31,13 +31,13 @@ final class PublicBranding
     {
         $logoMedia = $profile->relationLoaded('logoMedia')
             ? $profile->getRelation('logoMedia')
-            : $profile->logoMedia()->first();
+            : ($profile->logo_media_id === null ? null : $profile->logoMedia()->first());
         $faviconMedia = $profile->relationLoaded('faviconMedia')
             ? $profile->getRelation('faviconMedia')
-            : $profile->faviconMedia()->first();
+            : ($profile->favicon_media_id === null ? null : $profile->faviconMedia()->first());
         $heroMedia = $profile->relationLoaded('heroMedia')
             ? $profile->getRelation('heroMedia')
-            : $profile->heroMedia()->first();
+            : ($profile->hero_media_id === null ? null : $profile->heroMedia()->first());
         $managedHero = $heroMedia?->purpose === SiteMediaPurpose::SiteHero
             ? $this->mediaPresenter->present($heroMedia, 'large')
             : null;

@@ -5,6 +5,7 @@ namespace App\Domain\SiteMedia\Enums;
 enum SiteMediaPurpose: string
 {
     case Library = 'library';
+    case ContentImage = 'content_image';
     case WalkFeaturedImage = 'walk_featured_image';
     case SiteLogo = 'site_logo';
     case SiteFavicon = 'site_favicon';
@@ -14,7 +15,7 @@ enum SiteMediaPurpose: string
     {
         return match ($this) {
             self::Library => null,
-            self::WalkFeaturedImage => false,
+            self::WalkFeaturedImage, self::ContentImage => false,
             self::SiteLogo, self::SiteFavicon, self::SiteHero => true,
         };
     }

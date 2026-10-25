@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\PublicRedirectResource\Pages;
 
+use App\Filament\Pages\CreateResourceRecord as CreateRecord;
 use App\Filament\Resources\PublicRedirectResource;
-use Filament\Resources\Pages\CreateRecord;
 
 final class CreatePublicRedirect extends CreateRecord
 {

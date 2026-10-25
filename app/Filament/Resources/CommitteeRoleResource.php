@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Governance\Models\CommitteeRole;
+use App\Filament\Forms\ContentImageFields;
 use App\Filament\Resources\CommitteeRoleResource\Pages\CreateCommitteeRole;
 use App\Filament\Resources\CommitteeRoleResource\Pages\EditCommitteeRole;
 use App\Filament\Resources\CommitteeRoleResource\Pages\ListCommitteeRoles;
@@ -33,7 +34,7 @@ final class CommitteeRoleResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([TextInput::make('title')->required(), Select::make('person_id')->relationship('person', 'name')->searchable()->preload(), TextInput::make('public_name'), TextInput::make('sort_order')->numeric()->required(), DatePicker::make('start_date'), DatePicker::make('end_date'), Toggle::make('active')->default(true), Toggle::make('publicly_visible')->default(true), Select::make('public_photo_media_id')->relationship('publicPhotoMedia', 'alt_text')->searchable()->preload(), Textarea::make('public_details'), TextInput::make('private_email')->email(), TextInput::make('private_phone'), Textarea::make('private_notes')]);
+        return $schema->components([TextInput::make('title')->required(), Select::make('person_id')->relationship('person', 'name')->searchable()->preload(), TextInput::make('public_name'), TextInput::make('sort_order')->numeric()->required(), DatePicker::make('start_date'), DatePicker::make('end_date'), Toggle::make('active')->default(true), Toggle::make('publicly_visible')->default(true), ...ContentImageFields::components('Public photo'), Textarea::make('public_details'), TextInput::make('private_email')->email(), TextInput::make('private_phone'), Textarea::make('private_notes')]);
     }
 
     public static function table(Table $table): Table

@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\EmailTemplateResource\Pages;
 
+use App\Filament\Pages\EditResourceRecord as EditRecord;
 use App\Filament\Resources\EmailTemplateResource;
-use Filament\Resources\Pages\EditRecord;
 
 final class EditEmailTemplate extends EditRecord
 {

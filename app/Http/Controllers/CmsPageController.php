@@ -10,6 +10,8 @@ use App\Domain\Content\Queries\PublicCmsPages;
 use App\Domain\Content\Support\CmsBlockPresenter;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
+use App\Domain\SiteMedia\ContentImagePresenter;
+use App\Domain\SiteMedia\Enums\ContentImageSlot;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -45,6 +47,7 @@ final class CmsPageController extends Controller
 
         return view('pages.show', [
             'page' => $page,
+            'heroImage' => app(ContentImagePresenter::class)->present($page, ContentImageSlot::Page),
             'blocks' => app(CmsBlockPresenter::class)->present($page->blocks),
             'notice' => $notice,
             'site' => ['name' => $profile->group_name ?? 'Waymark Community', 'strapline' => 'A local walking community'],
