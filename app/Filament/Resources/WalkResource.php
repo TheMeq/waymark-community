@@ -16,6 +16,7 @@ use App\Filament\Actions\DuplicateWalkAction;
 use App\Filament\Resources\WalkResource\Pages\CreateWalk;
 use App\Filament\Resources\WalkResource\Pages\EditWalk;
 use App\Filament\Resources\WalkResource\Pages\ListWalks;
+use App\Filament\Resources\WalkResource\Support\WalkEstimatedDuration;
 use App\Filament\Resources\WalkResource\Support\WalkFeaturedImageFields;
 use App\Models\User;
 use Filament\Actions\Action;
@@ -29,6 +30,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -97,8 +100,10 @@ final class WalkResource extends Resource
         return [
             TextInput::make('title')->required()->maxLength(255)->columnSpanFull(),
             TextInput::make('slug')->required()->maxLength(255),
-            DateTimePicker::make('starts_at')->required(),
-            DateTimePicker::make('ends_at'),
+            DateTimePicker::make('starts_at')->required()->live(onBlur: true)
+                ->afterStateUpdated(fn (Get $get, Set $set, mixed $old) => WalkEstimatedDuration::fill($get, $set, 'starts_at', $old)),
+            DateTimePicker::make('ends_at')->live(onBlur: true)
+                ->afterStateUpdated(fn (Get $get, Set $set, mixed $old) => WalkEstimatedDuration::fill($get, $set, 'ends_at', $old)),
             Textarea::make('summary')->maxLength(65535)->columnSpanFull(),
             Textarea::make('description')->maxLength(65535)->columnSpanFull(),
             Select::make('primary_leader_id')
@@ -118,7 +123,8 @@ final class WalkResource extends Resource
             $tags,
             TextInput::make('distance')->numeric()->minValue(0.01)->maxValue(999999.99),
             TextInput::make('ascent')->numeric()->minValue(0)->maxValue(999999.99),
-            TextInput::make('estimated_duration_minutes')->integer()->minValue(1)->maxValue(65535),
+            TextInput::make('estimated_duration_minutes')->integer()->minValue(1)->maxValue(65535)
+                ->afterStateHydrated(fn (Get $get, Set $set) => WalkEstimatedDuration::fill($get, $set)),
             TextInput::make('capacity')->integer()->minValue(0)->maxValue(65535),
             TextInput::make('availability')->maxLength(255),
             Textarea::make('terrain_notes')->maxLength(5000)->visible(fn (): bool => self::optionalFieldEnabled('terrain_notes')),

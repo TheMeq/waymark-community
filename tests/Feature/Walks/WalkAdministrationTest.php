@@ -30,6 +30,56 @@ final class WalkAdministrationTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_walk_duration_prefills_and_tracks_same_day_times_without_overwriting_a_manual_estimate(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+        Livewire::actingAs($administrator)->test(CreateWalk::class)
+            ->set('data.starts_at', '2026-11-01 10:00:00')
+            ->set('data.ends_at', '2026-11-01 13:30:00')
+            ->assertSet('data.estimated_duration_minutes', 210)
+            ->set('data.ends_at', '2026-11-01 14:00:00')
+            ->assertSet('data.estimated_duration_minutes', 240)
+            ->set('data.estimated_duration_minutes', 180)
+            ->set('data.ends_at', '2026-11-01 15:00:00')
+            ->assertSet('data.estimated_duration_minutes', 180);
+    }
+
+    public function test_walk_duration_stays_blank_for_missing_invalid_or_multi_day_times(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+        Livewire::actingAs($administrator)->test(CreateWalk::class)
+            ->set('data.starts_at', '2026-11-01 10:00:00')
+            ->assertSet('data.estimated_duration_minutes', null)
+            ->set('data.ends_at', '2026-11-01 09:00:00')
+            ->assertSet('data.estimated_duration_minutes', null)
+            ->set('data.ends_at', '2026-11-01 12:00:00')
+            ->assertSet('data.estimated_duration_minutes', 120)
+            ->set('data.ends_at', '2026-11-03 12:00:00')
+            ->assertSet('data.estimated_duration_minutes', null)
+            ->set('data.ends_at', '2026-11-01 12:00:00')
+            ->assertSet('data.estimated_duration_minutes', 120)
+            ->set('data.ends_at', null)
+            ->assertSet('data.estimated_duration_minutes', null);
+    }
+
+    public function test_edit_walk_prefills_a_missing_duration_and_preserves_saved_estimates(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        $event = Event::factory()->for($leader, 'organiser')->create([
+            'starts_at' => '2026-11-01 10:00:00', 'ends_at' => '2026-11-01 13:00:00',
+        ]);
+        $walk = Walk::query()->create(['event_id' => $event->id, 'primary_leader_id' => $leader->id]);
+        Livewire::actingAs($leader)->test(EditWalk::class, ['record' => $walk->id])
+            ->assertSet('data.estimated_duration_minutes', 180)
+            ->call('save')->assertHasNoFormErrors();
+        $this->assertSame(180, $walk->fresh()->estimated_duration_minutes);
+        $walk->update(['estimated_duration_minutes' => 150]);
+        Livewire::test(EditWalk::class, ['record' => $walk->id])->assertSet('data.estimated_duration_minutes', 150);
+        $walk->update(['estimated_duration_minutes' => null]);
+        $event->update(['ends_at' => '2026-11-03 13:00:00']);
+        Livewire::test(EditWalk::class, ['record' => $walk->id])->assertSet('data.estimated_duration_minutes', null);
+    }
+
     public function test_walk_capable_user_can_edit_a_walk_they_organise_even_when_another_user_is_the_primary_leader(): void
     {
         $organiser = User::factory()->create(['can_manage_walks' => true]);
