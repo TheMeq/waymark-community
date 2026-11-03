@@ -5,6 +5,7 @@ namespace App\Domain\Content\Presentation;
 use App\Domain\Content\Data\SeoMetadata;
 use App\Domain\Content\Models\CmsPage;
 use App\Domain\Content\Models\NewsArticle;
+use App\Domain\Content\Queries\PublicBranding;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
@@ -14,21 +15,25 @@ use Illuminate\Support\Str;
 
 final class PublicSeo
 {
+    public function __construct(private readonly PublicBranding $branding) {}
+
     public function home(SiteProfile $profile): SeoMetadata
     {
         $name = $this->siteName($profile);
+        $branding = $this->branding->forProfile($profile);
+        $logo = $this->absolute($branding['logo_url'] ?? null);
 
         return new SeoMetadata(
             title: $name,
             description: 'Walks, weekends away and a welcoming local community.',
             canonical: route('home'),
-            image: $this->absolute($profile->hero_default_path),
+            image: $this->absolute($branding['hero_url'] ?? null),
             structuredData: [[
                 '@context' => 'https://schema.org',
                 '@type' => 'Organization',
                 'name' => $name,
                 'url' => route('home'),
-                ...($this->absolute($profile->logo_path) === null ? [] : ['logo' => $this->absolute($profile->logo_path)]),
+                ...($logo === null ? [] : ['logo' => $logo]),
             ]],
         );
     }
@@ -68,7 +73,7 @@ final class PublicSeo
         );
     }
 
-    public function event(Event $event, SiteProfile $profile, ?string $image = null): SeoMetadata
+    public function event(Event $event, SiteProfile $profile, ?string $resolvedImageUrl = null): SeoMetadata
     {
         $canonical = match ($event->type) {
             EventType::Walk => route('walks.show', $event->slug),
@@ -82,7 +87,7 @@ final class PublicSeo
             title: $event->title,
             description: $description,
             canonical: $canonical,
-            image: $image,
+            image: $resolvedImageUrl,
             structuredData: [[
                 '@context' => 'https://schema.org',
                 '@type' => 'Event',
@@ -95,7 +100,7 @@ final class PublicSeo
                 'eventAttendanceMode' => 'https://schema.org/OfflineEventAttendanceMode',
                 'organizer' => ['@type' => 'Organization', 'name' => $this->siteName($profile), 'url' => route('home')],
                 ...($location === null ? [] : ['location' => ['@type' => 'Place', 'name' => $location]]),
-                ...($image === null ? [] : ['image' => [$image]]),
+                ...($resolvedImageUrl === null ? [] : ['image' => [$resolvedImageUrl]]),
             ]],
         );
     }

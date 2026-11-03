@@ -26,9 +26,12 @@ final readonly class IngestCommunityPhoto
         private ImageMetadataReader $metadataReader,
     ) {}
 
-    public function handle(UploadedFile $upload, ?string $reservedDirectory = null): ProcessedCommunityPhoto
-    {
-        $configuration = ImageProcessingConfiguration::from((array) config('gallery.processing', []), $this->transformer);
+    public function handle(
+        UploadedFile $upload,
+        ?string $reservedDirectory = null,
+        ?ImageProcessingConfiguration $configuration = null,
+    ): ProcessedCommunityPhoto {
+        $configuration ??= ImageProcessingConfiguration::from((array) config('gallery.processing', []), $this->transformer);
         [$path, $decodedMimeType, $width, $height] = $this->inspect($upload, $configuration);
 
         if (! $this->transformer->supportsInput($decodedMimeType)) {
@@ -38,6 +41,7 @@ final readonly class IngestCommunityPhoto
         $metadata = $this->metadataReader->read($path, $decodedMimeType);
         $orientation = $metadata->orientation >= 1 && $metadata->orientation <= 8 ? $metadata->orientation : 1;
         [$width, $height] = $this->normalisedDimensions($width, $height, $orientation);
+        $this->ensureGeometry($width, $height, $configuration);
         $this->ensureMemoryBudget($width, $height, $orientation, $configuration);
 
         try {
@@ -49,7 +53,6 @@ final readonly class IngestCommunityPhoto
         try {
             $diskName = (string) config('gallery.photos.disk', 'local');
             $directory = $reservedDirectory ?? trim((string) config('gallery.photos.directory', 'community-photos'), '/').'/'.Str::uuid()->toString();
-            $this->assertOutputReference($diskName, $directory.'/master.jpg');
             $disk = Storage::disk($diskName);
 
             try {
@@ -160,6 +163,19 @@ final readonly class IngestCommunityPhoto
         return [$path, $decodedMimeType, $width, $height];
     }
 
+    private function ensureGeometry(int $width, int $height, ImageProcessingConfiguration $configuration): void
+    {
+        if ($width < $configuration->minimumWidth || $height < $configuration->minimumHeight) {
+            throw ValidationException::withMessages([
+                'photo' => "The uploaded photo must be at least {$configuration->minimumWidth} by {$configuration->minimumHeight} pixels.",
+            ]);
+        }
+
+        if ($configuration->requiresSquare && $width !== $height) {
+            throw ValidationException::withMessages(['photo' => 'The uploaded photo must be square.']);
+        }
+    }
+
     private function ensureMemoryBudget(int $width, int $height, int $orientation, ImageProcessingConfiguration $configuration): void
     {
         $largestTargetPixels = 0;
@@ -195,6 +211,11 @@ final readonly class IngestCommunityPhoto
         string $mimeType,
     ): ProcessedPhotoVariant {
         $raster = $this->transformer->transform($source, $definition, $mimeType);
+
+        if ($raster->mimeType !== $mimeType) {
+            throw new RuntimeException('Image processing returned an unexpected raster codec.');
+        }
+
         $path = $directory.'/'.$definition->name.'.'.$this->extensionFor($raster->mimeType);
         $this->assertOutputReference($diskName, $path);
 

@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\CommitteeHubLinkResource\Pages;
 
+use App\Filament\Pages\CreateResourceRecord as CreateRecord;
 use App\Filament\Resources\CommitteeHubLinkResource;
-use Filament\Resources\Pages\CreateRecord;
 
 final class CreateCommitteeHubLink extends CreateRecord
 {

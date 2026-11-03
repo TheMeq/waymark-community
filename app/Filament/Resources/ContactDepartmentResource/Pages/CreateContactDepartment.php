@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\ContactDepartmentResource\Pages;
 
+use App\Filament\Pages\CreateResourceRecord as CreateRecord;
 use App\Filament\Resources\ContactDepartmentResource;
-use Filament\Resources\Pages\CreateRecord;
 
 final class CreateContactDepartment extends CreateRecord
 {

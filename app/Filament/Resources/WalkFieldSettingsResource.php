@@ -17,9 +17,11 @@ final class WalkFieldSettingsResource extends Resource
 {
     protected static ?string $model = WalkFieldSettings::class;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Configuration';
+    protected static string|\UnitEnum|null $navigationGroup = 'Group settings';
 
     protected static ?string $navigationLabel = 'Walk fields';
+
+    protected static ?int $navigationSort = 40;
 
     public static function form(Schema $schema): Schema
     {

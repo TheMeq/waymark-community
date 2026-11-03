@@ -33,6 +33,22 @@ final class PublicHolidayPagesTest extends TestCase
             ->assertDontSee('Draft trip');
     }
 
+    public function test_holiday_card_labels_describe_duration_and_total_capacity(): void
+    {
+        $this->publishedHoliday('Castle weekend', '+2 weeks', [], ['capacity' => 13]);
+
+        $this->get('/weekends')->assertOk()
+            ->assertSeeInOrder(['3 nights', 'Duration', '13', 'Capacity'])
+            ->assertDontSee('Difficulty');
+    }
+
+    public function test_single_night_holiday_card_uses_singular_duration(): void
+    {
+        $this->publishedHoliday('Overnight stay', '+2 weeks', ['ends_at' => now()->addWeeks(2)->addDay()]);
+
+        $this->get('/weekends')->assertOk()->assertSee('1 night')->assertDontSee('1 nights')->assertSee('Duration');
+    }
+
     public function test_running_multi_day_holiday_remains_listed_until_its_end(): void
     {
         $this->travelTo('2026-10-04 12:00:00');

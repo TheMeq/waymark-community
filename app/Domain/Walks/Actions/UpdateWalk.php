@@ -70,7 +70,6 @@ final readonly class UpdateWalk
                 'kit_checklist',
                 'kit_notes',
                 'availability',
-                'featured_image_path',
                 'attachments',
                 'private_organiser_notes',
                 'recap',

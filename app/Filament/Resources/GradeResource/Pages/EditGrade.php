@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources\GradeResource\Pages;
 
+use App\Filament\Pages\EditResourceRecord as EditRecord;
 use App\Filament\Resources\GradeResource;
 use Filament\Actions\DeleteAction;
-use Filament\Resources\Pages\EditRecord;
 
 final class EditGrade extends EditRecord
 {

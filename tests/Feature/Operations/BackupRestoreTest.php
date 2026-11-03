@@ -2,14 +2,24 @@
 
 namespace Tests\Feature\Operations;
 
+use App\Domain\Events\Enums\EventStatus;
+use App\Domain\Events\Enums\EventType;
+use App\Domain\Events\Models\Event;
 use App\Domain\Operations\Backups\Actions\CreateBackup;
 use App\Domain\Operations\Backups\Actions\RestoreBackup;
 use App\Domain\Operations\Backups\Contracts\RestoreHealthProbe;
 use App\Domain\Operations\Installation\InstallationState;
 use App\Domain\Operations\Maintenance\MaintenanceManager;
 use App\Domain\Operations\Models\SiteProfile;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
+use App\Domain\SiteMedia\Models\SiteMedia;
+use App\Domain\SiteMedia\SiteMediaPresenter;
+use App\Domain\Walks\Models\Walk;
+use App\Models\User;
+use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\TestCase;
@@ -17,7 +27,7 @@ use ZipArchive;
 
 final class BackupRestoreTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseMigrations;
 
     private string $environmentPath;
 
@@ -70,6 +80,125 @@ final class BackupRestoreTest extends TestCase
         $this->assertStringContainsString('DB_HOST=target-db', $restoredEnvironment);
         $this->assertStringContainsString('FILESYSTEM_DISK=local', $restoredEnvironment);
         $this->assertFalse(app(MaintenanceManager::class)->active());
+    }
+
+    public function test_managed_site_and_walk_media_are_restored_with_owners_fallbacks_and_private_variants(): void
+    {
+        $creator = User::factory()->create();
+        [$walkMedia, $walkFiles] = $this->managedMedia($creator, SiteMediaPurpose::WalkFeaturedImage, 'image/jpeg', 'Walk media description');
+        [$logoMedia, $logoFiles] = $this->managedMedia($creator, SiteMediaPurpose::SiteLogo, 'image/png');
+        [$faviconMedia, $faviconFiles] = $this->managedMedia($creator, SiteMediaPurpose::SiteFavicon, 'image/png');
+        $allMediaFiles = [...$walkFiles, ...$logoFiles, ...$faviconFiles];
+
+        $event = Event::factory()->create([
+            'type' => EventType::Walk,
+            'title' => 'Restored ridge walk',
+            'slug' => 'restored-ridge-walk',
+            'starts_at' => now()->addWeek(),
+            'ends_at' => now()->addWeek()->addHours(4),
+            'status' => EventStatus::Published,
+            'is_public' => true,
+            'published_at' => now()->subMinute(),
+            'organiser_id' => $creator->id,
+        ]);
+        $walk = Walk::query()->create([
+            'event_id' => $event->id,
+            'primary_leader_id' => $creator->id,
+            'featured_image_media_id' => $walkMedia->id,
+            'featured_image_alt_text' => 'Walkers crossing the restored ridge',
+            'featured_image_path' => 'https://images.example.org/walk-fallback.jpg',
+        ]);
+        $profile = SiteProfile::query()->create([
+            'group_name' => 'Restored Walking Group',
+            'logo_media_id' => $logoMedia->id,
+            'logo_path' => 'https://images.example.org/logo-fallback.png',
+            'favicon_media_id' => $faviconMedia->id,
+            'favicon_path' => 'https://images.example.org/favicon-fallback.png',
+        ]);
+        Storage::disk('local')->put('backups/excluded-from-waymark-backup.zip', 'not a backup component');
+
+        $backup = app(CreateBackup::class)->handle('manual');
+        $archivePath = Storage::disk('backups')->path($backup->storage_path);
+        $archive = new ZipArchive;
+        $this->assertTrue($archive->open($archivePath));
+        $manifest = json_decode((string) $archive->getFromName('manifest.json'), true, flags: JSON_THROW_ON_ERROR);
+        $archive->close();
+        $manifestComponents = collect($manifest['components'])->keyBy('path');
+        foreach ($allMediaFiles as $path => $contents) {
+            $component = $manifestComponents->get('private/'.$path);
+            $this->assertIsArray($component);
+            $this->assertSame(hash('sha256', $contents), $component['sha256']);
+        }
+        $this->assertFalse($manifestComponents->has('private/backups/excluded-from-waymark-backup.zip'));
+
+        $walk->forceFill([
+            'featured_image_media_id' => null,
+            'featured_image_alt_text' => 'Changed description',
+            'featured_image_path' => null,
+        ])->save();
+        $profile->forceFill([
+            'logo_media_id' => null,
+            'logo_path' => null,
+            'favicon_media_id' => null,
+            'favicon_path' => null,
+        ])->save();
+        SiteMedia::query()->delete();
+        Storage::disk('local')->delete(Storage::disk('local')->allFiles());
+        Storage::disk('local')->put('site-media/unrestored/private-file.png', 'remove during restore');
+
+        $safety = app(CreateBackup::class)->handle('pre-restore');
+        app(RestoreBackup::class)->fromRunWithSafetyBackup($backup, $safety, 'RESTORE WAYMARK');
+
+        $restoredWalk = Walk::query()->findOrFail($walk->id);
+        $restoredProfile = SiteProfile::query()->findOrFail($profile->id);
+        $restoredMedia = SiteMedia::query()->whereIn('id', [$walkMedia->id, $logoMedia->id, $faviconMedia->id])->get()->keyBy('id');
+
+        $this->assertSame($walkMedia->id, $restoredWalk->featured_image_media_id);
+        $this->assertSame('Walkers crossing the restored ridge', $restoredWalk->featured_image_alt_text);
+        $this->assertSame('https://images.example.org/walk-fallback.jpg', $restoredWalk->featured_image_path);
+        $this->assertSame($logoMedia->id, $restoredProfile->logo_media_id);
+        $this->assertSame('https://images.example.org/logo-fallback.png', $restoredProfile->logo_path);
+        $this->assertSame($faviconMedia->id, $restoredProfile->favicon_media_id);
+        $this->assertSame('https://images.example.org/favicon-fallback.png', $restoredProfile->favicon_path);
+        $this->assertSame(SiteMediaPurpose::WalkFeaturedImage, $restoredMedia[$walkMedia->id]->purpose);
+        $this->assertSame(SiteMediaPurpose::SiteLogo, $restoredMedia[$logoMedia->id]->purpose);
+        $this->assertSame(SiteMediaPurpose::SiteFavicon, $restoredMedia[$faviconMedia->id]->purpose);
+        $this->assertNull($restoredMedia[$walkMedia->id]->orphaned_at);
+        $this->assertNull($restoredMedia[$logoMedia->id]->orphaned_at);
+        $this->assertNull($restoredMedia[$faviconMedia->id]->orphaned_at);
+        foreach (array_keys($allMediaFiles) as $path) {
+            Storage::disk('local')->assertExists($path);
+        }
+        Storage::disk('local')->assertMissing('site-media/unrestored/private-file.png');
+
+        Cache::flush();
+        $walkUrl = route('site-media.stream', [$walkMedia->id, 'large']);
+        $logoUrl = route('site-media.stream', [$logoMedia->id, 'medium']);
+        $faviconUrl = route('site-media.stream', [$faviconMedia->id, 'favicon']);
+        $this->get('/walks/restored-ridge-walk')
+            ->assertOk()
+            ->assertSee($walkUrl, false)
+            ->assertDontSee($walkMedia->storage_key);
+        $this->get('/')
+            ->assertOk()
+            ->assertSee($logoUrl, false)
+            ->assertSee($faviconUrl, false)
+            ->assertDontSee($logoMedia->storage_key)
+            ->assertDontSee($faviconMedia->storage_key);
+        $this->get($walkUrl)->assertOk()->assertHeader('Content-Type', 'image/jpeg');
+        $this->get($logoUrl)->assertOk()->assertHeader('Content-Type', 'image/png');
+        $this->get($faviconUrl)->assertOk()->assertHeader('Content-Type', 'image/png');
+
+        $restoredFavicon = SiteMedia::query()->findOrFail($faviconMedia->id);
+        Storage::disk('local')->delete($restoredFavicon->processed_variants['favicon']);
+        $this->assertNull(app(SiteMediaPresenter::class)->present($restoredFavicon, 'favicon'));
+        $this->get($faviconUrl)->assertNotFound();
+        Cache::flush();
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('https://images.example.org/favicon-fallback.png', false)
+            ->assertDontSee($faviconMedia->storage_key)
+            ->assertDontSee('storage/app/private');
     }
 
     public function test_restore_refuses_inexact_destructive_confirmation(): void
@@ -151,5 +280,42 @@ final class BackupRestoreTest extends TestCase
         $this->assertSame('Current Safe State', SiteProfile::query()->sole()->group_name);
         Storage::disk('local')->assertExists('documents/current.pdf');
         $this->assertTrue(app(MaintenanceManager::class)->active());
+    }
+
+    /** @return array{SiteMedia, array<string, string>} */
+    private function managedMedia(User $creator, SiteMediaPurpose $purpose, string $mimeType, ?string $alt = null): array
+    {
+        $storageKey = (string) Str::uuid();
+        $extension = $mimeType === 'image/png' ? 'png' : 'jpg';
+        $variantNames = $purpose === SiteMediaPurpose::SiteFavicon
+            ? ['favicon']
+            : ['master', 'large', 'medium', 'thumbnail'];
+        $files = [];
+        foreach ($variantNames as $variant) {
+            $path = "site-media/{$storageKey}/{$variant}.{$extension}";
+            $files[$path] = $purpose->value.'-'.$variant.'-bytes';
+            Storage::disk('local')->put($path, $files[$path]);
+        }
+
+        $media = SiteMedia::query()->create([
+            'created_by_user_id' => $creator->id,
+            'storage_key' => $storageKey,
+            'storage_disk' => 'local',
+            'processed_variants' => array_combine($variantNames, array_keys($files)),
+            'mime_type' => $mimeType,
+            'width' => 512,
+            'height' => $purpose === SiteMediaPurpose::SiteFavicon ? 512 : 320,
+            'file_size_bytes' => array_sum(array_map('strlen', $files)),
+            'alt_text' => $alt,
+            'is_decorative' => $purpose !== SiteMediaPurpose::WalkFeaturedImage,
+            'focal_point_x' => 0.5,
+            'focal_point_y' => 0.5,
+            'processing_status' => 'complete',
+            'health_status' => 'healthy',
+            'purpose' => $purpose,
+            'orphaned_at' => null,
+        ]);
+
+        return [$media, $files];
     }
 }

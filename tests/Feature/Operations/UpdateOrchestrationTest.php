@@ -14,6 +14,7 @@ use App\Domain\Operations\Updates\AppliedUpdate;
 use App\Domain\Operations\Updates\Contracts\ReleasePackageDownloader;
 use App\Domain\Operations\Updates\Contracts\UpdateEnvironmentProbe;
 use App\Domain\Operations\Updates\Contracts\UpdateRuntime;
+use App\Domain\Operations\Updates\NativeReleasePackageDownloader;
 use App\Domain\Operations\Updates\PendingUpdateRollback;
 use App\Domain\Operations\Updates\UpdateEnvironment;
 use App\Domain\Operations\Updates\UpdateRuntimeBoundary;
@@ -150,6 +151,23 @@ final class UpdateOrchestrationTest extends TestCase
         $this->assertDirectoryExists($state['operation_directory']);
         $this->assertDirectoryExists($state['rollback_directory']);
         $this->assertSame(BackupRun::query()->where('trigger', 'pre-update')->sole()->id, $state['backup_id']);
+    }
+
+    public function test_redirected_downloaded_bytes_are_still_verified_before_update_staging(): void
+    {
+        $this->app->bind(ReleasePackageDownloader::class, NativeReleasePackageDownloader::class);
+        Http::fake([
+            'https://updates.example.test/stable.json' => Http::response($this->signedFeed(), 200),
+            'https://updates.example.test/release.zip' => Http::response('', 302, ['Location' => 'https://assets.example.test/release.zip']),
+            'https://assets.example.test/release.zip' => Http::response(file_get_contents($this->packagePath), 200),
+        ]);
+
+        $result = app(ApplyUpdate::class)->handle('UPDATE WAYMARK');
+
+        $this->assertSame('1.2.0', $result->version);
+        $state = app(UpdateStateStore::class)->read();
+        $this->assertSame('waiting_for_safety_backup', $state['status']);
+        $this->assertSame('new-marker', file_get_contents($state['release_directory'].DIRECTORY_SEPARATOR.'application'.DIRECTORY_SEPARATOR.'app-marker.txt'));
     }
 
     public function test_http_update_transition_keeps_activation_authority_out_of_urls(): void

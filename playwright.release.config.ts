@@ -33,6 +33,7 @@ export default defineConfig({
             SESSION_DRIVER: 'file',
             QUEUE_CONNECTION: 'sync',
             MAIL_MAILER: 'log',
+            WAYMARK_MAIL_CONFIGURED: 'true',
             WAYMARK_TEST_NOW: '2026-08-20 12:00:00',
         },
         url: 'http://127.0.0.1:8050',

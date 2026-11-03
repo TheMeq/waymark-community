@@ -6,13 +6,20 @@ use App\Domain\Events\Actions\ChangeEventStatus;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
+use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
+use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Domain\Walks\Actions\SaveWalkDetails;
 use App\Domain\Walks\Actions\UpdateWalkFieldSettings;
 use App\Domain\Walks\Models\Grade;
 use App\Domain\Walks\Models\Tag;
+use App\Domain\Walks\Queries\PublicWalksQuery;
+use App\Domain\Walks\RelatedContent\RelatedWalks;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 final class PublicWalkPagesTest extends TestCase
@@ -35,7 +42,7 @@ final class PublicWalkPagesTest extends TestCase
             ->assertDontSee('Social event');
     }
 
-    public function test_completed_public_walk_remains_available_to_detail_and_gpx_download_but_not_upcoming_surfaces(): void
+    public function test_completed_public_walk_remains_in_listing_and_detail_but_not_homepage(): void
     {
         Storage::fake('local');
         config()->set('walks.gpx.disk', 'local');
@@ -48,7 +55,7 @@ final class PublicWalkPagesTest extends TestCase
 
         $this->get('/walks')
             ->assertOk()
-            ->assertDontSee('Completed route');
+            ->assertSee('Completed route');
         $this->get('/')->assertDontSee('Completed route');
         $this->get('/walks/'.$event->slug)
             ->assertOk()
@@ -57,11 +64,11 @@ final class PublicWalkPagesTest extends TestCase
         $this->get('/walks/'.$event->slug.'/route.gpx')->assertOk();
     }
 
-    public function test_future_dated_walk_marked_completed_by_override_is_not_in_upcoming_list_or_homepage(): void
+    public function test_future_dated_completed_override_is_listed_but_not_promoted_on_homepage(): void
     {
         $event = $this->publishedWalk('Override-completed route', '+2 weeks', ['completion_override' => true]);
 
-        $this->get('/walks')->assertDontSee($event->title);
+        $this->get('/walks')->assertSee($event->title);
         $this->get('/')->assertDontSee($event->title);
         $this->get('/walks/'.$event->slug)->assertOk();
     }
@@ -201,12 +208,21 @@ final class PublicWalkPagesTest extends TestCase
             'co_leader_ids' => [$coLeader->id],
         ]);
 
+        $queries = [];
+        DB::listen(function ($query) use (&$queries): void {
+            $queries[] = str_replace(['"', '`'], '', strtolower($query->sql));
+        });
+
         $response = $this->get('/walks')->assertOk();
 
         $this->assertMatchesRegularExpression(
             '/<option value="'.$coLeader->id.'"[^>]*>Co-leader O\.<\/option>/',
             $response->getContent(),
         );
+        $eventQueries = collect($queries)->filter(
+            fn (string $sql): bool => preg_match('/^select (?:count\(\*\) as aggregate|\*) from events/', $sql) === 1,
+        );
+        $this->assertCount(2, $eventQueries, $eventQueries->implode("\n"));
     }
 
     public function test_leader_filter_does_not_duplicate_a_walk_with_multiple_leader_relationships(): void
@@ -293,6 +309,78 @@ final class PublicWalkPagesTest extends TestCase
             ->assertSee('alt="A group walking together across open moorland"', false);
     }
 
+    public function test_managed_walk_image_uses_medium_card_large_detail_and_the_same_large_seo_url(): void
+    {
+        Storage::fake('local');
+        $event = $this->publishedWalk('Managed public route', '+1 week');
+        $media = $this->siteMedia('Generic compatibility description');
+        $event->walk->forceFill([
+            'featured_image_media_id' => $media->id,
+            'featured_image_path' => 'https://images.example.org/retained.jpg',
+            'featured_image_alt_text' => 'Walkers crossing a broad grassy ridge',
+        ])->save();
+        $mediumUrl = route('site-media.stream', [$media, 'medium']);
+        $largeUrl = route('site-media.stream', [$media, 'large']);
+
+        $this->get('/walks')
+            ->assertOk()
+            ->assertSee('src="'.$mediumUrl.'"', false)
+            ->assertSee('alt="Walkers crossing a broad grassy ridge"', false)
+            ->assertDontSee('https://images.example.org/retained.jpg', false);
+
+        $this->get('/walks/'.$event->slug)
+            ->assertOk()
+            ->assertSee('data-walk-featured-image', false)
+            ->assertSee('src="'.$largeUrl.'"', false)
+            ->assertSee('alt="Walkers crossing a broad grassy ridge"', false)
+            ->assertSee('<meta property="og:image" content="'.$largeUrl.'">', false)
+            ->assertSee('"image":["'.$largeUrl.'"]', false)
+            ->assertDontSee('https://images.example.org/retained.jpg', false);
+    }
+
+    public function test_safe_upgraded_external_image_renders_without_network_access_and_uses_title_alt_fallback(): void
+    {
+        Http::preventStrayRequests();
+        $event = $this->publishedWalk('Upgraded external route', '+1 week');
+        $event->walk->forceFill([
+            'featured_image_path' => 'https://images.example.org/upgraded.jpg',
+            'featured_image_alt_text' => null,
+        ])->save();
+
+        $this->get('/walks')
+            ->assertOk()
+            ->assertSee('src="https://images.example.org/upgraded.jpg"', false)
+            ->assertSee('alt="Upgraded external route featured image"', false);
+
+        $this->get('/walks/'.$event->slug)
+            ->assertOk()
+            ->assertSee('src="https://images.example.org/upgraded.jpg"', false)
+            ->assertSee('alt="Upgraded external route featured image"', false)
+            ->assertSee('<meta property="og:image" content="https://images.example.org/upgraded.jpg">', false);
+    }
+
+    public function test_unavailable_managed_image_uses_safe_retained_fallback_before_default_or_omission(): void
+    {
+        Storage::fake('local');
+        $event = $this->publishedWalk('Retained fallback route', '+1 week');
+        $media = $this->siteMedia('Generic retained fallback description', storeVariantFiles: false);
+        $event->walk->forceFill([
+            'featured_image_media_id' => $media->id,
+            'featured_image_path' => '/images/demo/woodland-walk-768.webp',
+        ])->save();
+
+        $this->get('/walks')
+            ->assertOk()
+            ->assertSee('src="/images/demo/woodland-walk-768.webp"', false)
+            ->assertSee('alt="Generic retained fallback description"', false);
+
+        $this->get('/walks/'.$event->slug)
+            ->assertOk()
+            ->assertSee('data-walk-featured-image', false)
+            ->assertSee('src="/images/demo/woodland-walk-768.webp"', false)
+            ->assertSee('alt="Generic retained fallback description"', false);
+    }
+
     public function test_public_walk_detail_cleanly_omits_an_invalid_or_absent_featured_image(): void
     {
         $invalid = $this->publishedWalk('Invalid featured route', '+1 week');
@@ -307,6 +395,27 @@ final class PublicWalkPagesTest extends TestCase
         $this->get('/walks/'.$absent->slug)
             ->assertOk()
             ->assertDontSee('data-walk-featured-image', false);
+
+        $index = $this->get('/walks')->assertOk();
+        $this->assertSame(2, substr_count($index->getContent(), '/images/demo/hero-walkers-768.webp'));
+        $index->assertDontSee('/private/member-photo.png', false);
+    }
+
+    public function test_public_walk_query_boundaries_eager_load_featured_media(): void
+    {
+        $current = $this->publishedWalk('Current query route', '+1 week');
+        $this->publishedWalk('Related query route', '+2 weeks');
+
+        $upcoming = app(PublicWalksQuery::class)->upcoming()->whereKey($current->id)->firstOrFail();
+        $published = app(PublicWalksQuery::class)->published()->whereKey($current->id)->firstOrFail();
+        $related = app(RelatedWalks::class)->for($current)->firstOrFail();
+
+        $this->assertTrue($upcoming->relationLoaded('walk'));
+        $this->assertTrue($upcoming->walk->relationLoaded('featuredMedia'));
+        $this->assertTrue($published->relationLoaded('walk'));
+        $this->assertTrue($published->walk->relationLoaded('featuredMedia'));
+        $this->assertTrue($related->relationLoaded('walk'));
+        $this->assertTrue($related->walk->relationLoaded('featuredMedia'));
     }
 
     public function test_grading_guide_is_a_public_text_first_reference_ordered_by_grade(): void
@@ -463,17 +572,74 @@ final class PublicWalkPagesTest extends TestCase
             ->assertDontSee('wm-card-rail', false);
     }
 
-    public function test_homepage_cards_are_limited_to_upcoming_weekend_walks(): void
+    public function test_homepage_cards_include_the_nearest_weekday_and_are_limited_to_three_upcoming_walks(): void
     {
-        $weekday = $this->publishedWalk('Earlier weekday walk', 'next Monday');
+        $this->travelTo('2026-09-08 09:00:00');
+
+        $weekday = $this->publishedWalk('Earlier weekday walk', 'next Wednesday');
         $weekendOne = $this->publishedWalk('Saturday walk', 'next Saturday');
         $weekendTwo = $this->publishedWalk('Sunday walk', 'next Sunday');
         $weekendThree = $this->publishedWalk('Following Saturday walk', 'next Saturday +1 week');
 
         $this->get('/')
             ->assertOk()
-            ->assertDontSee($weekday->title)
-            ->assertSeeInOrder([$weekendOne->title, $weekendTwo->title, $weekendThree->title]);
+            ->assertSeeInOrder([$weekday->title, $weekendOne->title, $weekendTwo->title])
+            ->assertDontSee($weekendThree->title);
+    }
+
+    public function test_walk_listing_includes_history_after_upcoming_walks_with_recent_history_first(): void
+    {
+        $this->travelTo('2026-09-08 18:00:00');
+        $older = $this->publishedWalk('Older public walk', '-2 weeks');
+        $recent = $this->publishedWalk('Recent completed walk', '-2 days', ['status' => EventStatus::Completed]);
+        $later = $this->publishedWalk('Later public walk', '+2 days');
+        $next = $this->publishedWalk('Next public walk', '+1 day');
+        $this->publishedWalk('Private historical walk', '-3 days', ['is_public' => false]);
+        $this->publishedWalk('Archived historical walk', '-4 days', ['status' => EventStatus::Archived]);
+        $this->publishedWalk('Unpublished historical walk', '-5 days', ['status' => EventStatus::Draft, 'published_at' => null]);
+
+        $this->get('/walks')->assertOk()
+            ->assertSeeInOrder([$next->title, $later->title, $recent->title, $older->title])
+            ->assertDontSee('Private historical walk')
+            ->assertDontSee('Archived historical walk')
+            ->assertDontSee('Unpublished historical walk');
+    }
+
+    public function test_historical_walks_can_be_filtered_by_date_and_their_leader(): void
+    {
+        $this->travelTo('2026-09-08 18:00:00');
+        $past = $this->publishedWalk('Historical leader route', '-2 days');
+        $future = $this->publishedWalk('Future leader route', '+2 days');
+        $this->get('/walks?date_from=2026-09-01&date_to=2026-09-07&leader='.$past->walk->primary_leader_id)
+            ->assertOk()->assertSee($past->title)->assertDontSee($future->title)
+            ->assertViewHas('leaders', fn ($leaders): bool => $leaders->contains('id', $past->walk->primary_leader_id));
+    }
+
+    public function test_homepage_keeps_todays_walks_after_the_start_and_end_time_but_not_yesterdays(): void
+    {
+        $this->travelTo('2026-09-08 18:00:00');
+        $today = $this->publishedWalk('Morning walk today', 'today 09:00');
+        $noEnd = $this->publishedWalk('Today without end time', 'today 10:00', ['ends_at' => null]);
+        $tomorrow = $this->publishedWalk('Tomorrow walk', 'tomorrow 09:00');
+        $this->publishedWalk('Yesterday walk', 'yesterday 09:00');
+        $this->publishedWalk('Private walk today', 'today 08:00', ['is_public' => false]);
+        $this->publishedWalk('Scheduled publication today', 'today 07:00', ['published_at' => now()->addHour()]);
+
+        $this->get('/')->assertOk()
+            ->assertSeeInOrder([$today->title, $noEnd->title, $tomorrow->title])
+            ->assertDontSee('Yesterday walk')->assertDontSee('Private walk today')
+            ->assertDontSee('Scheduled publication today');
+
+        $this->travelTo('2026-09-09 00:00:00');
+        $this->get('/')->assertOk()->assertDontSee($today->title)->assertDontSee($noEnd->title)->assertSee($tomorrow->title);
+    }
+
+    public function test_homepage_includes_midnight_today_and_ongoing_overnight_walks(): void
+    {
+        $this->travelTo('2026-09-08 18:00:00');
+        $midnight = $this->publishedWalk('Midnight today walk', 'today 00:00', ['ends_at' => null]);
+        $overnight = $this->publishedWalk('Ongoing overnight walk', 'yesterday 23:00', ['ends_at' => now()->addHour()]);
+        $this->get('/')->assertOk()->assertSee($midnight->title)->assertSee($overnight->title);
     }
 
     /** @param array<string, mixed> $overrides */
@@ -498,5 +664,39 @@ final class PublicWalkPagesTest extends TestCase
         }
 
         return $event;
+    }
+
+    private function siteMedia(string $alt, bool $storeVariantFiles = true): SiteMedia
+    {
+        $storageKey = (string) Str::uuid();
+        $variants = [
+            'master' => "site-media/{$storageKey}/master.jpg",
+            'large' => "site-media/{$storageKey}/large.jpg",
+            'medium' => "site-media/{$storageKey}/medium.jpg",
+            'thumbnail' => "site-media/{$storageKey}/thumbnail.jpg",
+        ];
+        if ($storeVariantFiles) {
+            foreach ($variants as $path) {
+                Storage::disk('local')->put($path, 'safe image');
+            }
+        }
+
+        return SiteMedia::query()->create([
+            'created_by_user_id' => User::factory()->create()->id,
+            'storage_disk' => 'local',
+            'storage_key' => $storageKey,
+            'processed_variants' => $variants,
+            'mime_type' => 'image/jpeg',
+            'width' => 1600,
+            'height' => 1000,
+            'file_size_bytes' => 1234,
+            'alt_text' => $alt,
+            'is_decorative' => false,
+            'focal_point_x' => 0.5,
+            'focal_point_y' => 0.5,
+            'processing_status' => 'complete',
+            'health_status' => 'healthy',
+            'purpose' => SiteMediaPurpose::WalkFeaturedImage,
+        ]);
     }
 }

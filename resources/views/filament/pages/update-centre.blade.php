@@ -19,7 +19,7 @@
                 <h2 class="font-semibold">Safety backup in progress</h2>
                 <p class="mt-2">The verified release remains staged and no application files have been activated. Advance the safety backup in System health, then continue.</p>
                 <div class="mt-4 flex gap-3">
-                    <a class="underline" href="/admin/system-health">System health</a>
+                    <a class="underline" href="{{ route('filament.admin.pages.system-health') }}">System health</a>
                     <form method="post" action="{{ route('admin.updates.continue') }}">@csrf<x-filament::button type="submit">Continue update</x-filament::button></form>
                 </div>
             </section>

@@ -2,36 +2,64 @@
 
 namespace App\Domain\Content\Queries;
 
-use App\Domain\Content\Models\NavigationItem;
+use App\Domain\Content\Presentation\PublicImageReference;
+use App\Domain\Content\Presentation\PublicUrl;
 use App\Domain\Content\Support\PublicContentCache;
 use App\Domain\Operations\Models\SiteProfile;
+use App\Domain\Operations\Queries\CurrentSiteProfile;
+use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
+use App\Domain\SiteMedia\SiteMediaPresenter;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Schema;
 
 final class PublicBranding
 {
+    public function __construct(
+        private readonly CurrentSiteProfile $profile,
+        private readonly SiteMediaPresenter $mediaPresenter,
+    ) {}
+
     /** @return array<string, mixed> */
     public function get(): array
     {
         return Cache::remember(PublicContentCache::BRANDING, (int) config('waymark.public_cache_seconds', 300), function (): array {
-            $profile = Schema::hasTable('site_profiles')
-                ? (SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile)
-                : new SiteProfile;
-
-            return $this->forProfile($profile);
+            return $this->forProfile($this->profile->get());
         });
     }
 
     /** @return array<string, mixed> */
     public function forProfile(SiteProfile $profile): array
     {
+        $logoMedia = $profile->relationLoaded('logoMedia')
+            ? $profile->getRelation('logoMedia')
+            : ($profile->logo_media_id === null ? null : $profile->logoMedia()->first());
+        $faviconMedia = $profile->relationLoaded('faviconMedia')
+            ? $profile->getRelation('faviconMedia')
+            : ($profile->favicon_media_id === null ? null : $profile->faviconMedia()->first());
+        $heroMedia = $profile->relationLoaded('heroMedia')
+            ? $profile->getRelation('heroMedia')
+            : ($profile->hero_media_id === null ? null : $profile->heroMedia()->first());
+        $affiliateMedia = $profile->relationLoaded('affiliationLogoMedia')
+            ? $profile->getRelation('affiliationLogoMedia')
+            : ($profile->affiliation_logo_media_id === null ? null : $profile->affiliationLogoMedia()->first());
+        $managedAffiliate = $affiliateMedia?->purpose === SiteMediaPurpose::SiteAffiliationLogo
+            ? $this->mediaPresenter->present($affiliateMedia, 'medium')
+            : null;
+        $managedHero = $heroMedia?->purpose === SiteMediaPurpose::SiteHero
+            ? $this->mediaPresenter->present($heroMedia, 'large')
+            : null;
+        $managedLogo = $logoMedia?->purpose === SiteMediaPurpose::SiteLogo
+            ? $this->mediaPresenter->present($logoMedia, 'medium')
+            : null;
+        $managedFavicon = $faviconMedia?->purpose === SiteMediaPurpose::SiteFavicon
+            ? $this->mediaPresenter->present($faviconMedia, 'favicon')
+            : null;
         $terminology = collect((array) $profile->terminology)
             ->only(['walks', 'members', 'join', 'holidays', 'gallery'])
             ->map(fn ($label): string => mb_substr(trim((string) $label), 0, 60))
             ->filter()
             ->all();
         $socialLinks = collect((array) $profile->social_links)
-            ->map(fn ($url, $label): ?array => $this->url($url) === null ? null : ['label' => mb_substr(trim((string) $label), 0, 60), 'url' => $this->url($url)])
+            ->map(fn ($url, $label): ?array => PublicUrl::resolve($url) === null ? null : ['label' => mb_substr(trim((string) $label), 0, 60), 'url' => PublicUrl::resolve($url)])
             ->filter(fn (?array $link): bool => $link !== null && $link['label'] !== '')
             ->values()
             ->all();
@@ -39,19 +67,16 @@ final class PublicBranding
         return [
             'name' => $profile->group_name ?: 'Waymark Community',
             'short_name' => $profile->short_name ?: 'W',
-            'logo_url' => $this->url($profile->logo_path),
-            'favicon_url' => $this->url($profile->favicon_path),
-            'hero_url' => $this->url($profile->hero_default_path),
+            'logo_url' => $managedLogo?->url ?? PublicImageReference::resolve($profile->logo_path),
+            'favicon_url' => $managedFavicon?->url ?? PublicImageReference::resolve($profile->favicon_path),
+            'favicon_type' => $managedFavicon === null ? null : 'image/png',
+            'hero_url' => $managedHero?->url ?? PublicImageReference::resolve($profile->hero_default_path),
             'social_links' => $socialLinks,
             'terminology' => $terminology,
-            'affiliation_logo_url' => $this->url($profile->affiliation_logo_path),
+            'affiliation_logo_url' => $managedAffiliate?->url ?? PublicImageReference::resolve($profile->affiliation_logo_path),
+            'affiliation_placement' => $profile->affiliation_placement === 'header' ? 'header' : 'footer',
             'affiliation_name' => trim((string) $profile->affiliation_name),
-            'affiliation_url' => $this->url($profile->affiliation_url),
+            'affiliation_url' => PublicUrl::resolve($profile->affiliation_url),
         ];
-    }
-
-    private function url(mixed $url): ?string
-    {
-        return is_string($url) && NavigationItem::isAllowedUrl($url) ? $url : null;
     }
 }

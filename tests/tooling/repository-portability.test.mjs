@@ -84,3 +84,52 @@ test('repository verification rejects a developer-profile path in tracked config
         await rm(fixture, { recursive: true, force: true });
     }
 });
+
+test('repository verification rejects a root-relative application URL in a tracked template', async () => {
+    const fixture = await mkdtemp(resolve(tmpdir(), 'waymark-root-url-'));
+
+    try {
+        for (const path of requiredFiles) {
+            await writeFixtureFile(fixture, path);
+        }
+
+        await writeFixtureFile(fixture, 'composer.json', JSON.stringify({
+            require: { php: '^8.3' },
+            config: { platform: { php: '8.3.0' } },
+        }));
+        await writeFixtureFile(fixture, 'composer.lock', JSON.stringify({
+            'platform-overrides': { php: '8.3.0' },
+        }));
+        await writeFixtureFile(fixture, '.gitignore', [
+            '.env',
+            'vendor/',
+            'node_modules/',
+            'public/build/',
+            'public/js/filament/',
+            'storage/logs/',
+            'test-results/',
+            'dist/',
+        ].join('\n'));
+        await writeFixtureFile(fixture, 'resources/views/unsafe.blade.php', '<form method="post" action="/setup">\n');
+        await mkdir(resolve(fixture, 'scripts'), { recursive: true });
+        await copyFile(
+            resolve(repositoryRoot, 'scripts/verify-repository.php'),
+            resolve(fixture, 'scripts/verify-repository.php'),
+        );
+
+        const init = spawnSync('git', ['init', '--quiet'], { cwd: fixture, encoding: 'utf8' });
+        assert.equal(init.status, 0, init.stderr);
+        const add = spawnSync('git', ['add', '.'], { cwd: fixture, encoding: 'utf8' });
+        assert.equal(add.status, 0, add.stderr);
+
+        const verification = spawnSync('php', ['scripts/verify-repository.php'], {
+            cwd: fixture,
+            encoding: 'utf8',
+        });
+
+        assert.notEqual(verification.status, 0, 'repository verification unexpectedly accepted a root-relative application URL');
+        assert.match(verification.stderr, /Root-relative application URL is tracked: resources\/views\/unsafe\.blade\.php/);
+    } finally {
+        await rm(fixture, { recursive: true, force: true });
+    }
+});

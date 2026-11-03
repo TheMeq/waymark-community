@@ -3,25 +3,32 @@
 namespace App\Filament\Resources\HolidayResource\Pages;
 
 use App\Domain\Events\Actions\PublishEvent;
+use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
 use App\Domain\Holidays\Actions\AssignHolidayChild;
 use App\Domain\Holidays\Actions\UpdateHoliday;
+use App\Filament\Pages\EditResourceRecord as EditRecord;
 use App\Filament\Resources\HolidayResource;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
-use Filament\Resources\Pages\EditRecord;
+use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
 
 final class EditHoliday extends EditRecord
 {
     protected static string $resource = HolidayResource::class;
 
+    public function getSubheading(): string
+    {
+        return 'Status: '.ucfirst(str_replace('_', ' ', $this->getRecord()->event->status->value));
+    }
+
     /** @param array<string, mixed> $data */
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        return [...$data, ...$this->getRecord()->event->only(['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at'])];
+        return parent::mutateFormDataBeforeFill([...$data, ...$this->getRecord()->event->only(['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at'])]);
     }
 
     /** @param array<string, mixed> $data */
@@ -55,11 +62,14 @@ final class EditHoliday extends EditRecord
                         Event::query()->findOrFail((int) $data['child_event_id']),
                     );
                 }),
-            Action::make('publish')->action(function (): void {
-                /** @var User $user */
-                $user = auth()->user();
-                app(PublishEvent::class)->handle($this->getRecord()->event, $user);
-            }),
+            Action::make('publish')->label('Publish holiday')
+                ->visible(fn (): bool => $this->getRecord()->event->status !== EventStatus::Published)
+                ->action(function (): void {
+                    /** @var User $user */
+                    $user = auth()->user();
+                    app(PublishEvent::class)->handle($this->getRecord()->event, $user);
+                    Notification::make()->success()->title('Holiday published')->send();
+                }),
         ];
     }
 }

@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\AnalyticsSettingResource\Pages;
 
+use App\Filament\Pages\CreateResourceRecord as CreateRecord;
 use App\Filament\Resources\AnalyticsSettingResource;
-use Filament\Resources\Pages\CreateRecord;
 
 final class CreateAnalyticsSetting extends CreateRecord
 {

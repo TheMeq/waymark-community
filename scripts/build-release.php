@@ -17,13 +17,16 @@ require_once __DIR__.'/release/ReleaseSourcePreparer.php';
 require_once __DIR__.'/release/RuntimePathFilter.php';
 require_once __DIR__.'/release/VerificationEnvironment.php';
 
-$options = getopt('', ['version:', 'commit::', 'output::', 'formats::', 'plan']);
-$version = is_string($options['version'] ?? null) ? trim($options['version']) : '';
+$options = getopt('', ['version::', 'commit::', 'output::', 'formats::', 'plan']);
+$versionFile = dirname(__DIR__).DIRECTORY_SEPARATOR.'VERSION';
+$version = is_string($options['version'] ?? null)
+    ? trim($options['version'])
+    : (is_file($versionFile) ? trim((string) file_get_contents($versionFile)) : '');
 $requestedCommit = is_string($options['commit'] ?? null) ? trim($options['commit']) : 'HEAD';
 $requestedFormats = is_string($options['formats'] ?? null) ? trim($options['formats']) : 'all';
 $formats = $requestedFormats === 'all' ? ['standard', 'public-html'] : array_values(array_filter(array_map('trim', explode(',', $requestedFormats))));
 if (preg_match('/\A\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\z/', $version) !== 1) {
-    fwrite(STDERR, "Usage: php scripts/build-release.php --version=<semver> [--commit=<40-char-sha>] [--output=<directory>] [--formats=all|standard|public-html] [--plan]\n");
+    fwrite(STDERR, "Usage: php scripts/build-release.php [--version=<semver>] [--commit=<40-char-sha>] [--output=<directory>] [--formats=all|standard|public-html] [--plan]\n");
     exit(1);
 }
 if ($requestedCommit !== 'HEAD' && preg_match('/\A[a-f0-9]{40}\z/', $requestedCommit) !== 1) {

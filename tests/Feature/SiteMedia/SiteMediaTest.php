@@ -13,6 +13,7 @@ use App\Domain\Gallery\Data\ImageVariantDefinition;
 use App\Domain\Gallery\Data\TransformedRasterImage;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\Models\SpecialAlbum;
+use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\SiteMedia\Actions\DeleteSiteMedia;
 use App\Domain\SiteMedia\Actions\MarkSiteMediaForRepair;
 use App\Domain\SiteMedia\Actions\PromoteCommunityPhotoToSiteMedia;
@@ -21,7 +22,10 @@ use App\Domain\SiteMedia\Actions\SiteMediaNamespaceCleaner;
 use App\Domain\SiteMedia\Actions\UpdateSiteMediaMetadata;
 use App\Domain\SiteMedia\Actions\UploadSiteMedia;
 use App\Domain\SiteMedia\Data\SiteMediaMetadata;
+use App\Domain\SiteMedia\Enums\ManagedImageSource;
+use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
 use App\Domain\SiteMedia\Models\SiteMedia;
+use App\Domain\Walks\Models\Walk;
 use App\Filament\Pages\SiteMediaLibrary;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -41,6 +45,115 @@ use Tests\TestCase;
 final class SiteMediaTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_site_media_defaults_to_library_purpose_and_casts_orphan_metadata(): void
+    {
+        $this->assertTrue(enum_exists(SiteMediaPurpose::class));
+        $this->assertTrue(enum_exists(ManagedImageSource::class));
+
+        $orphanedAt = now()->startOfSecond();
+        $media = SiteMedia::query()->create($this->attributes(['orphaned_at' => $orphanedAt]));
+
+        $this->assertSame(SiteMediaPurpose::Library, $media->purpose);
+        $this->assertTrue($media->orphaned_at->equalTo($orphanedAt));
+        $this->assertSame(
+            ['managed', 'external', 'none'],
+            array_column(ManagedImageSource::cases(), 'value'),
+        );
+    }
+
+    public function test_walk_featured_media_is_non_decorative_when_it_has_meaningful_alt_text(): void
+    {
+        $this->assertTrue(enum_exists(SiteMediaPurpose::class));
+
+        $media = SiteMedia::query()->create($this->attributes([
+            'purpose' => SiteMediaPurpose::WalkFeaturedImage,
+            'alt_text' => 'Walkers following a ridge path',
+            'is_decorative' => true,
+        ]));
+
+        $this->assertFalse($media->is_decorative);
+        $this->assertSame('Walkers following a ridge path', $media->alt_text);
+    }
+
+    public function test_walk_featured_media_rejects_an_empty_description_even_if_marked_decorative(): void
+    {
+        $this->assertTrue(enum_exists(SiteMediaPurpose::class));
+        $this->expectException(\LogicException::class);
+
+        SiteMedia::query()->create($this->attributes([
+            'purpose' => SiteMediaPurpose::WalkFeaturedImage,
+            'alt_text' => null,
+            'is_decorative' => true,
+        ]));
+    }
+
+    public function test_logo_and_favicon_media_are_decorative_and_clear_alt_text(): void
+    {
+        $this->assertTrue(enum_exists(SiteMediaPurpose::class));
+
+        $logo = SiteMedia::query()->create($this->attributes([
+            'storage_key' => (string) Str::uuid(),
+            'processed_variants' => ['master' => 'site-media/3f2504e0-4f89-41d3-9a0c-0305e82c3301/master.png'],
+            'purpose' => SiteMediaPurpose::SiteLogo,
+            'alt_text' => 'This must be removed',
+            'is_decorative' => false,
+        ]));
+        $favicon = SiteMedia::query()->create($this->attributes([
+            'storage_key' => (string) Str::uuid(),
+            'processed_variants' => ['master' => 'site-media/3f2504e0-4f89-41d3-9a0c-0305e82c3302/master.png'],
+            'purpose' => SiteMediaPurpose::SiteFavicon,
+            'alt_text' => 'This must also be removed',
+            'is_decorative' => false,
+        ]));
+
+        $this->assertTrue($logo->is_decorative);
+        $this->assertNull($logo->alt_text);
+        $this->assertTrue($favicon->is_decorative);
+        $this->assertNull($favicon->alt_text);
+    }
+
+    public function test_walk_and_site_profile_expose_managed_media_relationships(): void
+    {
+        $this->assertTrue(enum_exists(SiteMediaPurpose::class));
+        $this->assertTrue(method_exists(Walk::class, 'featuredMedia'));
+        $this->assertTrue(method_exists(SiteProfile::class, 'logoMedia'));
+        $this->assertTrue(method_exists(SiteProfile::class, 'faviconMedia'));
+
+        $actor = User::factory()->create();
+        $walkMedia = SiteMedia::query()->create($this->attributes([
+            'created_by_user_id' => $actor->id,
+            'purpose' => SiteMediaPurpose::WalkFeaturedImage,
+        ]));
+        $logoMedia = SiteMedia::query()->create($this->attributes([
+            'created_by_user_id' => $actor->id,
+            'storage_key' => (string) Str::uuid(),
+            'processed_variants' => ['master' => 'site-media/3f2504e0-4f89-41d3-9a0c-0305e82c3303/master.png'],
+            'purpose' => SiteMediaPurpose::SiteLogo,
+        ]));
+        $faviconMedia = SiteMedia::query()->create($this->attributes([
+            'created_by_user_id' => $actor->id,
+            'storage_key' => (string) Str::uuid(),
+            'processed_variants' => ['master' => 'site-media/3f2504e0-4f89-41d3-9a0c-0305e82c3304/master.png'],
+            'purpose' => SiteMediaPurpose::SiteFavicon,
+        ]));
+        $event = Event::factory()->for($actor, 'organiser')->create();
+        $walk = Walk::query()->create([
+            'event_id' => $event->id,
+            'primary_leader_id' => $actor->id,
+            'featured_image_media_id' => $walkMedia->id,
+            'featured_image_alt_text' => 'Walkers following a ridge path',
+        ]);
+        $profile = SiteProfile::query()->create([
+            'group_name' => 'Peak Pathfinders',
+            'logo_media_id' => $logoMedia->id,
+            'favicon_media_id' => $faviconMedia->id,
+        ]);
+
+        $this->assertTrue($walk->featuredMedia->is($walkMedia));
+        $this->assertTrue($profile->logoMedia->is($logoMedia));
+        $this->assertTrue($profile->faviconMedia->is($faviconMedia));
+    }
 
     public function test_site_media_requires_meaningful_alt_text_unless_decorative(): void
     {
@@ -99,12 +212,15 @@ final class SiteMediaTest extends TestCase
     public function test_metadata_update_enforces_focal_bounds_and_records_an_audit(): void
     {
         $actor = User::factory()->create(['is_admin' => true]);
-        $media = SiteMedia::query()->create($this->attributes());
+        $media = SiteMedia::query()->create($this->attributes(['orphaned_at' => now()->startOfSecond()]));
 
         app(UpdateSiteMediaMetadata::class)->handle($actor, $media, new SiteMediaMetadata('A bright ridge', false, 0.25, 0.75));
 
         $this->assertSame('A bright ridge', $media->fresh()->alt_text);
-        $this->assertSame('metadata_updated', $media->audits()->sole()->action);
+        $audit = $media->audits()->sole();
+        $this->assertSame('metadata_updated', $audit->action);
+        $this->assertSame('library', $audit->after['purpose']);
+        $this->assertArrayHasKey('orphaned_at', $audit->after);
         $this->expectException(ValidationException::class);
         app(UpdateSiteMediaMetadata::class)->handle($actor, $media, new SiteMediaMetadata('A bright ridge', false, 1.1, 0.5));
     }

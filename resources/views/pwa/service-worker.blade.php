@@ -1,9 +1,8 @@
 const CACHE_NAME = '{{ $cacheVersion }}';
-const STATIC_ASSETS = [
-    '/images/pwa/icon-192.png',
-    '/images/pwa/icon-512.png',
-    '/offline',
-];
+const STATIC_ASSETS = {!! json_encode($staticAssets, JSON_UNESCAPED_SLASHES) !!};
+const OFFLINE_URL = {!! json_encode($offlineUrl, JSON_UNESCAPED_SLASHES) !!};
+const APPLICATION_BASE_PATH = {!! json_encode($applicationBasePath, JSON_UNESCAPED_SLASHES) !!};
+const BUILD_PATH = {!! json_encode($buildPath, JSON_UNESCAPED_SLASHES) !!};
 
 const PUBLIC_NAVIGATION_PATHS = [
     /^\/$/,
@@ -27,11 +26,19 @@ const isPublicNavigation = (request, url) => request.mode === 'navigate'
     && request.method === 'GET'
     && url.origin === self.location.origin
     && !url.searchParams.has('signature')
-    && PUBLIC_NAVIGATION_PATHS.some((pattern) => pattern.test(url.pathname));
+    && applicationPath(url.pathname) !== null
+    && PUBLIC_NAVIGATION_PATHS.some((pattern) => pattern.test(applicationPath(url.pathname)));
 
 const isImmutableStaticAsset = (request, url) => request.method === 'GET'
     && url.origin === self.location.origin
-    && (url.pathname.startsWith('/build/') || STATIC_ASSETS.includes(url.pathname));
+    && (url.pathname.startsWith(BUILD_PATH) || STATIC_ASSETS.includes(url.pathname));
+
+const applicationPath = (pathname) => {
+    if (APPLICATION_BASE_PATH === '') return pathname;
+    if (pathname === APPLICATION_BASE_PATH) return '/';
+    if (!pathname.startsWith(`${APPLICATION_BASE_PATH}/`)) return null;
+    return pathname.slice(APPLICATION_BASE_PATH.length);
+};
 
 self.addEventListener('install', (event) => {
     event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)));
@@ -61,6 +68,6 @@ self.addEventListener('fetch', (event) => {
     }
 
     if (isPublicNavigation(request, url)) {
-        event.respondWith(fetch(request).catch(() => caches.match('/offline')));
+        event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_URL)));
     }
 });

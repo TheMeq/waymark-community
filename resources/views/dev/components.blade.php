@@ -14,7 +14,7 @@
         <section class="mt-10" aria-labelledby="actions-heading">
             <h2 id="actions-heading" class="text-2xl">Actions and labels</h2>
             <div class="mt-5 flex flex-wrap gap-3">
-                <x-public.button href="/join">Join us</x-public.button>
+                <x-public.button :href="route('new-here')">Join us</x-public.button>
                 <x-public.button :href="route('walks.index')" variant="secondary">Upcoming walks</x-public.button>
                 <x-public.badge>Moderate</x-public.badge>
                 <x-public.badge tone="accent">New</x-public.badge>

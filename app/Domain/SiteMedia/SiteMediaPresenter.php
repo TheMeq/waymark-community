@@ -12,7 +12,7 @@ final class SiteMediaPresenter
     public function present(SiteMedia $media, string $variant = 'master'): ?SiteMediaPresentation
     {
         $path = is_array($media->processed_variants) ? ($media->processed_variants[$variant] ?? null) : null;
-        if ($media->processing_status !== 'complete' || ! is_string($path) || ! SiteMediaStorageReference::isSafe($media->storage_disk, $path) || ! Storage::disk($media->storage_disk)->exists($path)) {
+        if ($media->processing_status !== 'complete' || $media->health_status !== 'healthy' || ! is_string($path) || ! SiteMediaStorageReference::isSafe($media->storage_disk, $path) || ! Storage::disk($media->storage_disk)->exists($path)) {
             return null;
         }
 

@@ -49,7 +49,7 @@ final class PublicCommunityPhotos
     {
         $photo = $this->base()->with(['event:id,title,slug', 'specialAlbum:id,title,slug'])->find($id);
 
-        return $photo instanceof CommunityPhoto ? $this->presenter->present($photo) : null;
+        return $photo instanceof CommunityPhoto ? $this->presenter->present($photo, publicContextVerified: true) : null;
     }
 
     /** @param array<int, int> $excludedIds
@@ -68,7 +68,7 @@ final class PublicCommunityPhotos
             ->map(function (CommunityPhoto $row): ?array {
                 $query = $this->base()->when($row->event_id !== null, fn (Builder $q) => $q->where('event_id', $row->event_id), fn (Builder $q) => $q->where('special_album_id', $row->special_album_id));
                 $cover = $this->candidates($query, true)->limit(max(1, (int) config('gallery.public.context_cover_scan_limit', 24)))->get()
-                    ->first(fn (CommunityPhoto $photo): bool => $this->presenter->isEligible($photo));
+                    ->first(fn (CommunityPhoto $photo): bool => $this->presenter->isEligible($photo, publicContextVerified: true));
                 if (! $cover instanceof CommunityPhoto) {
                     return null;
                 }
@@ -95,7 +95,7 @@ final class PublicCommunityPhotos
             }
             foreach ($candidates as $photo) {
                 $lastInspected = $this->cursorFor($photo, $contextOrder);
-                $presentation = $this->presenter->present($photo);
+                $presentation = $this->presenter->present($photo, publicContextVerified: true);
                 if ($presentation === null) {
                     continue;
                 }
@@ -132,7 +132,7 @@ final class PublicCommunityPhotos
             }
             foreach ($candidates as $photo) {
                 $boundary = $this->cursorFor($photo, false);
-                $presentation = $this->presenter->present($photo);
+                $presentation = $this->presenter->present($photo, publicContextVerified: true);
                 if ($presentation !== null) {
                     $items->push($presentation);
                     if ($items->count() === $limit) {

@@ -9,7 +9,12 @@ for (const path of criticalPages) {
         expect(response?.status()).toBe(200);
 
         const consent = page.getByRole('button', { name: 'Use essential only' });
-        if (await consent.isVisible()) await consent.click();
+        if (await consent.isVisible()) {
+            await Promise.all([
+                page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+                consent.click(),
+            ]);
+        }
 
         const results = await new AxeBuilder({ page })
             .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])

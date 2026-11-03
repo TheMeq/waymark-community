@@ -30,9 +30,11 @@ final class SiteMediaLibrary extends Page
 
     protected static ?string $title = 'Media library';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Site';
+    protected static string|\UnitEnum|null $navigationGroup = 'Community';
 
     protected static ?string $navigationLabel = 'Media library';
+
+    protected static ?int $navigationSort = 20;
 
     protected string $view = 'filament.pages.site-media-library';
 

@@ -2,10 +2,11 @@
 
 namespace App\ViewModels;
 
+use App\Domain\Content\Presentation\PublicUrl;
 use App\Domain\Events\Models\Event;
 use App\Domain\Events\Presentation\PublicEventStatus;
 use App\Domain\Operations\Models\SiteProfile;
-use App\Domain\Walks\Data\WalkFeaturedImage;
+use App\Domain\Walks\Presentation\WalkFeaturedImagePresenter;
 
 final readonly class PublicWalkCardViewModel
 {
@@ -13,12 +14,13 @@ final readonly class PublicWalkCardViewModel
     public static function fromEvent(Event $event, SiteProfile $siteProfile): array
     {
         $walk = $event->walk;
-        $image = WalkFeaturedImage::resolve($walk?->featured_image_path);
+        $walk?->setRelation('event', $event);
+        $image = $walk === null ? null : app(WalkFeaturedImagePresenter::class)->present($walk, 'medium');
 
         return array_filter([
             'title' => $event->title,
             'url' => route('walks.show', $event->slug),
-            'image_url' => $image?->url ?? '/images/demo/hero-walkers-768.webp',
+            'image_url' => $image?->url ?? PublicUrl::asset('/images/demo/hero-walkers-768.webp'),
             'image_alt' => $image?->alt ?? 'A group walking together across open moorland',
             'date' => $event->starts_at->format('l j F'),
             'day' => $event->starts_at->format('D'),

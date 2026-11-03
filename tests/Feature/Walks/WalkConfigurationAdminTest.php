@@ -10,6 +10,8 @@ use App\Filament\Resources\GradeResource\Pages\CreateGrade;
 use App\Filament\Resources\TagResource\Pages\CreateTag;
 use App\Filament\Resources\WalkFieldSettingsResource\Pages\EditWalkFieldSettings;
 use App\Models\User;
+use App\Policies\GradePolicy;
+use App\Policies\TagPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -160,7 +162,21 @@ final class WalkConfigurationAdminTest extends TestCase
             ->assertForbidden();
         $this->get("/admin/walk-field-settings/{$settings->id}/edit")->assertForbidden();
         $this->get('/admin/grades')->assertForbidden();
+        $this->get('/admin/grades/create')->assertForbidden();
         $this->get('/admin/tags')->assertForbidden();
+        $this->get('/admin/tags/create')->assertForbidden();
+
+        $grade = Grade::query()->create([
+            'display_order' => 1,
+            'name' => 'Gentle',
+            'description' => 'Relaxed paths.',
+        ]);
+        $tag = Tag::query()->create(['name' => 'Riverside']);
+
+        $this->assertFalse(app(GradePolicy::class)->update($walkLeader, $grade));
+        $this->assertFalse(app(GradePolicy::class)->delete($walkLeader, $grade));
+        $this->assertFalse(app(TagPolicy::class)->update($walkLeader, $tag));
+        $this->assertFalse(app(TagPolicy::class)->delete($walkLeader, $tag));
 
         Livewire::test(EditWalkFieldSettings::class, ['record' => $settings->getKey()])
             ->assertForbidden();
@@ -183,12 +199,27 @@ final class WalkConfigurationAdminTest extends TestCase
     {
         $settings = app(UpdateWalkFieldSettings::class)->handle([]);
 
-        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        $administrator = User::factory()->create(['is_admin' => true]);
+        $this->actingAs($administrator);
 
         $this->get('/admin/walk-field-settings')->assertSuccessful();
         $this->get("/admin/walk-field-settings/{$settings->id}/edit")->assertSuccessful();
         $this->get('/admin/grades')->assertSuccessful();
+        $this->get('/admin/grades/create')->assertSuccessful();
         $this->get('/admin/tags')->assertSuccessful();
+        $this->get('/admin/tags/create')->assertSuccessful();
+
+        $grade = Grade::query()->create([
+            'display_order' => 1,
+            'name' => 'Gentle',
+            'description' => 'Relaxed paths.',
+        ]);
+        $tag = Tag::query()->create(['name' => 'Riverside']);
+
+        $this->assertTrue(app(GradePolicy::class)->update($administrator, $grade));
+        $this->assertTrue(app(GradePolicy::class)->delete($administrator, $grade));
+        $this->assertTrue(app(TagPolicy::class)->update($administrator, $tag));
+        $this->assertTrue(app(TagPolicy::class)->delete($administrator, $tag));
     }
 
     public function test_tag_and_walk_field_settings_indexes_render_for_an_admin(): void

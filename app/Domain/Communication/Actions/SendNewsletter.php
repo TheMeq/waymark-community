@@ -6,15 +6,26 @@ use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Communication\Contracts\NewsletterDelivery;
 use App\Domain\Communication\Models\Newsletter;
 use App\Domain\Communication\Queries\NewsletterAudience;
+use App\Domain\Communication\Support\OutboundEmailStatus;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
 
 final readonly class SendNewsletter
 {
-    public function __construct(private NewsletterAudience $audience, private NewsletterDelivery $delivery) {}
+    public function __construct(
+        private NewsletterAudience $audience,
+        private NewsletterDelivery $delivery,
+        private OutboundEmailStatus $emailStatus,
+    ) {}
 
     public function handle(User $actor, Newsletter $newsletter): int
     {
+        if (! $this->emailStatus->configured()) {
+            throw ValidationException::withMessages([
+                'newsletter' => $this->emailStatus->unavailableMessage(),
+            ]);
+        }
+
         if (! $actor->hasCapability(ModuleCapability::ManageCommunications) || ! in_array($newsletter->status, ['draft', 'scheduled'], true) || ($newsletter->status === 'scheduled' && $newsletter->scheduled_for?->isFuture())) {
             throw ValidationException::withMessages(['newsletter' => 'This newsletter cannot be sent now.']);
         }

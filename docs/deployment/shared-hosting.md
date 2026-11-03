@@ -13,18 +13,20 @@ Shared hosting is an official target, not a fallback.
 
 PHP must provide `ctype`, `curl`, `dom`, `exif`, `fileinfo`, `filter`, `gd`, `hash`, `intl`, `json`, `mbstring`, `openssl`, `pdo`, `pdo_mysql`, `session`, `tokenizer`, `xml` and `zip`.
 
+PHP OPcache is strongly recommended for responsive shared-host requests. It is not an installation requirement, but System Health warns when it is unavailable so the host can enable it without changing Waymark's application or cache drivers.
+
 ## Choose a release ZIP
 
 Waymark provides two packages generated from the same exact source commit:
 
-- `waymark-community-1.0.0-shared-hosting.zip` is preferred when the domain document root can point at the application's `public/` directory.
-- `waymark-community-1.0.0-public-html.zip` is the drop-in option when the hosting document root is fixed.
+- `waymark-community-1.0.2-shared-hosting.zip` is preferred when the domain document root can point at the application's `public/` directory.
+- `waymark-community-1.0.2-public-html.zip` is the drop-in option when the hosting document root is fixed.
 
 Verify the selected ZIP against its adjacent SHA-256 and retain both files. Do not deploy from a source checkout.
 
 For either layout, create an empty MySQL/MariaDB database with a least-privilege account, visit `/setup`, and follow the wizard. The installer checks PHP/extensions, paths, sensitive-file exposure, database and mail, writes the private environment, runs migrations and creates the installation owner. After setup, remove the downloaded archive, confirm setup is locked, and complete homepage/admin/media/email/System-health smoke checks.
 
-Never copy an existing `.env` between hosts. Use new secrets and database credentials, and keep the recovery token in the group's password manager.
+Never copy an existing `.env` between hosts. Use new secrets and database credentials, and keep the recovery key in the group's password manager.
 
 ## Not required on destination
 
@@ -39,7 +41,7 @@ Never copy an existing `.env` between hosts. Use new secrets and database creden
 
 ## Preferred configurable-document-root package
 
-Application internals and `.env` live outside the public document root. Extract the `application/` directory from `waymark-community-1.0.0-shared-hosting.zip` into a private application location, make `storage/` and `bootstrap/cache/` writable, then point the domain at its `public/` directory.
+Application internals and `.env` live outside the public document root. Extract the `application/` directory from `waymark-community-1.0.2-shared-hosting.zip` into a private application location, make `storage/` and `bootstrap/cache/` writable, then point the domain at its `public/` directory.
 
 Setup must check that `.env` and internals are not publicly retrievable.
 
@@ -56,7 +58,7 @@ Do not copy `.env`, `vendor`, `storage`, `bootstrap`, `config`, or application s
 
 ## Drop-in fixed-document-root package
 
-When the document root cannot be changed, upload `waymark-community-1.0.0-public-html.zip` and extract every file directly into an empty `public_html`, `htdocs`, `www`, or equivalent directory. Do not move files, copy a nested public directory, or edit `index.php`. Make `application/storage/` and `application/bootstrap/cache/` writable, then visit the domain.
+When the document root cannot be changed, upload `waymark-community-1.0.2-public-html.zip` and extract every file directly into an empty `public_html`, `htdocs`, `www`, or equivalent directory. Do not move files, copy a nested public directory, or edit `index.php`. Make `application/storage/` and `application/bootstrap/cache/` writable, then visit the domain.
 
 ```text
 public_html/

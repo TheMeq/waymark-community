@@ -3,11 +3,13 @@
 namespace App\Domain\Walks\Models;
 
 use App\Domain\Events\Models\Event;
+use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'event_id',
@@ -38,6 +40,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
     'kit_checklist',
     'kit_notes',
     'availability',
+    'featured_image_media_id',
+    'featured_image_alt_text',
     'featured_image_path',
     'attachments',
     'gpx_path',
@@ -48,6 +52,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 ])]
 final class Walk extends Model
 {
+    use SoftDeletes;
+
     protected static function booted(): void
     {
         self::updated(function (Walk $walk): void {
@@ -73,6 +79,12 @@ final class Walk extends Model
     public function primaryLeader(): BelongsTo
     {
         return $this->belongsTo(User::class, 'primary_leader_id');
+    }
+
+    /** @return BelongsTo<SiteMedia, $this> */
+    public function featuredMedia(): BelongsTo
+    {
+        return $this->belongsTo(SiteMedia::class, 'featured_image_media_id');
     }
 
     /** @return BelongsToMany<User, $this> */

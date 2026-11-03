@@ -30,6 +30,8 @@ final readonly class HolidayDetailsData
             'travel_details' => ['nullable', 'string', 'max:10000'],
             'itinerary_notes' => ['nullable', 'string', 'max:65535'],
             'featured_image_path' => ['nullable', 'string', 'max:2048'],
+            'featured_image_media_id' => ['nullable', 'integer', 'exists:site_media,id'],
+            'featured_image_alt_text' => ['nullable', 'string', 'max:2000'],
             'attachments' => ['nullable', 'array', 'max:10'],
             'attachments.*.path' => ['required', 'string', 'max:2048', 'regex:~\Aholidays/attachments/[A-Za-z0-9][A-Za-z0-9._-]*\z~D'],
             'attachments.*.name' => ['required', 'string', 'max:255', 'regex:~\A[^\x00-\x1F\x7F\\/]+\z~D'],
@@ -48,7 +50,7 @@ final readonly class HolidayDetailsData
             'show_child_events_in_global_calendar', 'destination', 'accommodation', 'pricing_type', 'price_amount', 'currency', 'deposit_amount',
             'pricing_notes', 'capacity', 'availability', 'booking_deadline', 'booking_status',
             'booking_instructions', 'booking_url', 'booking_contact', 'travel_details', 'itinerary_notes',
-            'featured_image_path', 'attachments',
+            'featured_image_path', 'featured_image_media_id', 'featured_image_alt_text', 'attachments',
         ]);
     }
 }

@@ -20,7 +20,7 @@ final class DatabaseConnectionTest extends TestCase
         ));
 
         $this->assertTrue($result->successful);
-        $this->assertSame('Connection successful.', $result->message);
+        $this->assertSame('Database connection and schema permissions verified.', $result->message);
     }
 
     public function test_connection_failures_are_sanitised_for_non_developers(): void

@@ -6,7 +6,9 @@ use App\Domain\Gallery\Actions\IngestCommunityPhoto;
 use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\Gallery\PublicCommunityPhotoPresenter;
 use App\Domain\SiteMedia\Data\SiteMediaMetadata;
+use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
 use App\Domain\SiteMedia\Models\SiteMedia;
+use App\Domain\SiteMedia\Support\SiteMediaProcessingProfiles;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +20,11 @@ class PromoteCommunityPhotoToSiteMedia
 {
     use ManagesSiteMedia;
 
-    public function __construct(private readonly PublicCommunityPhotoPresenter $presenter, private readonly IngestCommunityPhoto $ingest) {}
+    public function __construct(
+        private readonly PublicCommunityPhotoPresenter $presenter,
+        private readonly IngestCommunityPhoto $ingest,
+        private readonly SiteMediaProcessingProfiles $profiles,
+    ) {}
 
     public function handle(User $actor, CommunityPhoto $photo, SiteMediaMetadata $metadata): SiteMedia
     {
@@ -49,13 +55,17 @@ class PromoteCommunityPhotoToSiteMedia
                 if (! is_array($image) || ! isset($image['mime'])) {
                     throw ValidationException::withMessages(['photo' => 'The approved derivative could not be copied safely.']);
                 }
-                $processed = $this->ingest->handle(new UploadedFile($temporaryPath, basename($path), (string) $image['mime'], null, true), 'site-media/'.$key);
+                $processed = $this->ingest->handle(
+                    new UploadedFile($temporaryPath, basename($path), (string) $image['mime'], null, true),
+                    'site-media/'.$key,
+                    $this->profiles->configurationFor(SiteMediaPurpose::Library),
+                );
                 $variants = [];
                 foreach ($processed->variants as $name => $variant) {
                     $variants[$name] = $variant->path;
                 }
                 $source = $processed->retainedSource ?? $processed->variants['master'];
-                $media = SiteMedia::query()->create(array_merge($values, ['created_by_user_id' => $actor->id, 'source_community_photo_id' => $locked->id, 'storage_key' => $key, 'storage_disk' => $locked->storage_disk, 'processed_variants' => $variants, 'mime_type' => $source->mimeType, 'width' => $source->width, 'height' => $source->height, 'file_size_bytes' => $source->fileSizeBytes, 'processing_status' => 'complete', 'health_status' => 'healthy']));
+                $media = SiteMedia::query()->create(array_merge($values, ['created_by_user_id' => $actor->id, 'source_community_photo_id' => $locked->id, 'storage_key' => $key, 'storage_disk' => $locked->storage_disk, 'processed_variants' => $variants, 'mime_type' => $source->mimeType, 'width' => $source->width, 'height' => $source->height, 'file_size_bytes' => $source->fileSizeBytes, 'processing_status' => 'complete', 'health_status' => 'healthy', 'purpose' => SiteMediaPurpose::Library, 'orphaned_at' => null]));
             } catch (\Throwable $exception) {
                 $disk->deleteDirectory('site-media/'.$key);
                 throw $exception;

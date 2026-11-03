@@ -8,6 +8,7 @@ use App\Domain\Gallery\Models\SpecialAlbum;
 use App\Models\User;
 use App\ViewModels\HomepageViewModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -20,13 +21,27 @@ final class HomepageTest extends TestCase
         $homepage = HomepageViewModel::demo();
 
         $this->assertSame('Waymark Community', $homepage->site['name']);
-        $this->assertCount(3, $homepage->weekendWalks);
+        $this->assertCount(3, $homepage->upcomingWalks);
         $this->assertCount(6, $homepage->gallery);
 
         $this->get('/')
             ->assertOk()
             ->assertViewIs('home')
-            ->assertViewHas('homepage', fn (HomepageViewModel $rendered): bool => $rendered->weekendWalks === [] && $rendered->gallery === []);
+            ->assertViewHas('homepage', fn (HomepageViewModel $rendered): bool => $rendered->upcomingWalks === [] && $rendered->gallery === []);
+    }
+
+    public function test_homepage_reuses_one_canonical_site_profile_read_per_request(): void
+    {
+        $queries = [];
+        DB::listen(function ($query) use (&$queries): void {
+            $queries[] = str_replace(['"', '`'], '', strtolower($query->sql));
+        });
+
+        $this->get('/')->assertSuccessful();
+
+        $this->assertCount(1, collect($queries)->filter(
+            fn (string $sql): bool => str_contains($sql, 'from site_profiles'),
+        ));
     }
 
     public function test_homepage_preserves_the_approved_section_hierarchy(): void
@@ -35,8 +50,8 @@ final class HomepageTest extends TestCase
             ->assertOk()
             ->assertSeeInOrder([
                 'Great walks. Good people.',
-                'Weekend adventures.',
-                'This Weekend',
+                'Shared adventures.',
+                'Upcoming walks',
                 'Holidays & Weekends Away',
                 'Photos from our walks & holidays',
                 'Join us!',
@@ -114,6 +129,7 @@ final class HomepageTest extends TestCase
         $response->assertSee('src="/images/demo/hero-walkers-1536.webp"', false)
             ->assertSee('srcset="/images/demo/hero-walkers-768.webp 768w, /images/demo/hero-walkers-1536.webp 1536w"', false)
             ->assertSee('alt="Friends walking together across open moorland"', false)
+            ->assertSee('style="object-position: 68% 32%"', false)
             ->assertDontSee('src="/images/demo/woodland-walk.png"', false)
             ->assertDontSee('src="/images/demo/lakeside-friends.png"', false);
     }

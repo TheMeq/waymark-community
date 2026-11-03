@@ -2,21 +2,31 @@
 
 namespace App\Filament\Resources\WalkResource\Pages;
 
+use App\Domain\Accounts\Enums\ModuleCapability;
+use App\Domain\Content\Presentation\PublicImageReference;
 use App\Domain\Events\Actions\AddEventUpdate;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Walks\Actions\StoreWalkGpx;
 use App\Domain\Walks\Actions\SubmitWalkForPublication;
+use App\Domain\Walks\Actions\UnpublishWalk;
 use App\Domain\Walks\Actions\UpdateWalk;
+use App\Domain\Walks\Actions\UpdateWalkFeaturedImage;
 use App\Domain\Walks\Actions\UpdateWalkRecap;
+use App\Domain\Walks\Data\WalkFeaturedImageInput;
 use App\Domain\Walks\Models\WalkFieldSettings;
+use App\Filament\Actions\DeleteWalkAction;
+use App\Filament\Pages\EditResourceRecord as EditRecord;
 use App\Filament\Resources\WalkResource;
+use App\Filament\Resources\WalkResource\Support\WalkFeaturedImageFields;
+use App\Filament\Resources\WalkResource\Support\WalkFormData;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
-use Filament\Resources\Pages\EditRecord;
+use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -25,18 +35,15 @@ final class EditWalk extends EditRecord
 {
     protected static string $resource = WalkResource::class;
 
+    public function getSubheading(): string
+    {
+        return 'Status: '.ucfirst(str_replace('_', ' ', $this->getRecord()->event->status->value));
+    }
+
     /** @param array<string, mixed> $data */
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        $walk = $this->getRecord()->loadMissing(['event', 'coLeaders', 'tags']);
-        $event = $walk->event;
-
-        return [
-            ...$data,
-            ...$event->only(['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at']),
-            'co_leader_ids' => $walk->coLeaders->modelKeys(),
-            'tag_ids' => $walk->tags->modelKeys(),
-        ];
+        return WalkFormData::from($this->getRecord());
     }
 
     /** @param array<string, mixed> $data */
@@ -45,7 +52,17 @@ final class EditWalk extends EditRecord
         /** @var User $user */
         $user = auth()->user();
 
-        return app(UpdateWalk::class)->handle($record, $user, $data);
+        $walk = app(UpdateWalk::class)->handle(
+            $record,
+            $user,
+            Arr::except($data, WalkFeaturedImageFields::stateNames()),
+        );
+
+        return app(UpdateWalkFeaturedImage::class)->handle(
+            $user,
+            $walk,
+            $this->featuredImageInput($walk, $data),
+        );
     }
 
     protected function getHeaderActions(): array
@@ -107,14 +124,75 @@ final class EditWalk extends EditRecord
                     $user = auth()->user();
                     app(UpdateWalkRecap::class)->handle($this->getRecord(), $user, $data);
                 }),
+            Action::make('unpublish')
+                ->label('Unpublish walk')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->modalHeading('Unpublish walk?')
+                ->modalDescription('Return this walk to Draft and remove it from public pages. Saved details and photos will be kept.')
+                ->visible(fn (): bool => Gate::allows('unpublish', $this->getRecord()) && (
+                    $this->getRecord()->event->status !== EventStatus::Draft
+                    || $this->getRecord()->event->is_public
+                    || $this->getRecord()->event->published_at !== null
+                ))
+                ->action(function (): void {
+                    /** @var User $actor */
+                    $actor = auth()->user();
+                    app(UnpublishWalk::class)->handle($this->getRecord(), $actor);
+                    Notification::make()->success()->title('Walk unpublished')->send();
+                }),
+            DeleteWalkAction::make(),
             Action::make('submitForPublication')
-                ->label('Submit for publication')
+                ->label(fn (): string => $this->getRecord()->event->status === EventStatus::PendingApproval ? 'Publish walk' : 'Submit for publication')
+                ->visible(fn (): bool => Gate::allows('publish', $this->getRecord()) && (
+                    $this->getRecord()->event->status === EventStatus::Draft
+                    || ($this->getRecord()->event->status === EventStatus::PendingApproval && (
+                        auth()->user()->hasCapability(ModuleCapability::ManageAllWalks)
+                        || WalkFieldSettings::current()->leaders_can_publish_directly
+                    ))
+                ))
                 ->action(function (): void {
                     /** @var User $user */
                     $user = auth()->user();
-                    app(SubmitWalkForPublication::class)->handle($this->getRecord(), $user);
+                    $walk = app(SubmitWalkForPublication::class)->handle($this->getRecord(), $user);
                     $this->refreshFormData(['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at']);
+                    Notification::make()->success()
+                        ->title($walk->event->status === EventStatus::Published ? 'Walk published' : 'Walk submitted for approval')
+                        ->send();
                 }),
         ];
+    }
+
+    /** @param array<string, mixed> $state */
+    private function featuredImageInput(Model $walk, array $state): WalkFeaturedImageInput
+    {
+        $source = $state['featured_image_source'] ?? 'none';
+        $input = Arr::only($state, WalkFeaturedImageFields::stateNames());
+        unset($input['featured_image_preview'], $input['featured_image_remove_fallback']);
+        $input['featured_image_upload'] = WalkFeaturedImageFields::uploadedFile($input['featured_image_upload'] ?? null);
+
+        if ($source === 'managed') {
+            $input['featured_image_external_url'] = null;
+        } elseif ($source === 'external') {
+            $input['featured_image_upload'] = null;
+        } elseif (($state['featured_image_remove_fallback'] ?? null) === 'reveal'
+            && filled($walk->featured_image_media_id)
+            && PublicImageReference::isAllowed($walk->featured_image_path)) {
+            $input = [
+                'featured_image_source' => 'external',
+                'featured_image_upload' => null,
+                'featured_image_external_url' => $walk->featured_image_path,
+                'featured_image_alt_text' => $state['featured_image_alt_text'] ?? $walk->featured_image_alt_text,
+            ];
+        } else {
+            $input = [
+                'featured_image_source' => 'none',
+                'featured_image_upload' => null,
+                'featured_image_external_url' => null,
+                'featured_image_alt_text' => null,
+            ];
+        }
+
+        return WalkFeaturedImageInput::from($input);
     }
 }

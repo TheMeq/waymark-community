@@ -19,9 +19,11 @@ final class RolePermissionSettings extends Page
 {
     protected static ?string $title = 'Role permissions';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Configuration';
+    protected static string|\UnitEnum|null $navigationGroup = 'People';
 
     protected static ?string $navigationLabel = 'Role permissions';
+
+    protected static ?int $navigationSort = 30;
 
     protected static string|array $routeMiddleware = ['sensitive.confirmed'];
 

@@ -133,14 +133,13 @@ final class SocialEventTest extends TestCase
         Livewire::test(CreateSocialPage::class)
             ->fillForm([
                 'title' => 'Autumn supper',
-                'slug' => 'autumn-supper',
                 'starts_at' => '2026-10-17 19:00:00',
                 'venue_name' => 'Market Hall',
             ])
             ->call('create')
             ->assertHasNoFormErrors();
 
-        $event = Event::query()->where('slug', 'autumn-supper')->firstOrFail();
+        $event = Event::query()->where('slug', 'autumn-supper-2026-10-17')->firstOrFail();
         $this->assertSame(EventType::Social, $event->type);
         $this->assertSame('Market Hall', $event->social->venue_name);
     }

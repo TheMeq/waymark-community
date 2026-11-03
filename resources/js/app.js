@@ -82,6 +82,11 @@ Alpine.start();
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js', { scope: '/' }).catch(() => {});
+        const serviceWorkerUrl = document.documentElement.dataset.serviceWorkerUrl;
+        const serviceWorkerScope = document.documentElement.dataset.serviceWorkerScope;
+
+        if (serviceWorkerUrl && serviceWorkerScope) {
+            navigator.serviceWorker.register(serviceWorkerUrl, { scope: serviceWorkerScope }).catch(() => {});
+        }
     });
 }

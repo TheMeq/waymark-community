@@ -24,9 +24,11 @@ final class ContactDepartmentResource extends Resource
 {
     protected static ?string $model = ContactDepartment::class;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Group';
+    protected static string|\UnitEnum|null $navigationGroup = 'Group settings';
 
     protected static ?string $navigationLabel = 'Contact departments';
+
+    protected static ?int $navigationSort = 70;
 
     public static function form(Schema $schema): Schema
     {

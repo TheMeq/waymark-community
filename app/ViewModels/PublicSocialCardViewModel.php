@@ -2,6 +2,7 @@
 
 namespace App\ViewModels;
 
+use App\Domain\Content\Presentation\PublicUrl;
 use App\Domain\Events\Models\Event;
 use App\Domain\Events\Presentation\PublicEventStatus;
 
@@ -13,7 +14,7 @@ final readonly class PublicSocialCardViewModel
         return array_filter([
             'title' => $event->title,
             'url' => route('socials.show', $event->slug),
-            'image_url' => '/images/demo/lakeside-friends-768.webp',
+            'image_url' => PublicUrl::asset('/images/demo/lakeside-friends-768.webp'),
             'image_alt' => 'Friends spending time together beside an upland lake',
             'date' => $event->starts_at->format('l j F'),
             'day' => $event->starts_at->format('D'),

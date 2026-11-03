@@ -31,6 +31,8 @@ final class PhotoModeration extends Page
 
     protected static ?string $navigationLabel = 'Photo moderation';
 
+    protected static ?int $navigationSort = 10;
+
     protected string $view = 'filament.pages.photo-moderation';
 
     /** @var array<int, int> */

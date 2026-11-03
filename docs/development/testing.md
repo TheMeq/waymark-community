@@ -25,6 +25,12 @@ The release-level manual accessibility pass is documented in [`accessibility-acc
 
 Public transfer and rendering budgets are defined in [`performance-budgets.md`](performance-budgets.md) and enforced with `npm run test:performance`.
 
+## Request diagnostics
+
+Development and staging requests record a bounded profile in `storage/logs/waymark-performance-*.log` and expose the same timing summary through the `Server-Timing` response header. Each record includes framework boot and application duration, database query count/time and repeated query shapes, cache activity, cache/session drivers, file-backed driver touchpoints, outbound HTTP host/timing, response status, authentication state, and peak memory. View rendering is included in application duration; Laravel does not expose a reliable separate render duration at this boundary.
+
+Set `WAYMARK_REQUEST_DIAGNOSTICS=true` to enable the profiler explicitly or `false` to disable it. It defaults to enabled only for `local` and `staging` environments. Never enable it routinely in production, and do not add request input, query bindings, credentials, or full outbound URLs to its records.
+
 ## Core commands
 
 From the repository root:

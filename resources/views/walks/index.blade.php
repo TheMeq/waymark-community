@@ -1,7 +1,7 @@
 @extends('layouts.public')
 
-@section('title', 'Upcoming walks')
-@section('meta_description', 'Browse upcoming walks and practical details.')
+@section('title', 'Walks')
+@section('meta_description', 'Browse upcoming and past walks and practical details.')
 
 @section('site-header')
     <x-public.site-header :site="$site" />
@@ -10,8 +10,8 @@
 @section('content')
     <section class="bg-surface-raised py-10 sm:py-14">
         <div class="wm-container">
-            <p class="text-xs font-semibold uppercase tracking-[0.15em] text-brand">Plan a walk</p>
-            <h1 class="mt-2 text-4xl text-ink sm:text-5xl">Upcoming walks</h1>
+            <p class="text-xs font-semibold uppercase tracking-[0.15em] text-brand">Explore walks</p>
+            <h1 class="mt-2 text-4xl text-ink sm:text-5xl">Walks</h1>
 
             <form class="mt-8 grid gap-3 rounded-[var(--wm-radius-md)] border border-border bg-surface p-4 sm:grid-cols-2 lg:grid-cols-4" method="get" action="{{ route('walks.index') }}">
                 <div><label class="text-sm font-medium" for="date-from">From date</label><input class="wm-form-control mt-1" id="date-from" type="date" name="date_from" value="{{ $filters->dateFrom?->format('Y-m-d') }}"></div>
@@ -40,7 +40,7 @@
                     {{ $walks->links() }}
                 </div>
             @else
-                <p class="mt-6 max-w-xl text-ink-muted">There are no upcoming walks to show right now. Please check back soon.</p>
+                <p class="mt-6 max-w-xl text-ink-muted">No walks match your filters.</p>
             @endif
         </div>
     </section>

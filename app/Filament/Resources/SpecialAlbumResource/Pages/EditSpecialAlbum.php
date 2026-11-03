@@ -4,9 +4,9 @@ namespace App\Filament\Resources\SpecialAlbumResource\Pages;
 
 use App\Domain\Gallery\Actions\SaveSpecialAlbum;
 use App\Domain\Gallery\Models\SpecialAlbum;
+use App\Filament\Pages\EditResourceRecord as EditRecord;
 use App\Filament\Resources\SpecialAlbumResource;
 use App\Models\User;
-use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 
 final class EditSpecialAlbum extends EditRecord

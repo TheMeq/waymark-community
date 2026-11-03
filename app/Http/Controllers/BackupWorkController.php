@@ -19,7 +19,7 @@ final readonly class BackupWorkController
         $backups->advance($backup);
         $retention->handle();
 
-        return redirect('/admin/system-health')->with('status', 'Backup work advanced.');
+        return to_route('filament.admin.pages.system-health')->with('status', 'Backup work advanced.');
     }
 
     public function retry(BackupRun $backup, CreateBackup $backups): RedirectResponse
@@ -27,7 +27,7 @@ final readonly class BackupWorkController
         $this->authorise();
         $backups->retry($backup);
 
-        return redirect('/admin/system-health')->with('status', 'Backup queued for retry.');
+        return to_route('filament.admin.pages.system-health')->with('status', 'Backup queued for retry.');
     }
 
     private function authorise(): void

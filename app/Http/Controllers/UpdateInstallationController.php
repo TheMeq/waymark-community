@@ -23,7 +23,7 @@ final readonly class UpdateInstallationController
             'confirmation' => ['required', Rule::in([ApplyUpdate::CONFIRMATION])],
         ]);
         if ($validator->fails()) {
-            return redirect('/admin/update-centre')->withErrors($validator);
+            return to_route('filament.admin.pages.update-centre')->withErrors($validator);
         }
         $validated = $validator->validated();
 
@@ -31,16 +31,16 @@ final readonly class UpdateInstallationController
             $result = $this->updates->handle($validated['confirmation']);
 
             if ($result->activationToken === '') {
-                return redirect('/admin/update-centre')->with('status', 'The verified update is staged. Complete its bounded safety backup before continuing.');
+                return to_route('filament.admin.pages.update-centre')->with('status', 'The verified update is staged. Complete its bounded safety backup before continuing.');
             }
 
             $request->session()->put('waymark.update_activation_token', $result->activationToken);
 
-            return redirect('/updates/activate')->withHeaders(['Referrer-Policy' => 'no-referrer']);
+            return to_route('updates.activate.show')->withHeaders(['Referrer-Policy' => 'no-referrer']);
         } catch (Throwable $exception) {
             report($exception);
 
-            return redirect('/admin/update-centre')->withErrors([
+            return to_route('filament.admin.pages.update-centre')->withErrors([
                 'install' => 'The update was not applied. Review the compatibility, maintenance and recovery status before trying again.',
             ]);
         }

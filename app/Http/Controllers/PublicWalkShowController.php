@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Domain\Accounts\Queries\FavouriteablePublicEventsQuery;
 use App\Domain\Content\Presentation\PublicSeo;
-use App\Domain\Operations\Models\SiteProfile;
+use App\Domain\Operations\Queries\CurrentSiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Domain\Walks\Queries\PublicWalksQuery;
 use App\Domain\Walks\RelatedContent\RelatedWalks;
@@ -16,9 +16,9 @@ use Illuminate\Http\Request;
 
 final class PublicWalkShowController
 {
-    public function __invoke(string $slug, PublicWalksQuery $walks, RelatedWalks $relatedWalks, FavouriteablePublicEventsQuery $favourites, Request $request): View
+    public function __invoke(string $slug, PublicWalksQuery $walks, RelatedWalks $relatedWalks, FavouriteablePublicEventsQuery $favourites, Request $request, CurrentSiteProfile $currentProfile): View
     {
-        $siteProfile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
+        $siteProfile = $currentProfile->get();
         $event = $walks->published()->with('updates')->where('slug', $slug)->firstOrFail();
 
         $walk = PublicWalkDetailViewModel::fromEvent($event, $siteProfile);

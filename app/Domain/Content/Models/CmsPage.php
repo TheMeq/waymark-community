@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['title', 'slug', 'hero_media_id', 'blocks', 'publication_state', 'publish_at', 'archived_at', 'seo_title', 'seo_description'])]
+#[Fillable(['title', 'slug', 'hero_media_id', 'hero_image_path', 'hero_image_alt_text', 'blocks', 'publication_state', 'publish_at', 'archived_at', 'seo_title', 'seo_description'])]
 final class CmsPage extends Model
 {
     use SoftDeletes;

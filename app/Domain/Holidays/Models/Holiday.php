@@ -3,6 +3,7 @@
 namespace App\Domain\Holidays\Models;
 
 use App\Domain\Events\Models\Event;
+use App\Domain\SiteMedia\Models\SiteMedia;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'event_id', 'show_child_events_in_global_calendar', 'destination', 'accommodation', 'pricing_type', 'price_amount', 'currency',
     'deposit_amount', 'pricing_notes', 'capacity', 'availability', 'booking_deadline',
     'booking_status', 'booking_instructions', 'booking_url', 'booking_contact', 'travel_details',
-    'itinerary_notes', 'featured_image_path', 'attachments',
+    'itinerary_notes', 'featured_image_path', 'featured_image_media_id', 'featured_image_alt_text', 'attachments',
 ])]
 final class Holiday extends Model
 {
@@ -48,5 +49,10 @@ final class Holiday extends Model
             'booking_deadline' => 'datetime',
             'attachments' => 'array',
         ];
+    }
+
+    public function featuredMedia(): BelongsTo
+    {
+        return $this->belongsTo(SiteMedia::class, 'featured_image_media_id');
     }
 }

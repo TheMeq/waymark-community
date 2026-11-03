@@ -11,7 +11,7 @@ export default defineConfig({
     fullyParallel: true,
     forbidOnly: Boolean(process.env.CI),
     retries: process.env.CI ? 2 : 0,
-    workers: process.env.CI ? 1 : undefined,
+    workers: 1,
     reporter: [['list']],
     use: {
         baseURL: 'http://127.0.0.1:8001',
@@ -25,13 +25,14 @@ export default defineConfig({
     webServer: {
         command: 'php artisan serve --host=127.0.0.1 --port=8001',
         env: {
-            APP_ENV: 'production',
+            APP_ENV: 'browser-testing',
             APP_DEBUG: 'false',
             WAYMARK_INSTALLED: 'false',
             WAYMARK_INSTALLATION_LOCK: resolve('test-results/installer-installation.lock'),
             WAYMARK_CRON_AVAILABLE: 'false',
             CACHE_STORE: 'array',
             SESSION_DRIVER: 'file',
+            WAYMARK_MAIL_CONFIGURED: 'true',
             ...phpIniScanEnvironment,
         },
         url: 'http://127.0.0.1:8001/setup',

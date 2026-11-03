@@ -3,7 +3,9 @@
 namespace Tests\Feature\Pwa;
 
 use App\Domain\Operations\Actions\UpdateSiteProfile;
+use App\Http\Controllers\PwaController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
 final class PwaFoundationTest extends TestCase
@@ -67,7 +69,7 @@ final class PwaFoundationTest extends TestCase
             ->assertOk()
             ->assertHeader('Service-Worker-Allowed', '/')
             ->assertSee('waymark-shell-v2', false)
-            ->assertSee("'/offline'", false);
+            ->assertSee('/offline', false);
         $this->assertStringStartsWith('application/javascript', (string) $serviceWorker->headers->get('Content-Type'));
 
         $this->get('/offline')
@@ -87,7 +89,8 @@ final class PwaFoundationTest extends TestCase
 
         $applicationScript = (string) file_get_contents(resource_path('js/app.js'));
         $this->assertStringContainsString("'serviceWorker' in navigator", $applicationScript);
-        $this->assertStringContainsString("register('/service-worker.js'", $applicationScript);
+        $this->assertStringContainsString('dataset.serviceWorkerUrl', $applicationScript);
+        $this->assertStringContainsString('dataset.serviceWorkerScope', $applicationScript);
         $this->assertStringNotContainsString('Notification.requestPermission', $applicationScript);
         $this->assertStringNotContainsString('sync.register', $applicationScript);
     }
@@ -101,5 +104,21 @@ final class PwaFoundationTest extends TestCase
         $this->assertStringContainsString("key.startsWith('waymark-')", $serviceWorker);
         $this->assertStringNotContainsString('push', strtolower($serviceWorker));
         $this->assertStringNotContainsString('background sync', strtolower($serviceWorker));
+    }
+
+    public function test_pwa_urls_and_scope_preserve_a_nested_request_base_path(): void
+    {
+        URL::forceRootUrl('http://localhost/demo-site/ndwg');
+        $controller = app(PwaController::class);
+        $manifest = $controller->manifest();
+        $serviceWorker = $controller->serviceWorker();
+
+        $this->assertSame('/demo-site/ndwg', $manifest->getData(true)['start_url']);
+        $this->assertSame('/demo-site/ndwg/', $manifest->getData(true)['scope']);
+        $this->assertSame('/demo-site/ndwg/images/pwa/icon-192.png', $manifest->getData(true)['icons'][0]['src']);
+        $this->assertSame('/demo-site/ndwg/images/pwa/icon-512.png', $manifest->getData(true)['icons'][1]['src']);
+        $this->assertSame('/demo-site/ndwg/', $serviceWorker->headers->get('Service-Worker-Allowed'));
+        $this->assertStringContainsString('/demo-site/ndwg/offline', $serviceWorker->getContent());
+        $this->assertStringContainsString('/demo-site/ndwg/build', $serviceWorker->getContent());
     }
 }

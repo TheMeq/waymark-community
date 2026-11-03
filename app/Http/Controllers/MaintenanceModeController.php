@@ -27,7 +27,7 @@ final readonly class MaintenanceModeController
             $validated['contact_url'] ?? null,
         );
 
-        return redirect('/admin/maintenance-mode')
+        return to_route('filament.admin.pages.maintenance-mode')
             ->with('status', 'Maintenance mode enabled; this browser has a private bypass.')
             ->withCookie(cookie(
                 MaintenanceManager::BYPASS_COOKIE,
@@ -47,7 +47,7 @@ final readonly class MaintenanceModeController
         $this->authorize($request);
         $this->maintenance->disable();
 
-        return redirect('/admin/maintenance-mode')
+        return to_route('filament.admin.pages.maintenance-mode')
             ->with('status', 'Maintenance mode disabled.')
             ->withoutCookie(MaintenanceManager::BYPASS_COOKIE);
     }

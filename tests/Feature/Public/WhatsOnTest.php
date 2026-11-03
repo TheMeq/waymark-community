@@ -19,6 +19,8 @@ final class WhatsOnTest extends TestCase
 
     public function test_authoritative_public_query_includes_only_visible_published_upcoming_event_state(): void
     {
+        $this->travelTo('2026-10-01 12:00:00');
+
         $walk = $this->event(EventType::Walk, 'Public walk', '2026-10-03 09:00:00');
         $social = $this->event(EventType::Social, 'Changed social', '2026-10-04 19:00:00', EventStatus::Changed);
         $holiday = $this->event(EventType::Holiday, 'Cancelled holiday', '2026-10-09 16:00:00', EventStatus::Cancelled);
@@ -78,6 +80,8 @@ final class WhatsOnTest extends TestCase
 
     public function test_combined_list_is_chronological_and_type_filter_is_dedicated(): void
     {
+        $this->travelTo('2026-10-01 12:00:00');
+
         $this->event(EventType::Holiday, 'October holiday', '2026-10-09 16:00:00');
         $this->event(EventType::Social, 'October social', '2026-10-04 19:00:00');
         $this->event(EventType::Walk, 'October walk', '2026-10-03 09:00:00');
@@ -116,6 +120,8 @@ final class WhatsOnTest extends TestCase
 
     public function test_holiday_setting_can_hide_children_from_global_views_without_removing_their_public_identity(): void
     {
+        $this->travelTo('2026-10-01 12:00:00');
+
         $holiday = $this->event(EventType::Holiday, 'Private itinerary calendar', '2026-10-02 16:00:00');
         $holiday->update(['ends_at' => '2026-10-05 10:00:00']);
         $holiday->holiday->update(['show_child_events_in_global_calendar' => false]);
@@ -141,6 +147,8 @@ final class WhatsOnTest extends TestCase
 
     public function test_exceptional_lifecycle_state_overrides_availability_on_cards_details_and_calendar(): void
     {
+        $this->travelTo('2026-10-01 12:00:00');
+
         $social = $this->event(EventType::Social, 'Cancelled community supper', '2026-10-04 19:00:00', EventStatus::Cancelled);
         $social->social->update(['availability' => 'Places available', 'booking_status' => 'Booking open']);
 

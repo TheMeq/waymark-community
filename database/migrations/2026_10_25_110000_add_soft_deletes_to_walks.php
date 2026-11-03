@@ -8,15 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('site_profiles', function (Blueprint $table): void {
-            $table->string('affiliation_logo_path', 2048)->nullable();
+        Schema::table('walks', function (Blueprint $table): void {
+            $table->softDeletes();
         });
     }
 
     public function down(): void
     {
-        Schema::table('site_profiles', function (Blueprint $table): void {
-            $table->dropColumn('affiliation_logo_path');
+        Schema::table('walks', function (Blueprint $table): void {
+            $table->dropSoftDeletes();
         });
     }
 };

@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\NavigationItemResource\Pages;
 
+use App\Filament\Pages\CreateResourceRecord as CreateRecord;
 use App\Filament\Resources\NavigationItemResource;
-use Filament\Resources\Pages\CreateRecord;
 
 final class CreateNavigationItem extends CreateRecord
 {

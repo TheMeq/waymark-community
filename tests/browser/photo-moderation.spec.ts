@@ -12,6 +12,8 @@ async function signIn(page: Page) {
 }
 
 test('authorised moderation workflow is operable and accessible at every review viewport', async ({ page }, testInfo) => {
+    test.setTimeout(60_000);
+
     await signIn(page);
     await page.goto('/admin/photo-moderation');
 

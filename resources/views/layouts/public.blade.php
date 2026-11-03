@@ -1,8 +1,13 @@
 <!DOCTYPE html>
 @php($seoMetadata = $seo ?? null)
+@php($serviceWorkerUrl = \App\Domain\Content\Presentation\PublicUrl::route('pwa.service-worker'))
+@php($serviceWorkerScope = (rtrim(\App\Domain\Content\Presentation\PublicUrl::route('home'), '/') ?: '').'/')
+@php($manifestUrl = \App\Domain\Content\Presentation\PublicUrl::route('pwa.manifest'))
 <html
     lang="{{ str_replace('_', '-', app()->getLocale()) }}"
     style="@foreach ($theme->cssVariables() as $property => $value) {{ $property }}: {{ $value }}; @endforeach"
+    data-service-worker-url="{{ $serviceWorkerUrl }}"
+    data-service-worker-scope="{{ $serviceWorkerScope }}"
 >
     <head>
         <meta charset="utf-8">
@@ -20,9 +25,9 @@
         @foreach($seoMetadata?->structuredData ?? [] as $structuredData)
             <script type="application/ld+json">{!! json_encode($structuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
         @endforeach
-        <link rel="manifest" href="/manifest.webmanifest">
+        <link rel="manifest" href="{{ $manifestUrl }}">
         <meta name="theme-color" content="{{ $theme->primaryColour }}">
-        @if ($branding['favicon_url'])<link rel="icon" href="{{ $branding['favicon_url'] }}">@endif
+        @if ($branding['favicon_url'])<link rel="icon" href="{{ $branding['favicon_url'] }}"@if($branding['favicon_type'] ?? null) type="{{ $branding['favicon_type'] }}"@endif>@endif
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         <x-public.analytics :analytics="$analytics" />

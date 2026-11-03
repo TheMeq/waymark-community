@@ -4,8 +4,8 @@ namespace App\Filament\Resources\RecurringSeriesResource\Pages;
 
 use App\Domain\Events\Actions\CreateRecurringSeries as CreateRecurringSeriesAction;
 use App\Domain\Events\Models\Event;
+use App\Filament\Pages\CreateResourceRecord as CreateRecord;
 use App\Filament\Resources\RecurringSeriesResource;
-use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 
 final class CreateRecurringSeries extends CreateRecord

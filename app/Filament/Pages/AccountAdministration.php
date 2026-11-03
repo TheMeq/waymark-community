@@ -28,9 +28,11 @@ final class AccountAdministration extends Page
 {
     protected static ?string $title = 'Account administration';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Accounts';
+    protected static string|\UnitEnum|null $navigationGroup = 'People';
 
     protected static ?string $navigationLabel = 'Account administration';
+
+    protected static ?int $navigationSort = 10;
 
     protected static string|array $routeMiddleware = ['sensitive.confirmed'];
 

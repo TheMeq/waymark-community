@@ -11,10 +11,16 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class EligibleWalkLeadersQuery
 {
+    /** @var list<string>|null */
+    private ?array $capableRoles = null;
+
+    /** @var array<int, string>|null */
+    private ?array $leaderOptions = null;
+
     /** @return Builder<User> */
     public function builder(): Builder
     {
-        $capableRoles = RoleCapability::query()
+        $capableRoles = $this->capableRoles ??= RoleCapability::query()
             ->whereIn('capability', [
                 ModuleCapability::ManageOwnWalks->value,
                 ModuleCapability::ManageAllWalks->value,
@@ -67,7 +73,7 @@ final class EligibleWalkLeadersQuery
     /** @return array<int, string> */
     public function options(): array
     {
-        return $this->builder()
+        return $this->leaderOptions ??= $this->builder()
             ->orderBy('name')
             ->pluck('name', 'id')
             ->all();

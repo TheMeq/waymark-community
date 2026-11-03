@@ -18,7 +18,7 @@
         @if ($errors->any())<p class="error">{{ $errors->first('recovery') }}</p>@endif
         <form method="post" action="{{ route('recovery.restore') }}" enctype="multipart/form-data">
             @csrf
-            <label>Recovery token <input name="recovery_token" type="password" autocomplete="off" required></label>
+            <label>Recovery key <input name="recovery_token" type="password" autocomplete="off" required></label>
             <label>Verified Waymark backup <input name="backup" type="file"></label>
             <label>Or private server archive filename <input name="server_archive" autocomplete="off" placeholder="waymark-backup.zip"></label>
             <label>Encryption passphrase, if used <input name="passphrase" type="password" autocomplete="off"></label>

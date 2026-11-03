@@ -21,6 +21,8 @@ final class RecurringSeriesResource extends Resource
 
     protected static ?string $navigationLabel = 'Recurring series';
 
+    protected static ?int $navigationSort = 50;
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([

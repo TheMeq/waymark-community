@@ -15,13 +15,13 @@ final class PublicCommunityPhotoPresenter
 
     public function __construct(private readonly UploadablePublicEvents $events) {}
 
-    public function isEligible(CommunityPhoto $photo, string $variant = 'thumbnail'): bool
+    public function isEligible(CommunityPhoto $photo, string $variant = 'thumbnail', bool $publicContextVerified = false): bool
     {
         return $photo->moderation_status === 'approved'
             && $photo->published_at !== null
             && $photo->published_at->lessThanOrEqualTo(now())
             && $photo->processing_status === 'complete'
-            && $this->hasPublicContext($photo)
+            && ($publicContextVerified || $this->hasPublicContext($photo))
             && $this->safeExistingPath($photo, $variant) !== null;
     }
 
@@ -34,9 +34,9 @@ final class PublicCommunityPhotoPresenter
         return $this->safeExistingPath($photo, $variant);
     }
 
-    public function present(CommunityPhoto $photo, string $variant = 'thumbnail'): ?PublicCommunityPhotoPresentation
+    public function present(CommunityPhoto $photo, string $variant = 'thumbnail', bool $publicContextVerified = false): ?PublicCommunityPhotoPresentation
     {
-        if (! $this->isEligible($photo, $variant)) {
+        if (! $this->isEligible($photo, $variant, $publicContextVerified)) {
             return null;
         }
 

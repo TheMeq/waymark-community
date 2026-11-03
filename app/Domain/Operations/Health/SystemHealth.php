@@ -2,6 +2,7 @@
 
 namespace App\Domain\Operations\Health;
 
+use App\Domain\Communication\Support\OutboundEmailStatus;
 use App\Domain\Operations\Backups\Models\BackupRun;
 use App\Domain\Operations\Health\Models\MissingMediaRepair;
 use App\Domain\Operations\Installation\Contracts\PublicApplicationExposureProbe;
@@ -16,13 +17,29 @@ final readonly class SystemHealth
         private SchedulerHeartbeat $scheduler,
         private UpdateStateStore $updateState,
         private PublicApplicationExposureProbe $exposureProbe,
+        private OutboundEmailStatus $emailStatus,
+        private OpcodeCacheProbe $opcodeCache,
     ) {}
 
     public function report(bool $https, ?string $baseUrl = null): SystemHealthReport
     {
-        $checks = [
+        $checks = $this->localReport($https)->checks;
+
+        if (config('waymark.deployment_layout') === 'public-html') {
+            $checks[] = $this->applicationProtection($baseUrl ?? (string) config('app.url'));
+        }
+
+        return new SystemHealthReport($checks);
+    }
+
+    public function localReport(bool $https): SystemHealthReport
+    {
+        $opcacheEnabled = $this->opcodeCache->enabled();
+
+        return new SystemHealthReport([
             new HealthCheck('platform', 'Platform', 'healthy', 'Waymark Community '.config('waymark.version', 'development').' is running.'),
             new HealthCheck('php', 'PHP', version_compare(PHP_VERSION, '8.3.0', '>=') ? 'healthy' : 'critical', 'PHP '.PHP_VERSION.' is active.'),
+            new HealthCheck('opcache', 'OPcache', $opcacheEnabled ? 'healthy' : 'warning', $opcacheEnabled ? 'PHP OPcache is enabled.' : 'PHP OPcache is not enabled. Enabling OPcache is strongly recommended for shared-host request performance.'),
             $this->database(),
             new HealthCheck('storage', 'Private storage', is_writable(storage_path('app/private')) ? 'healthy' : 'critical', is_writable(storage_path('app/private')) ? 'Private storage is writable.' : 'Private storage is not writable.'),
             $this->diskSpace(),
@@ -32,13 +49,7 @@ final readonly class SystemHealth
             new HealthCheck('https', 'HTTPS', $https ? 'healthy' : 'warning', $https ? 'The administration request is encrypted.' : 'HTTPS was not detected for this request.'),
             $this->updates(),
             $this->missingMedia(),
-        ];
-
-        if (config('waymark.deployment_layout') === 'public-html') {
-            $checks[] = $this->applicationProtection($baseUrl ?? (string) config('app.url'));
-        }
-
-        return new SystemHealthReport($checks);
+        ]);
     }
 
     private function applicationProtection(string $baseUrl): HealthCheck
@@ -78,10 +89,9 @@ final readonly class SystemHealth
 
     private function email(): HealthCheck
     {
-        $mailer = (string) config('mail.default');
-        $configured = $mailer !== '' && ($mailer !== 'smtp' || trim((string) config('mail.mailers.smtp.host')) !== '');
+        $configured = $this->emailStatus->configured();
 
-        return new HealthCheck('email', 'Email', $configured ? 'healthy' : 'warning', $configured ? ucfirst($mailer).' delivery is configured.' : 'Email delivery is not configured.');
+        return new HealthCheck('email', 'Email', $configured ? 'healthy' : 'warning', $configured ? 'Outbound email delivery is configured.' : 'Email delivery is not configured.');
     }
 
     private function scheduler(): HealthCheck

@@ -14,7 +14,7 @@ async function expectNoHorizontalOverflow(page: Page) {
 test('published walks have a browseable list and public detail page', async ({ page }) => {
     await page.goto('/walks');
 
-    await expect(page.getByRole('heading', { name: 'Upcoming walks' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Walks', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Ridge and reservoir' })).toBeVisible();
     await page.getByRole('link', { name: 'Ridge and reservoir' }).click();
 

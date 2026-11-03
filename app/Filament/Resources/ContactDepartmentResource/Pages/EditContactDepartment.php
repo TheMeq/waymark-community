@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources\ContactDepartmentResource\Pages;
 
+use App\Filament\Pages\EditResourceRecord as EditRecord;
 use App\Filament\Resources\ContactDepartmentResource;
 use Filament\Actions\DeleteAction;
-use Filament\Resources\Pages\EditRecord;
 
 final class EditContactDepartment extends EditRecord
 {

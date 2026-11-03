@@ -38,7 +38,7 @@ Before creating an archive, Waymark checks that the local staging area has enoug
 
 Normal guided restore is available at **System → Restore backup** after fresh password confirmation (and fresh 2FA when enabled). Select a known completed backup and type the exact destructive confirmation `RESTORE WAYMARK`.
 
-If normal administration is broken, open `/recovery`, select a Waymark backup, supply its encryption passphrase when applicable, provide the recovery token established during setup, and type the same destructive confirmation. Keep that token in the group's password manager: only its SHA-256 hash is stored in `WAYMARK_RECOVERY_TOKEN_HASH`, so Waymark cannot display or recover it later.
+If normal administration is broken, open `/recovery`, select a Waymark backup, supply its encryption passphrase when applicable, provide the recovery key established during setup, and type the same destructive confirmation. Keep that key in the group's password manager: only its SHA-256 hash is stored in `WAYMARK_RECOVERY_TOKEN_HASH`, so Waymark cannot display or recover it later.
 
 When a backup is larger than the hosting account's PHP upload/post limit, place it through the hosting control panel or SFTP in the private `storage/app/private/recovery-inbox` directory, then enter only its filename in the recovery form. `WAYMARK_RECOVERY_ARCHIVE_DIRECTORY` may point to another private server directory. Waymark accepts a simple `.zip` or `.zip.enc` filename only, resolves it inside that configured directory, and never accepts an arbitrary request path. Delete the server-side copy after recovery.
 

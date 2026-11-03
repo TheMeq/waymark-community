@@ -3,9 +3,9 @@
 namespace App\Filament\Resources\SpecialAlbumResource\Pages;
 
 use App\Domain\Gallery\Actions\SaveSpecialAlbum;
+use App\Filament\Pages\CreateResourceRecord as CreateRecord;
 use App\Filament\Resources\SpecialAlbumResource;
 use App\Models\User;
-use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 
 final class CreateSpecialAlbum extends CreateRecord

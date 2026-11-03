@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Content\Presentation\PublicUrl;
 use App\Domain\Operations\Installation\SetupStep;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
@@ -61,10 +62,16 @@ use App\Http\Middleware\CaptureCampaignParameters;
 use App\Http\Middleware\RecordAccountActivity;
 use App\Http\Middleware\RequireActiveAccount;
 use App\Http\Middleware\TriggerNonCriticalFallback;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/setup', [SetupController::class, 'show'])->name('setup');
 Route::post('/setup', [SetupController::class, 'start'])->name('setup.start');
+Route::get('/setup/install/progress', [SetupController::class, 'progress'])->name('setup.install.progress');
+Route::post('/setup/install/advance', [SetupController::class, 'advance'])->name('setup.install.advance');
+Route::post('/setup/install/retry', [SetupController::class, 'retry'])->name('setup.install.retry');
+Route::post('/setup/install/reset', [SetupController::class, 'reset'])->name('setup.install.reset');
+Route::post('/setup/recovery-key', [SetupController::class, 'recoveryKey'])->name('setup.recovery-key');
 Route::get('/setup/{step}', [SetupController::class, 'show'])
     ->whereIn('step', array_column(SetupStep::cases(), 'value'))
     ->name('setup.step');
@@ -177,6 +184,13 @@ Route::get('/calendar.ics', CalendarFeedController::class)->defaults('calendarTy
 Route::get('/calendar/{calendarType}.ics', CalendarFeedController::class)->whereIn('calendarType', ['walks', 'socials', 'holidays'])->name('calendar.type');
 
 if (app()->environment(['local', 'testing', 'browser-testing'])) {
+    Route::get('/_dev/setup/{step}', function (Request $request, string $step) {
+        $setupStep = SetupStep::from($step);
+        $request->session()->put('waymark.setup.current_step', $setupStep->number());
+
+        return to_route('setup.step', $setupStep->value);
+    })->whereIn('step', array_column(SetupStep::cases(), 'value'))->name('dev.setup.step');
+
     Route::get('/_dev/components', function () {
         return view('dev.components', [
             'theme' => BrandTheme::fromSiteProfile(new SiteProfile),
@@ -190,7 +204,7 @@ if (app()->environment(['local', 'testing', 'browser-testing'])) {
             'event' => [
                 'title' => 'Ridge and reservoir',
                 'url' => route('walks.show', 'ridge-and-reservoir'),
-                'image_url' => '/images/demo/hero-walkers.png',
+                'image_url' => PublicUrl::asset('/images/demo/hero-walkers.png'),
                 'image_alt' => 'Walkers following a mountain path',
                 'date' => 'Saturday 24 August',
                 'day' => 'Sat',
@@ -205,10 +219,74 @@ if (app()->environment(['local', 'testing', 'browser-testing'])) {
                 'status' => 'Spaces available',
             ],
             'photo' => [
-                'image_url' => '/images/demo/woodland-walk.png',
+                'image_url' => PublicUrl::asset('/images/demo/woodland-walk.png'),
                 'image_alt' => 'A green valley beneath a wide sky',
                 'caption' => 'A bright day above the valley',
             ],
         ]);
     })->name('dev.components');
+
+    Route::get('/_dev/setup/progress/{state}', function (string $state) {
+        $status = [
+            'attempt_id' => '01JTESTBROWSERATTEMPT000000',
+            'status' => 'running',
+            'stage' => 'preparing_configuration',
+            'stage_label' => 'Preparing configuration',
+            'message' => 'Waymark is preparing the saved settings for installation.',
+            'changed' => false,
+            'diagnostic_id' => null,
+            'failure_category' => null,
+            'failure_category_label' => null,
+            'migration' => ['current' => 0, 'total' => 57],
+            'completed' => false,
+            'failed' => false,
+            'retryable' => false,
+            'resettable' => false,
+            'return_to_database' => false,
+        ];
+
+        $status = match ($state) {
+            'running' => $status,
+            'schema' => [...$status,
+                'stage' => 'preparing_database_schema',
+                'stage_label' => 'Preparing database schema',
+                'message' => 'Waymark is creating the database structure it needs.',
+                'migration' => ['current' => 1, 'total' => 57],
+            ],
+            'retryable' => [...$status,
+                'status' => 'failed',
+                'stage_label' => 'Preparing configuration failed',
+                'message' => 'Waymark could not write the configuration file.',
+                'diagnostic_id' => 'WM-BROWSER1',
+                'failure_category' => 'configuration_file_could_not_be_written',
+                'failure_category_label' => 'Configuration file could not be written',
+                'failed' => true,
+                'retryable' => true,
+            ],
+            'resettable' => [...$status,
+                'status' => 'failed',
+                'stage' => 'preparing_database_schema',
+                'stage_label' => 'Preparing database schema failed',
+                'message' => 'Database schema installation failed.',
+                'changed' => true,
+                'diagnostic_id' => 'WM-BROWSER2',
+                'failure_category' => 'database_schema_installation_failed',
+                'failure_category_label' => 'Database schema installation',
+                'failed' => true,
+                'resettable' => true,
+            ],
+            'complete' => [...$status,
+                'status' => 'completed',
+                'stage' => 'completing_installation',
+                'stage_label' => 'Completing installation',
+                'message' => 'Waymark Community was installed successfully.',
+                'changed' => true,
+                'migration' => ['current' => 57, 'total' => 57],
+                'completed' => true,
+            ],
+        };
+
+        return view('setup.progress', ['attempt' => null, 'status' => $status]);
+    })->whereIn('state', ['running', 'schema', 'retryable', 'resettable', 'complete'])
+        ->name('dev.setup.progress');
 }

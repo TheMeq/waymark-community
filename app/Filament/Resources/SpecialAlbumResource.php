@@ -22,9 +22,11 @@ final class SpecialAlbumResource extends Resource
 {
     protected static ?string $model = SpecialAlbum::class;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Gallery';
+    protected static string|\UnitEnum|null $navigationGroup = 'Community';
 
     protected static ?string $navigationLabel = 'Special albums';
+
+    protected static ?int $navigationSort = 30;
 
     public static function form(Schema $schema): Schema
     {

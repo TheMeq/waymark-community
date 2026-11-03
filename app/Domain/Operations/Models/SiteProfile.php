@@ -2,8 +2,10 @@
 
 namespace App\Domain\Operations\Models;
 
+use App\Domain\SiteMedia\Models\SiteMedia;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'group_name',
@@ -14,17 +16,22 @@ use Illuminate\Database\Eloquent\Model;
     'distance_unit',
     'ascent_unit',
     'start_year',
+    'logo_media_id',
     'logo_path',
+    'favicon_media_id',
     'favicon_path',
+    'hero_media_id',
     'hero_default_path',
     'primary_colour',
     'accent_colour',
     'typography_option',
     'social_links',
     'terminology',
-    'affiliation_logo_path',
     'affiliation_name',
     'affiliation_url',
+    'affiliation_placement',
+    'affiliation_logo_path',
+    'affiliation_logo_media_id',
     'module_configuration',
 ])]
 final class SiteProfile extends Model
@@ -36,6 +43,7 @@ final class SiteProfile extends Model
     /** @var array<string, mixed> */
     protected $attributes = [
         'id' => self::SINGLETON_ID,
+        'affiliation_placement' => 'footer',
         'timezone' => 'Europe/London',
         'locale' => 'en',
         'distance_unit' => 'miles',
@@ -52,5 +60,29 @@ final class SiteProfile extends Model
             'social_links' => 'array',
             'terminology' => 'array',
         ];
+    }
+
+    /** @return BelongsTo<SiteMedia, $this> */
+    public function logoMedia(): BelongsTo
+    {
+        return $this->belongsTo(SiteMedia::class, 'logo_media_id');
+    }
+
+    /** @return BelongsTo<SiteMedia, $this> */
+    public function faviconMedia(): BelongsTo
+    {
+        return $this->belongsTo(SiteMedia::class, 'favicon_media_id');
+    }
+
+    /** @return BelongsTo<SiteMedia, $this> */
+    public function affiliationLogoMedia(): BelongsTo
+    {
+        return $this->belongsTo(SiteMedia::class, 'affiliation_logo_media_id');
+    }
+
+    /** @return BelongsTo<SiteMedia, $this> */
+    public function heroMedia(): BelongsTo
+    {
+        return $this->belongsTo(SiteMedia::class, 'hero_media_id');
     }
 }

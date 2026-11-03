@@ -22,9 +22,11 @@ final class DocumentCategoryResource extends Resource
 {
     protected static ?string $model = DocumentCategory::class;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Group';
+    protected static string|\UnitEnum|null $navigationGroup = 'Content';
 
     protected static ?string $navigationLabel = 'Document categories';
+
+    protected static ?int $navigationSort = 40;
 
     public static function form(Schema $schema): Schema
     {

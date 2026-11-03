@@ -203,6 +203,23 @@ final class InstallationOwnershipTest extends TestCase
         Notification::assertSentTo($existingAdministrator, AdministratorAccessChanged::class);
     }
 
+    public function test_administrator_creation_stops_before_creating_an_account_when_email_is_unconfigured(): void
+    {
+        config()->set('waymark.email.configured', false);
+        Notification::fake();
+        $actor = $this->initialAdministrator();
+
+        try {
+            app(CreateAdministrator::class)->handle($actor, 'New Administrator', 'new-administrator@example.test');
+            self::fail('Administrator creation continued without outbound email.');
+        } catch (ValidationException $exception) {
+            self::assertArrayHasKey('email', $exception->errors());
+        }
+
+        $this->assertDatabaseMissing('users', ['email' => 'new-administrator@example.test']);
+        Notification::assertNothingSent();
+    }
+
     public function test_account_administration_page_requires_sensitive_assurance_and_a_fresh_second_factor_when_enabled(): void
     {
         $administrator = $this->initialAdministrator();

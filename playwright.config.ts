@@ -60,6 +60,7 @@ export default defineConfig({
             GALLERY_DEFERRED_PROCESSING_MANUAL_FALLBACK: 'false',
             GALLERY_PUBLIC_PER_PAGE: '6',
             MAIL_MAILER: 'log',
+            WAYMARK_MAIL_CONFIGURED: 'true',
             WAYMARK_TEST_NOW: '2026-08-20 12:00:00',
         },
         url: 'http://127.0.0.1:8000',

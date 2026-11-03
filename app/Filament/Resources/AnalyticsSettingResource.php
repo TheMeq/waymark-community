@@ -22,9 +22,11 @@ final class AnalyticsSettingResource extends Resource
 {
     protected static ?string $model = AnalyticsSetting::class;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Settings';
+    protected static string|\UnitEnum|null $navigationGroup = 'Group settings';
 
     protected static ?string $navigationLabel = 'Analytics';
+
+    protected static ?int $navigationSort = 60;
 
     public static function form(Schema $schema): Schema
     {

@@ -23,9 +23,11 @@ final class CommitteeHubLinkResource extends Resource
 {
     protected static ?string $model = CommitteeHubLink::class;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Group';
+    protected static string|\UnitEnum|null $navigationGroup = 'Community';
 
     protected static ?string $navigationLabel = 'Committee Hub links';
+
+    protected static ?int $navigationSort = 90;
 
     public static function form(Schema $schema): Schema
     {

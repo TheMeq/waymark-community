@@ -19,9 +19,11 @@ final class MembershipVerification extends Page
 {
     protected static ?string $title = 'Membership verification';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Accounts';
+    protected static string|\UnitEnum|null $navigationGroup = 'People';
 
     protected static ?string $navigationLabel = 'Membership verification';
+
+    protected static ?int $navigationSort = 20;
 
     protected string $view = 'filament.pages.membership-verification';
 

@@ -2,6 +2,11 @@
 
 namespace App\Domain\Holidays\Data;
 
+use App\Domain\Content\Presentation\PublicUrl;
+use App\Domain\Holidays\Models\Holiday;
+use App\Domain\SiteMedia\ContentImagePresenter;
+use App\Domain\SiteMedia\Enums\ContentImageSlot;
+
 final readonly class HolidayFeaturedImage
 {
     private function __construct(public string $url, public string $alt) {}
@@ -14,13 +19,27 @@ final readonly class HolidayFeaturedImage
             return null;
         }
 
-        return new self($reference, match (strtolower($matches[1])) {
+        return new self(PublicUrl::asset($reference), match (strtolower($matches[1])) {
             'coastal-weekend.png', 'coastal-weekend-768.webp', 'coastal-weekend-1536.webp' => 'A walking group following a coastal path',
             'hero-walkers.png', 'hero-walkers-768.webp', 'hero-walkers-1536.webp' => 'A group walking together across open moorland',
             'woodland-walk.png', 'woodland-walk-768.webp', 'woodland-walk-1536.webp' => 'Walkers following a path through green woodland',
             'lakeside-friends.png', 'lakeside-friends-768.webp', 'lakeside-friends-1536.webp' => 'Friends pausing beside an upland lake',
             default => 'A group enjoying a walking holiday',
         });
+    }
+
+    public static function forHoliday(?Holiday $holiday): ?self
+    {
+        if ($holiday === null) {
+            return null;
+        }
+        $image = app(ContentImagePresenter::class)->present($holiday, ContentImageSlot::Holiday);
+        if ($image === null) {
+            return null;
+        }
+        $legacy = self::resolve($holiday->featured_image_path);
+
+        return new self($image->url, $holiday->featured_image_alt_text ?: ($image->id === 0 ? ($legacy?->alt ?? $image->alt) : $image->alt));
     }
 
     /** @return array{url: string, alt: string} */

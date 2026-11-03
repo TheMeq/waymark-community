@@ -4,6 +4,7 @@ namespace App\Domain\SiteMedia\Actions;
 
 use App\Domain\SiteMedia\Data\SiteMediaStorageReference;
 use App\Domain\SiteMedia\Models\SiteMedia;
+use App\Domain\SiteMedia\Support\SiteMediaProcessingProfiles;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -12,6 +13,8 @@ final class MarkSiteMediaForRepair
 {
     use ManagesSiteMedia;
 
+    public function __construct(private readonly SiteMediaProcessingProfiles $profiles) {}
+
     public function handle(User $actor, SiteMedia $media): SiteMedia
     {
         $this->authorizeSiteMedia($actor);
@@ -19,7 +22,7 @@ final class MarkSiteMediaForRepair
         return DB::transaction(function () use ($actor, $media): SiteMedia {
             $locked = SiteMedia::query()->lockForUpdate()->findOrFail($media->id);
             $variants = (array) $locked->processed_variants;
-            $requiredVariants = array_keys((array) config('gallery.processing.variants', ['master' => []]));
+            $requiredVariants = $this->profiles->requiredVariantsFor($locked->purpose);
             $missing = $locked->processing_status !== 'complete'
                 || collect($requiredVariants)->contains(fn (string $name): bool => ! array_key_exists($name, $variants))
                 || collect($variants)->contains(fn ($path): bool => ! is_string($path) || ! SiteMediaStorageReference::isSafe($locked->storage_disk, $path) || ! Storage::disk($locked->storage_disk)->exists($path));

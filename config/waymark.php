@@ -6,7 +6,14 @@ return [
     'installation' => [
         'installed' => env('WAYMARK_INSTALLED'),
         'lock_path' => env('WAYMARK_INSTALLATION_LOCK', storage_path('app/private/installed.lock')),
+        'attempt_path' => env('WAYMARK_INSTALLATION_ATTEMPT_PATH', storage_path('app/private/installation-attempt.json')),
         'legacy_application_key' => env('APP_KEY'),
+    ],
+    'email' => [
+        'configured' => (bool) env('WAYMARK_MAIL_CONFIGURED', false),
+    ],
+    'request_diagnostics' => [
+        'enabled' => (bool) env('WAYMARK_REQUEST_DIAGNOSTICS', in_array(env('APP_ENV'), ['local', 'staging'], true)),
     ],
     'scheduler' => [
         'heartbeat_path' => env('WAYMARK_SCHEDULER_HEARTBEAT_PATH', storage_path('app/private/scheduler-heartbeat.json')),

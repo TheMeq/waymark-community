@@ -4,17 +4,24 @@ namespace Tests\Feature\Walks;
 
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Models\Event;
+use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
+use App\Domain\SiteMedia\Models\SiteMedia;
+use App\Domain\Walks\Actions\CreateWalk as CreateWalkAction;
+use App\Domain\Walks\Actions\SaveWalkDraft;
 use App\Domain\Walks\Actions\SubmitWalkForPublication;
 use App\Domain\Walks\Actions\UpdateWalkFieldSettings;
 use App\Domain\Walks\Models\Grade;
 use App\Domain\Walks\Models\Tag;
 use App\Domain\Walks\Models\Walk;
+use App\Filament\Resources\WalkResource;
 use App\Filament\Resources\WalkResource\Pages\CreateWalk;
 use App\Filament\Resources\WalkResource\Pages\EditWalk;
+use App\Filament\Resources\WalkResource\Pages\ListWalks;
 use App\Models\User;
 use App\Policies\WalkPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -22,6 +29,56 @@ use Tests\TestCase;
 final class WalkAdministrationTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_walk_duration_prefills_and_tracks_same_day_times_without_overwriting_a_manual_estimate(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+        Livewire::actingAs($administrator)->test(CreateWalk::class)
+            ->set('data.starts_at', '2026-11-01 10:00:00')
+            ->set('data.ends_at', '2026-11-01 13:30:00')
+            ->assertSet('data.estimated_duration_minutes', 210)
+            ->set('data.ends_at', '2026-11-01 14:00:00')
+            ->assertSet('data.estimated_duration_minutes', 240)
+            ->set('data.estimated_duration_minutes', 180)
+            ->set('data.ends_at', '2026-11-01 15:00:00')
+            ->assertSet('data.estimated_duration_minutes', 180);
+    }
+
+    public function test_walk_duration_stays_blank_for_missing_invalid_or_multi_day_times(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+        Livewire::actingAs($administrator)->test(CreateWalk::class)
+            ->set('data.starts_at', '2026-11-01 10:00:00')
+            ->assertSet('data.estimated_duration_minutes', null)
+            ->set('data.ends_at', '2026-11-01 09:00:00')
+            ->assertSet('data.estimated_duration_minutes', null)
+            ->set('data.ends_at', '2026-11-01 12:00:00')
+            ->assertSet('data.estimated_duration_minutes', 120)
+            ->set('data.ends_at', '2026-11-03 12:00:00')
+            ->assertSet('data.estimated_duration_minutes', null)
+            ->set('data.ends_at', '2026-11-01 12:00:00')
+            ->assertSet('data.estimated_duration_minutes', 120)
+            ->set('data.ends_at', null)
+            ->assertSet('data.estimated_duration_minutes', null);
+    }
+
+    public function test_edit_walk_prefills_a_missing_duration_and_preserves_saved_estimates(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        $event = Event::factory()->for($leader, 'organiser')->create([
+            'starts_at' => '2026-11-01 10:00:00', 'ends_at' => '2026-11-01 13:00:00',
+        ]);
+        $walk = Walk::query()->create(['event_id' => $event->id, 'primary_leader_id' => $leader->id]);
+        Livewire::actingAs($leader)->test(EditWalk::class, ['record' => $walk->id])
+            ->assertSet('data.estimated_duration_minutes', 180)
+            ->call('save')->assertHasNoFormErrors();
+        $this->assertSame(180, $walk->fresh()->estimated_duration_minutes);
+        $walk->update(['estimated_duration_minutes' => 150]);
+        Livewire::test(EditWalk::class, ['record' => $walk->id])->assertSet('data.estimated_duration_minutes', 150);
+        $walk->update(['estimated_duration_minutes' => null]);
+        $event->update(['ends_at' => '2026-11-03 13:00:00']);
+        Livewire::test(EditWalk::class, ['record' => $walk->id])->assertSet('data.estimated_duration_minutes', null);
+    }
 
     public function test_walk_capable_user_can_edit_a_walk_they_organise_even_when_another_user_is_the_primary_leader(): void
     {
@@ -65,6 +122,105 @@ final class WalkAdministrationTest extends TestCase
             ->assertSuccessful();
     }
 
+    public function test_create_form_loads_shared_walk_settings_and_leader_options_once(): void
+    {
+        $administrator = User::factory()->create(['is_admin' => true]);
+        User::factory()->walkLeader()->create();
+        $queries = [];
+        DB::listen(function ($query) use (&$queries): void {
+            $queries[] = str_replace(['"', '`'], '', strtolower($query->sql));
+        });
+
+        $this->actingAs($administrator);
+        Livewire::test(CreateWalk::class)
+            ->assertFormFieldVisible('terrain_notes')
+            ->assertFormFieldVisible('primary_leader_id')
+            ->assertFormFieldVisible('co_leader_ids');
+
+        $this->assertCount(1, collect($queries)->filter(fn (string $sql): bool => str_contains($sql, 'from walk_field_settings')));
+        $this->assertCount(1, collect($queries)->filter(fn (string $sql): bool => str_contains($sql, 'select distinct role from role_capabilities')));
+        $this->assertCount(1, collect($queries)->filter(fn (string $sql): bool => str_contains($sql, 'select name, id from users')));
+    }
+
+    public function test_create_walk_uses_the_guided_five_step_form(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+
+        $page = Livewire::actingAs($administrator)->test(CreateWalk::class)->instance();
+        $labels = collect($page->getSteps())->map(fn ($step): string => $step->getLabel())->all();
+
+        $this->assertSame([
+            'When and where',
+            'Walk details',
+            'Travel and practical information',
+            'Description, route and image',
+            'Leader and publishing',
+        ], $labels);
+    }
+
+    public function test_walk_image_form_is_upload_first_and_hides_storage_implementation_details(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+
+        $component = Livewire::actingAs($administrator)
+            ->test(CreateWalk::class)
+            ->assertFormFieldDoesNotExist('featured_image_path')
+            ->assertFormFieldDoesNotExist('featured_image_media_id')
+            ->assertFormFieldDoesNotExist('storage_disk')
+            ->assertFormFieldDoesNotExist('storage_key')
+            ->assertFormFieldVisible('featured_image_source')
+            ->assertFormFieldVisible('featured_image_upload')
+            ->assertFormFieldHidden('featured_image_external_url')
+            ->assertFormFieldVisible('featured_image_alt_text')
+            ->assertFormFieldExists('featured_image_upload', null, fn ($field): bool => ! $field->shouldStoreFiles())
+            ->assertSee('Local upload is recommended')
+            ->assertSee('Your selected image is saved when you continue from Step 4.');
+
+        $component
+            ->fillForm(['featured_image_source' => 'external'])
+            ->assertFormFieldHidden('featured_image_upload')
+            ->assertFormFieldVisible('featured_image_external_url')
+            ->assertSee('Use an external image instead');
+    }
+
+    public function test_walk_list_exposes_an_obvious_add_walk_action(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+
+        $this->actingAs($administrator)
+            ->get('/admin/walks')
+            ->assertSuccessful()
+            ->assertSee('Add a walk')
+            ->assertSee('/admin/walks/create', false);
+    }
+
+    public function test_walk_list_uses_continue_draft_only_for_drafts(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        $draft = app(SaveWalkDraft::class)->create($leader, [
+            'title' => 'Draft reservoir circuit',
+            'starts_at' => '2026-09-12 09:30:00',
+        ]);
+        $pending = app(SaveWalkDraft::class)->create($leader, [
+            'title' => 'Pending reservoir circuit',
+            'starts_at' => '2026-09-19 09:30:00',
+        ]);
+        $pending->event->forceFill(['status' => EventStatus::PendingApproval])->save();
+        $published = app(SaveWalkDraft::class)->create($leader, [
+            'title' => 'Published reservoir circuit',
+            'starts_at' => '2026-09-26 09:30:00',
+        ]);
+        $published->event->forceFill(['status' => EventStatus::Published])->save();
+
+        Livewire::actingAs($leader)->test(ListWalks::class)
+            ->assertTableActionHasLabel('edit', 'Continue draft', $draft)
+            ->assertTableActionHasUrl('edit', WalkResource::getUrl('create', ['draft' => $draft->id]), $draft)
+            ->assertTableActionHasLabel('edit', 'Edit', $pending)
+            ->assertTableActionHasUrl('edit', WalkResource::getUrl('edit', ['record' => $pending]), $pending)
+            ->assertTableActionHasLabel('edit', 'Edit', $published)
+            ->assertTableActionHasUrl('edit', WalkResource::getUrl('edit', ['record' => $published]), $published);
+    }
+
     public function test_direct_publish_setting_publishes_an_organisers_walk(): void
     {
         $organiser = User::factory()->create(['can_manage_walks' => true]);
@@ -82,6 +238,21 @@ final class WalkAdministrationTest extends TestCase
         $this->assertTrue($walk->event->is_public);
     }
 
+    public function test_two_argument_create_walk_call_remains_a_one_shot_submission(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+
+        $walk = app(CreateWalkAction::class)->handle($administrator, [
+            'title' => 'One shot circuit',
+            'starts_at' => '2026-09-12 09:30:00',
+            'primary_leader_id' => $administrator->id,
+        ]);
+
+        $this->assertSame(EventStatus::Published, $walk->event->status);
+        $this->assertDatabaseCount('events', 1);
+        $this->assertDatabaseCount('walks', 1);
+    }
+
     public function test_walk_leader_creates_a_walk_owned_by_themself_and_publishes_when_direct_publish_is_enabled(): void
     {
         $leader = User::factory()->create(['can_manage_walks' => true]);
@@ -92,7 +263,6 @@ final class WalkAdministrationTest extends TestCase
         Livewire::test(CreateWalk::class)
             ->fillForm([
                 'title' => 'Reservoir circuit',
-                'slug' => 'reservoir-circuit',
                 'starts_at' => '2026-09-12 09:30:00',
                 'ends_at' => '2026-09-12 14:30:00',
                 'primary_leader_id' => $leader->id,
@@ -101,7 +271,7 @@ final class WalkAdministrationTest extends TestCase
             ->call('create')
             ->assertHasNoFormErrors();
 
-        $event = Event::query()->where('slug', 'reservoir-circuit')->firstOrFail();
+        $event = Event::query()->where('slug', 'reservoir-circuit-2026-09-12')->firstOrFail();
 
         $this->assertSame($leader->id, $event->organiser_id);
         $this->assertSame(EventStatus::Published, $event->status);
@@ -119,14 +289,13 @@ final class WalkAdministrationTest extends TestCase
         Livewire::test(CreateWalk::class)
             ->fillForm([
                 'title' => 'Canal path walk',
-                'slug' => 'canal-path-walk',
                 'starts_at' => '2026-09-19 09:30:00',
                 'primary_leader_id' => $leader->id,
             ])
             ->call('create')
             ->assertHasNoFormErrors();
 
-        $event = Event::query()->where('slug', 'canal-path-walk')->firstOrFail();
+        $event = Event::query()->where('slug', 'canal-path-walk-2026-09-19')->firstOrFail();
 
         $this->assertSame(EventStatus::PendingApproval, $event->status);
         $this->assertFalse($event->is_public);
@@ -182,7 +351,7 @@ final class WalkAdministrationTest extends TestCase
 
         $this->actingAs($leader);
         $component = Livewire::test(EditWalk::class, ['record' => $walk->id]);
-        foreach (['grade_id', 'tag_ids', 'co_leader_ids', 'terrain_notes', 'meeting_location_name', 'meeting_address', 'meeting_postcode', 'latitude', 'longitude', 'what3words', 'os_grid_reference', 'directions', 'is_public_transport_friendly', 'public_transport_station_stop', 'public_transport_notes', 'public_transport_url', 'parking_notes', 'toilet_information', 'cafe_pub_information', 'dog_guidance', 'accessibility_notes', 'kit_checklist', 'kit_notes', 'capacity', 'availability', 'featured_image_path', 'attachments', 'private_organiser_notes'] as $field) {
+        foreach (['grade_id', 'tag_ids', 'co_leader_ids', 'terrain_notes', 'meeting_location_name', 'meeting_address', 'meeting_postcode', 'latitude', 'longitude', 'what3words', 'os_grid_reference', 'directions', 'is_public_transport_friendly', 'public_transport_station_stop', 'public_transport_notes', 'public_transport_url', 'parking_notes', 'toilet_information', 'cafe_pub_information', 'dog_guidance', 'accessibility_notes', 'kit_checklist', 'kit_notes', 'capacity', 'availability', 'attachments', 'private_organiser_notes'] as $field) {
             $component->assertFormFieldVisible($field);
         }
         $component->fillForm([
@@ -211,7 +380,6 @@ final class WalkAdministrationTest extends TestCase
             'kit_notes' => 'Bring lunch.',
             'capacity' => 20,
             'availability' => 'Spaces available',
-            'featured_image_path' => 'walks/featured/north-gate.jpg',
             'attachments' => [['path' => 'walks/attachments/route-sheet.pdf', 'name' => 'Route sheet.pdf', 'mime_type' => 'application/pdf', 'size_bytes' => 2048]],
             'private_organiser_notes' => 'Check gate access.',
         ])->call('save')->assertHasNoFormErrors();
@@ -226,6 +394,113 @@ final class WalkAdministrationTest extends TestCase
         $this->assertSame(['Water', 'Waterproof'], $walk->kit_checklist);
         $this->assertSame('walks/attachments/route-sheet.pdf', $walk->attachments[0]['path']);
         $this->assertSame('Check gate access.', $walk->private_organiser_notes);
+    }
+
+    public function test_edit_walk_replaces_and_removes_managed_image_through_the_owner_action(): void
+    {
+        Storage::fake('local');
+        config()->set('gallery.photos.disk', 'local');
+        $leader = User::factory()->walkLeader()->create();
+        $walk = Walk::query()->create([
+            'event_id' => Event::factory()->for($leader, 'organiser')->create()->id,
+            'primary_leader_id' => $leader->id,
+            'featured_image_path' => '/images/demo/woodland-walk.png',
+        ]);
+
+        $this->actingAs($leader);
+        Livewire::test(EditWalk::class, ['record' => $walk->id])
+            ->fillForm([
+                'featured_image_source' => 'managed',
+                'featured_image_upload' => UploadedFile::fake()->image('first.jpg', 120, 80),
+                'featured_image_alt_text' => 'Walkers beneath woodland trees',
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $walk->refresh();
+        $firstMediaId = $walk->featured_image_media_id;
+        $this->assertNotNull($firstMediaId);
+        $this->assertSame(SiteMediaPurpose::WalkFeaturedImage, SiteMedia::query()->findOrFail($firstMediaId)->purpose);
+
+        $edit = Livewire::test(EditWalk::class, ['record' => $walk->id])
+            ->assertFormSet([
+                'featured_image_source' => 'managed',
+                'featured_image_alt_text' => 'Walkers beneath woodland trees',
+            ])
+            ->assertSee('A saved external fallback is retained');
+        $preview = $edit->get('data.featured_image_preview');
+        $this->assertIsArray($preview);
+        $this->assertNotEmpty($preview['url']);
+
+        $edit
+            ->fillForm([
+                'featured_image_source' => 'managed',
+                'featured_image_upload' => UploadedFile::fake()->image('replacement.jpg', 120, 80),
+                'featured_image_alt_text' => 'Walkers crossing an open hillside',
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $walk->refresh();
+        $replacementMediaId = $walk->featured_image_media_id;
+        $this->assertNotSame($firstMediaId, $replacementMediaId);
+        $this->assertNotNull(SiteMedia::query()->findOrFail($firstMediaId)->orphaned_at);
+
+        Livewire::test(EditWalk::class, ['record' => $walk->id])
+            ->fillForm([
+                'featured_image_source' => 'none',
+                'featured_image_alt_text' => null,
+                'featured_image_remove_fallback' => 'clear',
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $walk->refresh();
+        $this->assertNull($walk->featured_image_media_id);
+        $this->assertNull($walk->featured_image_path);
+        $this->assertNull($walk->featured_image_alt_text);
+        $this->assertNotNull(SiteMedia::query()->findOrFail($replacementMediaId)->orphaned_at);
+    }
+
+    public function test_walk_image_validation_is_attached_to_the_relevant_control_and_preserves_saved_media(): void
+    {
+        Storage::fake('local');
+        config()->set('gallery.photos.disk', 'local');
+        $leader = User::factory()->walkLeader()->create();
+        $walk = Walk::query()->create([
+            'event_id' => Event::factory()->for($leader, 'organiser')->create()->id,
+            'primary_leader_id' => $leader->id,
+        ]);
+
+        $this->actingAs($leader);
+        Livewire::test(EditWalk::class, ['record' => $walk->id])
+            ->fillForm([
+                'featured_image_source' => 'managed',
+                'featured_image_upload' => UploadedFile::fake()->image('saved.jpg', 120, 80),
+                'featured_image_alt_text' => 'A saved Walk image',
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+        $mediaId = $walk->fresh()->featured_image_media_id;
+
+        Livewire::test(EditWalk::class, ['record' => $walk->id])
+            ->fillForm([
+                'featured_image_source' => 'external',
+                'featured_image_external_url' => 'http://unsafe.example/walk.jpg',
+                'featured_image_alt_text' => '',
+            ])
+            ->call('save')
+            ->assertHasFormErrors([
+                'featured_image_external_url',
+                'featured_image_alt_text',
+            ])
+            ->assertFormSet([
+                'featured_image_external_url' => 'http://unsafe.example/walk.jpg',
+            ]);
+
+        $walk->refresh();
+        $this->assertSame($mediaId, $walk->featured_image_media_id);
+        $this->assertSame('A saved Walk image', $walk->featured_image_alt_text);
     }
 
     public function test_disabled_optional_fields_are_hidden_on_the_walk_form_without_erasing_existing_values(): void
@@ -337,5 +612,55 @@ final class WalkAdministrationTest extends TestCase
         $this->assertSame('Revised route', $walk->event->title);
         $this->assertSame(EventStatus::Published, $walk->event->status);
         $this->assertTrue($walk->event->is_public);
+    }
+
+    public function test_edit_page_confirms_publication_updates_status_and_removes_submit_action(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+        $walk = Walk::query()->create([
+            'event_id' => Event::factory()->for($administrator, 'organiser')->create(['status' => EventStatus::Draft])->id,
+            'primary_leader_id' => $administrator->id,
+        ]);
+
+        Livewire::actingAs($administrator)->test(EditWalk::class, ['record' => $walk->id])
+            ->assertSee('Status: Draft')
+            ->assertActionVisible('submitForPublication')
+            ->callAction('submitForPublication')
+            ->assertHasNoActionErrors()
+            ->assertNotified('Walk published')
+            ->assertSee('Status: Published')
+            ->assertActionHidden('submitForPublication');
+
+        $this->assertSame(EventStatus::Published, $walk->event->fresh()->status);
+        Livewire::test(EditWalk::class, ['record' => $walk->id])
+            ->assertSee('Status: Published')
+            ->assertActionHidden('submitForPublication');
+    }
+
+    public function test_edit_page_confirms_pending_approval_and_keeps_an_admin_publication_action(): void
+    {
+        $leader = User::factory()->walkLeader()->create();
+        app(UpdateWalkFieldSettings::class)->handle([], leadersCanPublishDirectly: false);
+        $walk = Walk::query()->create([
+            'event_id' => Event::factory()->for($leader, 'organiser')->create(['status' => EventStatus::Draft])->id,
+            'primary_leader_id' => $leader->id,
+        ]);
+
+        Livewire::actingAs($leader)->test(EditWalk::class, ['record' => $walk->id])
+            ->callAction('submitForPublication')
+            ->assertHasNoActionErrors()
+            ->assertNotified('Walk submitted for approval')
+            ->assertSee('Status: Pending approval')
+            ->assertActionHidden('submitForPublication');
+
+        $this->assertSame(EventStatus::PendingApproval, $walk->event->fresh()->status);
+        $administrator = User::factory()->initialAdministrator()->create();
+        Livewire::actingAs($administrator)->test(EditWalk::class, ['record' => $walk->id])
+            ->assertActionVisible('submitForPublication')
+            ->assertActionHasLabel('submitForPublication', 'Publish walk')
+            ->callAction('submitForPublication')
+            ->assertNotified('Walk published')
+            ->assertSee('Status: Published')
+            ->assertActionHidden('submitForPublication');
     }
 }

@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\NewsletterResource\Pages;
 
+use App\Filament\Pages\CreateResourceRecord as CreateRecord;
 use App\Filament\Resources\NewsletterResource;
-use Filament\Resources\Pages\CreateRecord;
 
 final class CreateNewsletter extends CreateRecord
 {
