@@ -7,7 +7,6 @@
         <div class="wm-container max-w-[34rem]">
             <p class="text-xs font-semibold uppercase tracking-[0.15em] text-brand">Your account</p>
             <h1 class="mt-2 text-4xl text-ink sm:text-5xl">Welcome back</h1>
-            <p class="mt-4 text-ink-muted">Sign in to continue with your account.</p>
 
             @if (session('status'))
                 <p class="mt-6 rounded-[var(--wm-radius-sm)] border border-brand/30 bg-surface-soft p-4 text-sm text-ink" role="status">{{ session('status') }}</p>

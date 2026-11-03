@@ -42,9 +42,9 @@ final class CmsPageResource extends Resource
 
         return $schema->components([
             TextInput::make('title')->required()->maxLength(255),
-            TextInput::make('slug')->required()->alphaDash()->maxLength(255)->unique(ignoreRecord: true),
+            TextInput::make('slug')->helperText('The last part of the page address. Changing it can break existing links.')->required()->alphaDash()->maxLength(255)->unique(ignoreRecord: true),
             Select::make('publication_state')->options(['draft' => 'Draft', 'published' => 'Published'])->required(),
-            DateTimePicker::make('publish_at')->label('Publish from'),
+            DateTimePicker::make('publish_at')->label('Publish from')->helperText('A published page stays hidden until this date. Leave blank to publish immediately.'),
             ...ContentImageFields::components('Hero image'),
             Builder::make('blocks')->required()->blocks([
                 Block::make('rich_text')->schema([RichEditor::make('content')->required()]),
@@ -60,8 +60,8 @@ final class CmsPageResource extends Resource
                 Block::make('timeline')->schema([TextInput::make('heading'), Repeater::make('items')->minItems(1)->maxItems(12)->schema([TextInput::make('label')->required(), Textarea::make('body')->required()])]),
                 Block::make('columns')->schema([TextInput::make('heading'), Repeater::make('items')->minItems(2)->maxItems(3)->schema([TextInput::make('label'), Textarea::make('body')->required()])]),
             ]),
-            TextInput::make('seo_title')->maxLength(255),
-            Textarea::make('seo_description')->maxLength(1000),
+            TextInput::make('seo_title')->label('Search result title')->helperText('Optional. Uses the page title when blank.')->maxLength(255),
+            Textarea::make('seo_description')->label('Search result description')->maxLength(1000),
         ]);
     }
 

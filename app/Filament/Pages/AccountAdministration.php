@@ -103,7 +103,7 @@ final class AccountAdministration extends Page
                             ->required(fn (Get $get): bool => $get('operation') === 'create'),
                     ]),
                 Section::make('Review a deletion request')
-                    ->description('Approval disables and anonymises the account while retaining minimal referential history.')
+                    ->description('Approval removes personal details and disables sign-in. Links to past contributions are retained.')
                     ->visible(fn (Get $get): bool => $get('operation') === 'deletion')
                     ->schema([
                         Select::make('deletion_request_id')

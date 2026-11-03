@@ -201,7 +201,7 @@ final class BrandingSettings extends Page
                 ->rule(new PublicImageReferenceRule)
                 ->required(fn (Get $get): bool => $get($slot.'_source') === 'external')
                 ->visible(fn (Get $get): bool => $get($slot.'_source') === 'external')
-                ->helperText('Use a secure HTTPS URL or safe root-relative site path.'),
+                ->helperText('Use an HTTPS image address, or a path on this website beginning with /.'),
             Toggle::make($slot.'_remove_fallback')
                 ->label('Also remove the saved external fallback')
                 ->default(false)

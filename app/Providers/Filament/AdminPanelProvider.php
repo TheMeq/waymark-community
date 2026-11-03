@@ -60,7 +60,7 @@ class AdminPanelProvider extends PanelProvider
                 'System',
             ])
             ->navigationItems([
-                NavigationItem::make('Calendar')
+                NavigationItem::make('Public calendar')
                     ->group('Events')
                     ->sort(40)
                     ->url(fn (): string => route('events.calendar')),

@@ -33,10 +33,14 @@
                 <ul class="grid gap-2 text-sm font-medium">
                     <li><x-public.button class="w-full" :href="route('walks.index')" variant="secondary">Upcoming {{ strtolower($terms['walks'] ?? 'walks') }}</x-public.button></li>
                     <li><x-public.button class="w-full" :href="route('new-here')">{{ $terms['join'] ?? 'Join us' }}</x-public.button></li>
-                    <li><x-public.button class="w-full" :href="auth()->check() ? route('account.profile.edit') : route('login')" variant="quiet">Account</x-public.button></li>
-                    <li class="mt-2 border-t border-border pt-3"><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="{{ route('events.index') }}">What's on</a></li>
-                    <li><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="{{ route('holidays.index') }}">{{ $terms['holidays'] ?? 'Weekends away' }}</a></li>
-                    <li><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="{{ route('gallery.index') }}">{{ $terms['gallery'] ?? 'Gallery' }}</a></li>
+                    <li><x-public.button class="w-full" :href="auth()->check() ? route('account.profile.edit') : route('login')" variant="quiet">{{ $terms['members'] ?? 'Account' }}</x-public.button></li>
+                    @forelse ($navigationItems as $item)
+                        <li><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="{{ $item->url }}" @if($item->open_in_new_tab) target="_blank" rel="noopener" @endif>{{ $item->label }}</a></li>
+                    @empty
+                        <li><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="{{ route('events.index') }}">What's on</a></li>
+                        <li><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="{{ route('holidays.index') }}">{{ $terms['holidays'] ?? 'Weekends' }}</a></li>
+                        <li><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="{{ route('gallery.index') }}">{{ $terms['gallery'] ?? 'Gallery' }}</a></li>
+                    @endforelse
                     <li><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="{{ route('search') }}">Search</a></li>
                 </ul>
             </nav>
@@ -52,7 +56,7 @@
                     <li><a class="hover:text-brand" href="{{ route('holidays.index') }}">{{ $terms['holidays'] ?? 'Weekends' }}</a></li>
                     <li><a class="hover:text-brand" href="{{ route('gallery.index') }}">{{ $terms['gallery'] ?? 'Gallery' }}</a></li>
                 @endforelse
-                <li><a class="hover:text-brand" href="{{ auth()->check() ? route('account.profile.edit') : route('login') }}">{{ $terms['members'] ?? 'Members' }}</a></li>
+                <li><a class="hover:text-brand" href="{{ auth()->check() ? route('account.profile.edit') : route('login') }}">{{ $terms['members'] ?? 'Account' }}</a></li>
                 <li><a class="grid size-10 place-items-center rounded-full hover:bg-surface-soft" href="{{ route('search') }}" aria-label="Search"><svg class="size-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" stroke-linecap="round" /></svg></a></li>
                 <li><x-public.button :href="route('new-here')">{{ $terms['join'] ?? 'Join us' }}</x-public.button></li>
                 @if (($activeBranding['affiliation_placement'] ?? 'footer') === 'header')

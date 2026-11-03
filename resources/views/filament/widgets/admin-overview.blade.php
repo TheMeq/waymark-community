@@ -8,7 +8,11 @@
                 <ul class="divide-y divide-gray-200 dark:divide-white/10">
                     @foreach ($upcoming as $event)
                         <li class="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
-                            <span class="font-medium text-gray-950 dark:text-white">{{ $event->title }}</span>
+                            @if (isset($eventLinks[$event->id]))
+                                <a class="font-medium text-gray-950 underline-offset-4 hover:underline dark:text-white" href="{{ $eventLinks[$event->id] }}">{{ $event->title }}</a>
+                            @else
+                                <span class="font-medium text-gray-950 dark:text-white">{{ $event->title }}</span>
+                            @endif
                             <time class="shrink-0 text-sm text-gray-600 dark:text-gray-400" datetime="{{ $event->starts_at->toAtomString() }}">{{ $event->starts_at->format('j M, H:i') }}</time>
                         </li>
                     @endforeach
@@ -19,9 +23,42 @@
         <x-filament::section>
             <x-slot name="heading">Things to review</x-slot>
             <dl class="grid gap-3 sm:grid-cols-2">
-                @if ($pendingPhotos !== null)<div><dt class="text-sm text-gray-600 dark:text-gray-400">Pending photo moderation</dt><dd class="text-2xl font-semibold">{{ $pendingPhotos }}</dd></div>@endif
-                @if ($documentsDue !== null)<div><dt class="text-sm text-gray-600 dark:text-gray-400">Documents due for review</dt><dd class="text-2xl font-semibold">{{ $documentsDue }}</dd></div>@endif
-                @if ($membershipReviews !== null)<div><dt class="text-sm text-gray-600 dark:text-gray-400">Membership reviews due</dt><dd class="text-2xl font-semibold">{{ $membershipReviews }}</dd></div>@endif
+                @if ($pendingPhotos !== null)
+                    <div>
+                        <dt class="text-sm text-gray-600 dark:text-gray-400">
+                            @if ($photosUrl)
+                                <a class="underline underline-offset-4" href="{{ $photosUrl }}">Pending photo moderation</a>
+                            @else
+                                Pending photo moderation
+                            @endif
+                        </dt>
+                        <dd class="text-2xl font-semibold">{{ $pendingPhotos }}</dd>
+                    </div>
+                @endif
+                @if ($documentsDue !== null)
+                    <div>
+                        <dt class="text-sm text-gray-600 dark:text-gray-400">
+                            @if ($documentsUrl)
+                                <a class="underline underline-offset-4" href="{{ $documentsUrl }}">Documents due for review</a>
+                            @else
+                                Documents due for review
+                            @endif
+                        </dt>
+                        <dd class="text-2xl font-semibold">{{ $documentsDue }}</dd>
+                    </div>
+                @endif
+                @if ($membershipReviews !== null)
+                    <div>
+                        <dt class="text-sm text-gray-600 dark:text-gray-400">
+                            @if ($membershipUrl)
+                                <a class="underline underline-offset-4" href="{{ $membershipUrl }}">Membership reviews due</a>
+                            @else
+                                Membership reviews due
+                            @endif
+                        </dt>
+                        <dd class="text-2xl font-semibold">{{ $membershipReviews }}</dd>
+                    </div>
+                @endif
             </dl>
             @if (! $emailConfigured)
                 <p class="mt-4 rounded-lg bg-warning-50 p-3 text-sm text-warning-800 dark:bg-warning-950 dark:text-warning-200">Email delivery is not configured.@if ($emailUrl) <a class="font-semibold underline" href="{{ $emailUrl }}">Configure email</a>@endif</p>

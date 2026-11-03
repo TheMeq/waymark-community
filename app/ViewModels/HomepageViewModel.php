@@ -48,7 +48,7 @@ final readonly class HomepageViewModel
             benefits: [
                 ['symbol' => 'people', 'title' => 'Friendly community', 'detail' => 'Everyone welcome'],
                 ['symbol' => 'route', 'title' => 'Scenic routes', 'detail' => 'A range of abilities'],
-                ['symbol' => 'calendar', 'title' => 'Weekends away', 'detail' => 'Memories that last'],
+                ['symbol' => 'calendar', 'title' => 'Weekends away', 'detail' => 'Trips further afield'],
             ],
             upcomingWalks: $upcomingWalks ?? [
                 [

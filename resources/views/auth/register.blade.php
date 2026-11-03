@@ -7,7 +7,7 @@
         <div class="wm-container max-w-[34rem]">
             <p class="text-xs font-semibold uppercase tracking-[0.15em] text-brand">Join the community</p>
             <h1 class="mt-2 text-4xl text-ink sm:text-5xl">Create your account</h1>
-            <p class="mt-4 text-ink-muted">Save your details for later and get ready to join in.</p>
+            <p class="mt-4 text-ink-muted">Create an online account to share walk photos and manage your email preferences. Group membership is arranged separately.</p>
 
             <form class="mt-8 rounded-[var(--wm-radius-md)] border border-border bg-surface p-5 shadow-[var(--wm-shadow-card)] sm:p-7" method="POST" action="{{ route('register.store') }}">
                 @csrf

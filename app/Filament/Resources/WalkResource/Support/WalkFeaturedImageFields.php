@@ -44,7 +44,7 @@ final class WalkFeaturedImageFields
                 ->rule(new PublicImageReferenceRule)
                 ->required(fn (Get $get): bool => $get('featured_image_source') === 'external')
                 ->visible(fn (Get $get): bool => $get('featured_image_source') === 'external')
-                ->helperText('Use a secure HTTPS URL or a safe root-relative site path. A local upload is more reliable.'),
+                ->helperText('Use an HTTPS image address, or a path on this website beginning with /. Uploading an image avoids relying on another website.'),
             Radio::make('featured_image_remove_fallback')
                 ->label('After removing the local image')
                 ->options([

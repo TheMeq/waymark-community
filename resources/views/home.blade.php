@@ -113,7 +113,7 @@
             <div class="flex flex-col justify-center pb-2 lg:pb-0">
                 <p class="text-xs font-semibold uppercase tracking-[0.15em] text-brand">Our community</p>
                 <h2 id="gallery-heading" class="mt-2 text-3xl lg:mt-1 lg:text-2xl">{{ $homepageSections['gallery']->heading ?: 'Photos from our walks & holidays' }}</h2>
-                <p class="mt-2 text-xs text-ink-muted lg:mt-1">{{ $homepageSections['gallery']->supporting_copy ?: 'Moments worth sharing.' }}</p>
+                <p class="mt-2 text-xs text-ink-muted lg:mt-1">{{ $homepageSections['gallery']->supporting_copy ?: 'Recent walks and weekends away.' }}</p>
                 <a class="mt-3 text-sm font-semibold text-brand lg:mt-2 lg:text-xs" href="{{ $homepageSections['gallery']->cta_url ?: route('gallery.index') }}">{{ $homepageSections['gallery']->cta_label ?: 'View gallery' }} <span aria-hidden="true">&rarr;</span></a>
             </div>
 
