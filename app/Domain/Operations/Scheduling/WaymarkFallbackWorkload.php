@@ -2,6 +2,7 @@
 
 namespace App\Domain\Operations\Scheduling;
 
+use App\Domain\Accounts\Actions\DeleteProfilePhotoFiles;
 use App\Domain\Accounts\Actions\ProcessPersonalDataExports;
 use App\Domain\Gallery\Actions\ProcessDeferredCommunityPhotos;
 use App\Domain\Operations\Backups\Actions\AdvancePendingBackups;
@@ -18,6 +19,7 @@ final readonly class WaymarkFallbackWorkload implements FallbackWorkload
         private AdvancePendingBackups $backups,
         private AdvancePendingPortabilityExports $portabilityExports,
         private MaintenanceManager $maintenance,
+        private DeleteProfilePhotoFiles $profilePhotos,
     ) {}
 
     public function run(): array
@@ -32,6 +34,7 @@ final readonly class WaymarkFallbackWorkload implements FallbackWorkload
         }
 
         return [
+            'profile_photo_cleanup' => $this->runSafely(fn (): int => $this->profilePhotos->retry(1)),
             'deferred_photos' => $this->runSafely(fn (): int => $this->photos->handle(1)),
             'personal_data_exports' => $this->runSafely(fn (): int => $this->exports->handle(1)),
             'backup_steps' => $this->runSafely(fn (): int => $this->backups->handle(1)),

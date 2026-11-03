@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Accounts\Actions\DeleteProfilePhotoFiles;
 use App\Domain\Accounts\Actions\FlagStaleAccountsForReview;
 use App\Domain\Accounts\Actions\ProcessPersonalDataExports;
 use App\Domain\Accounts\Enums\AccountRole;
@@ -27,6 +28,10 @@ Artisan::command('inspire', function () {
 Artisan::command('accounts:process-personal-data-exports {--limit=25}', function (ProcessPersonalDataExports $exports): void {
     $this->info((string) $exports->handle((int) $this->option('limit')).' export request(s) processed.');
 })->purpose('Process pending personal-data export requests without a permanent worker');
+
+Artisan::command('accounts:cleanup-profile-photos {--limit=25}', function (DeleteProfilePhotoFiles $photos): void {
+    $this->info($photos->retry((int) $this->option('limit')).' profile photo(s) cleaned up.');
+})->purpose('Retry bounded cleanup of removed member profile photos');
 
 Artisan::command('accounts:flag-stale {--days=365} {--limit=100}', function (FlagStaleAccountsForReview $accounts): void {
     $this->info((string) $accounts->handle((int) $this->option('days'), (int) $this->option('limit')).' account(s) flagged for review.');
@@ -107,3 +112,5 @@ Schedule::command('waymark:create-backup')->dailyAt('02:00')->withoutOverlapping
 Schedule::command('waymark:advance-backups')->everyMinute()->withoutOverlapping();
 Schedule::command('waymark:advance-portability-exports')->everyMinute()->when(fn (): bool => ! app(MaintenanceManager::class)->active())->withoutOverlapping();
 Schedule::command('waymark:check-for-updates')->dailyAt('07:00')->withoutOverlapping();
+
+Schedule::command('accounts:cleanup-profile-photos --limit=25')->hourly()->when(fn (): bool => ! app(MaintenanceManager::class)->active())->withoutOverlapping();

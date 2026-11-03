@@ -21,7 +21,7 @@
                     <h2 id="leader-profile-heading" class="text-2xl text-ink">Public profile</h2>
                     <label class="mt-6 flex items-start gap-3 rounded-[var(--wm-radius-sm)] border border-border p-4" for="public-profile-enabled">
                         <input class="mt-1 size-4 shrink-0 accent-brand" id="public-profile-enabled" name="public_profile_enabled" type="checkbox" value="1" @checked(old('public_profile_enabled', $profile['is_public']))>
-                        <span><span class="block text-sm font-semibold text-ink">Show my walk leader profile publicly</span><span class="mt-1 block text-sm text-ink-muted">Only your public name, introduction and upcoming walks are shown.</span></span>
+                        <span><span class="block text-sm font-semibold text-ink">Show my walk leader profile publicly</span><span class="mt-1 block text-sm text-ink-muted">Your public name, profile photo, introduction and upcoming walks are shown.</span></span>
                     </label>
 
                     <div class="mt-6 grid gap-5">

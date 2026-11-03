@@ -270,7 +270,7 @@ final class PublicAccountAccessTest extends TestCase
             ->assertSee('Alex W.')
             ->assertSee('Profile photo')
             ->assertSee(route('account.security.show'), false)
-            ->assertDontSee('type="file"', false);
+            ->assertSee('type="file"', false);
     }
 
     public function test_account_profile_updates_only_the_authenticated_account_and_records_explicit_preferences(): void
@@ -408,14 +408,14 @@ final class PublicAccountAccessTest extends TestCase
         $this->assertSame('Trail Alex', $displayNameUser->publicDisplayName());
     }
 
-    public function test_accounts_expose_no_member_directory_or_profile_upload_route(): void
+    public function test_accounts_expose_profile_photo_updates_without_a_member_directory(): void
     {
         $forbiddenRoutes = collect(Route::getRoutes())
             ->filter(fn ($route): bool => preg_match('/(?:^|\/)(?:members|directory)(?:\/|$)/i', $route->uri()) === 1);
 
         $this->assertTrue($forbiddenRoutes->isEmpty());
         $this->assertFalse(Route::has('members.index'));
-        $this->assertFalse(Route::has('account.profile.photo.store'));
+        $this->assertTrue(Route::has('account.profile.photo.update'));
         $this->assertFalse(Schema::hasTable('member_directories'));
     }
 

@@ -2,7 +2,7 @@
 
 namespace App\ViewModels;
 
-use App\Domain\Accounts\Data\LeaderProfilePhoto;
+use App\Domain\Accounts\Queries\ProfilePhotoPresentation;
 use App\Domain\Events\Models\Event;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
@@ -26,7 +26,7 @@ final readonly class PublicLeaderProfileViewModel
     public static function from(User $leader, Collection $events): self
     {
         $siteProfile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
-        $photo = LeaderProfilePhoto::resolve($leader->profile_photo_reference);
+        $photo = app(ProfilePhotoPresentation::class)->for($leader, 'medium');
 
         return new self(
             site: [
@@ -37,7 +37,7 @@ final readonly class PublicLeaderProfileViewModel
             leader: array_filter([
                 'name' => $leader->publicDisplayName(),
                 'introduction' => $leader->public_profile_introduction,
-                'photo_url' => $photo?->url,
+                'photo_url' => $photo['url'],
             ], static fn (mixed $value): bool => $value !== null && $value !== ''),
             walks: $events
                 ->map(fn (Event $event): array => PublicWalkCardViewModel::fromEvent($event, $siteProfile))

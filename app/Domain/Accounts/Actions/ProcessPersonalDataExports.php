@@ -3,6 +3,7 @@
 namespace App\Domain\Accounts\Actions;
 
 use App\Domain\Accounts\Models\PersonalDataExport;
+use App\Domain\Accounts\Queries\ProfilePhotoPresentation;
 use App\Domain\Events\Models\Event;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -292,6 +293,7 @@ final readonly class ProcessPersonalDataExports
                 'public_profile_enabled' => $user->public_profile_enabled,
                 'public_profile_slug' => $user->public_profile_slug,
                 'public_profile_introduction' => $user->public_profile_introduction,
+                'photo_url' => app(ProfilePhotoPresentation::class)->for($user, 'medium')['url'],
             ],
             'preferences' => $user->communicationPreferences->map(fn ($preference) => [
                 'category' => $preference->category, 'is_subscribed' => $preference->is_subscribed, 'consented_at' => $preference->consented_at?->toAtomString(),

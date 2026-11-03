@@ -6,6 +6,7 @@ use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Http\Controllers\AccountPrivacyController;
 use App\Http\Controllers\AccountProfileController;
+use App\Http\Controllers\AccountProfilePhotoController;
 use App\Http\Controllers\AccountSecurityController;
 use App\Http\Controllers\BackupDownloadController;
 use App\Http\Controllers\BackupWorkController;
@@ -118,6 +119,7 @@ Route::get('/photos/albums/{album:slug}', [PublicGalleryController::class, 'albu
 Route::get('/photos/{photo}/image/{variant}', [PublicGalleryController::class, 'image'])->whereNumber('photo')->name('gallery.photos.image');
 Route::get('/photos/{photo}/download', [PublicGalleryController::class, 'download'])->whereNumber('photo')->name('gallery.photos.download');
 Route::get('/photos/{photo}', [PublicGalleryController::class, 'show'])->whereNumber('photo')->name('gallery.photos.show');
+Route::get('/profile-photos/{photo}/{variant}', [AccountProfilePhotoController::class, 'image'])->whereUuid('photo')->name('profile-photos.image');
 Route::get('/leaders/{slug}', PublicLeaderProfileController::class)->name('leaders.show');
 Route::get('/photos/{photo}/report', [CommunityPhotoReportController::class, 'create'])->whereNumber('photo')->name('community-photos.reports.create');
 Route::post('/photos/{photo?}/report', CommunityPhotoReportController::class)->whereNumber('photo')->middleware('throttle:photo-report')->name('community-photos.reports.store');
@@ -141,6 +143,7 @@ Route::middleware('auth')->group(function (): void {
     Route::delete('/photos/{photo}', [CommunityPhotoUploadController::class, 'destroy'])->name('community-photos.destroy');
     Route::post('/photos/{photo}/removal-request', [CommunityPhotoUploadController::class, 'requestRemoval'])->name('community-photos.removal-request.store');
     Route::get('/account/profile', [AccountProfileController::class, 'edit'])->name('account.profile.edit');
+    Route::post('/account/profile/photo', [AccountProfilePhotoController::class, 'update'])->middleware('throttle:photo-upload')->name('account.profile.photo.update');
     Route::patch('/account/profile', [AccountProfileController::class, 'update'])->name('account.profile.update');
     Route::get('/account/privacy', [AccountPrivacyController::class, 'show'])->name('account.privacy.show');
     Route::post('/account/privacy/exports', [AccountPrivacyController::class, 'requestExport'])->name('account.privacy.exports.request');

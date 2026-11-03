@@ -5,6 +5,7 @@ namespace App\Domain\Accounts\Actions;
 use App\Domain\Accounts\Enums\AccountRole;
 use App\Domain\Accounts\Models\AccountDeletionRequest;
 use App\Domain\Accounts\Models\PersonalDataExport;
+use App\Domain\Accounts\Models\ProfilePhoto;
 use App\Domain\Membership\Enums\AccountStatus;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -24,8 +25,9 @@ final readonly class ApproveAccountDeletion
         Gate::forUser($actor)->authorize('reviewAccountDeletion', $request);
         $requestUserId = $request->user_id;
         $exportIds = [];
+        $profilePhoto = null;
 
-        $request = DB::transaction(function () use ($actor, $request, $requestUserId, $reviewNote, &$exportIds): AccountDeletionRequest {
+        $request = DB::transaction(function () use ($actor, $request, $requestUserId, $reviewNote, &$exportIds, &$profilePhoto): AccountDeletionRequest {
             $user = User::query()->lockForUpdate()->findOrFail($requestUserId);
             $request = AccountDeletionRequest::query()->lockForUpdate()->findOrFail($request->id);
 
@@ -46,6 +48,8 @@ final readonly class ApproveAccountDeletion
                 ]);
             });
 
+            $profilePhoto = ProfilePhoto::query()->where('user_id', $user->id)->lockForUpdate()->first();
+            $profilePhoto?->forceFill(['user_id' => null])->save();
             $user->communicationPreferences()->delete();
             $user->favourites()->delete();
             $user->forceFill([
@@ -78,6 +82,10 @@ final readonly class ApproveAccountDeletion
 
             return $request->fresh();
         });
+
+        if ($profilePhoto !== null) {
+            app(DeleteProfilePhotoFiles::class)->handle($profilePhoto);
+        }
 
         foreach ($exportIds as $exportId) {
             $this->cleanup->handleExport($exportId);

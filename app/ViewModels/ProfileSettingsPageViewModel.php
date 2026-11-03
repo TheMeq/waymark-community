@@ -3,6 +3,7 @@
 namespace App\ViewModels;
 
 use App\Domain\Accounts\Models\CommunicationPreference;
+use App\Domain\Accounts\Queries\ProfilePhotoPresentation;
 use App\Domain\Operations\Models\SiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Models\User;
@@ -11,7 +12,7 @@ final readonly class ProfileSettingsPageViewModel
 {
     /**
      * @param  array<string, string>  $site
-     * @param  array{name: string, email: string, display_name: ?string, phone: ?string, public_display_name: string, profile_photo_reference: ?string}  $account
+     * @param  array{name: string, email: string, display_name: ?string, phone: ?string, public_display_name: string, profile_photo_reference: ?string, photo: array{source: string, url: ?string, external_url: ?string}, can_upload_photo: bool}  $account
      * @param  list<array{key: string, label: string, description: string, is_subscribed: bool}>  $preferences
      */
     private function __construct(
@@ -51,12 +52,14 @@ final readonly class ProfileSettingsPageViewModel
                 'phone' => $user->phone,
                 'public_display_name' => $user->publicDisplayName(),
                 'profile_photo_reference' => $user->profile_photo_reference,
+                'photo' => app(ProfilePhotoPresentation::class)->for($user),
+                'can_upload_photo' => $user->isActive() && $user->hasVerifiedEmail(),
             ],
             preferences: $preferences,
         );
     }
 
-    /** @return array{site: array<string, string>, theme: BrandTheme, account: array{name: string, email: string, display_name: ?string, phone: ?string, public_display_name: string, profile_photo_reference: ?string}, preferences: list<array{key: string, label: string, description: string, is_subscribed: bool}>} */
+    /** @return array{site: array<string, string>, theme: BrandTheme, account: array{name: string, email: string, display_name: ?string, phone: ?string, public_display_name: string, profile_photo_reference: ?string, photo: array{source: string, url: ?string, external_url: ?string}, can_upload_photo: bool}, preferences: list<array{key: string, label: string, description: string, is_subscribed: bool}>} */
     public function toArray(): array
     {
         return [

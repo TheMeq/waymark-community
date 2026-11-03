@@ -1,0 +1,47 @@
+import AxeBuilder from '@axe-core/playwright';
+import { expect, test } from '@playwright/test';
+import { resolve } from 'node:path';
+
+test('members preview publish and remove their own profile photo', async ({ page }, testInfo) => {
+    await page.goto('/login');
+    await page.getByRole('button', { name: 'Use essential only', exact: true }).click();
+    await page.getByLabel('Email address').fill('morgan.leader@example.test');
+    await page.getByLabel('Password', { exact: true }).fill('password');
+    await Promise.all([page.waitForURL('**/new-here'), page.getByRole('button', { name: 'Sign in', exact: true }).click()]);
+    await page.goto('/account/profile');
+    await page.getByLabel('Upload a local image (recommended)', { exact: true }).check();
+    await page.getByLabel('Upload photo', { exact: true }).setInputFiles(resolve('public/images/pwa/icon-192.png'));
+    await expect(page.getByRole('img', { name: 'Your selected profile photo', exact: true })).toBeVisible();
+    await expect(page.getByLabel('External image URL or site path', { exact: true })).toBeHidden();
+    await Promise.all([page.waitForURL('**/account/profile'), page.getByRole('button', { name: 'Save photo', exact: true }).click()]);
+    const saved = page.getByRole('img', { name: 'Your saved profile photo', exact: true });
+    await expect(saved).toBeVisible();
+    await expect(saved).toHaveAttribute('src', /\/profile-photos\//);
+    const photoUrl = await saved.getAttribute('src');
+    expect(photoUrl).toContain('/profile-photos/');
+    expect((await page.request.get(photoUrl!)).status()).toBe(200);
+    expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.locator('#name').evaluate((input: HTMLInputElement) => input.blur());
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(page).toHaveScreenshot(`member-profile-photo-${testInfo.project.name}.png`, { fullPage: true });
+    await page.goto('/leaders/morgan-w');
+    await expect(page.locator('[data-leader-profile-photo]')).toBeVisible();
+    await page.goto('/account/profile');
+    await page.getByLabel('No image', { exact: true }).check();
+    await page.getByRole('button', { name: 'Save photo', exact: true }).click();
+    await expect(saved).toHaveCount(0);
+    expect((await page.request.get(photoUrl!)).status()).toBe(404);
+
+    const noScript = await page.context().browser()!.newContext({ javaScriptEnabled: false, storageState: await page.context().storageState(), viewport: page.viewportSize()! });
+    const plainPage = await noScript.newPage();
+    await plainPage.goto(new URL('/account/profile', page.url()).href);
+    await plainPage.getByLabel('Upload a local image (recommended)', { exact: true }).check();
+    await plainPage.getByLabel('Upload photo', { exact: true }).setInputFiles(resolve('public/images/pwa/icon-192.png'));
+    await plainPage.getByRole('button', { name: 'Save photo', exact: true }).press('Enter');
+    await expect(plainPage.getByRole('img', { name: 'Your saved profile photo', exact: true })).toBeVisible();
+    await plainPage.getByLabel('No image', { exact: true }).press('Space');
+    await plainPage.getByRole('button', { name: 'Save photo', exact: true }).press('Enter');
+    await expect(plainPage.getByRole('img', { name: 'Your saved profile photo', exact: true })).toHaveCount(0);
+    await noScript.close();
+});

@@ -14,6 +14,8 @@
                 <p class="mt-6 rounded-[var(--wm-radius-sm)] border border-brand/30 bg-surface-soft p-4 text-sm text-ink" role="status">{{ session('status') }}</p>
             @endif
 
+            @include('account.profile.photo-form')
+
             <form class="mt-8 grid gap-8" method="POST" action="{{ route('account.profile.update') }}">
                 @csrf
                 @method('PATCH')
@@ -37,11 +39,6 @@
                             @error('phone') <span id="phone-error" class="text-sm font-normal text-[var(--wm-critical)]">{{ $message }}</span> @enderror
                         </label>
                     </div>
-                </section>
-
-                <section class="rounded-[var(--wm-radius-md)] border border-border bg-surface p-5 shadow-[var(--wm-shadow-card)] sm:p-7" aria-labelledby="profile-photo-heading">
-                    <h2 id="profile-photo-heading" class="text-2xl text-ink">Profile photo</h2>
-                    <p class="mt-3 text-sm text-ink-muted">Profile photos will be available when photo sharing is introduced. There is nothing to upload here yet.</p>
                 </section>
 
                 <section class="rounded-[var(--wm-radius-md)] border border-border bg-surface p-5 shadow-[var(--wm-shadow-card)] sm:p-7" aria-labelledby="communication-heading">

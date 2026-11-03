@@ -2,6 +2,7 @@
 
 namespace App\Domain\Gallery\Actions;
 
+use App\Domain\Accounts\Data\ProfilePhotoStorageReference;
 use App\Domain\Gallery\Contracts\DecodedRasterImage;
 use App\Domain\Gallery\Contracts\ImageMetadataReader;
 use App\Domain\Gallery\Contracts\RasterImageTransformer;
@@ -30,6 +31,7 @@ final readonly class IngestCommunityPhoto
         UploadedFile $upload,
         ?string $reservedDirectory = null,
         ?ImageProcessingConfiguration $configuration = null,
+        ?string $storageDisk = null,
     ): ProcessedCommunityPhoto {
         $configuration ??= ImageProcessingConfiguration::from((array) config('gallery.processing', []), $this->transformer);
         [$path, $decodedMimeType, $width, $height] = $this->inspect($upload, $configuration);
@@ -51,7 +53,7 @@ final readonly class IngestCommunityPhoto
         }
 
         try {
-            $diskName = (string) config('gallery.photos.disk', 'local');
+            $diskName = $storageDisk ?? (string) config('gallery.photos.disk', 'local');
             $directory = $reservedDirectory ?? trim((string) config('gallery.photos.directory', 'community-photos'), '/').'/'.Str::uuid()->toString();
             $disk = Storage::disk($diskName);
 
@@ -84,7 +86,7 @@ final readonly class IngestCommunityPhoto
 
                 return new ProcessedCommunityPhoto($retainedSource, $variants, $width, $height, $metadata->capturedAt);
             } catch (\Throwable $exception) {
-                if ($reservedDirectory === null) {
+                if ($reservedDirectory === null || ProfilePhotoStorageReference::isSafeDirectory($diskName, $directory)) {
                     $disk->deleteDirectory($directory);
                 }
 
@@ -245,7 +247,7 @@ final readonly class IngestCommunityPhoto
 
     private function assertOutputReference(string $disk, string $path): void
     {
-        if (PhotoStorageReference::isSafe($disk, $path) || SiteMediaStorageReference::isSafe($disk, $path)) {
+        if (PhotoStorageReference::isSafe($disk, $path) || SiteMediaStorageReference::isSafe($disk, $path) || ProfilePhotoStorageReference::isSafe($disk, $path)) {
             return;
         }
 
