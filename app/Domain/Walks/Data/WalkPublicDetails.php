@@ -52,6 +52,7 @@ final readonly class WalkPublicDetails
             ]) : null,
             'availability' => self::withoutEmptyValues([
                 'capacity' => $this->walk->capacity,
+                'limit' => $this->walk->capacityLabel(),
                 'status' => $this->walk->availability,
             ]),
             'attachments' => $settings->isEnabled('attachments') ? $this->walk->attachments : null,

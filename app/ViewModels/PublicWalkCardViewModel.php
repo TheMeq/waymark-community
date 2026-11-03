@@ -30,7 +30,7 @@ final readonly class PublicWalkCardViewModel
             'distance' => self::measurement($walk?->distance, $siteProfile->distance_unit),
             'ascent' => self::measurement($walk?->ascent, $siteProfile->ascent_unit),
             'difficulty' => $walk?->grade?->name,
-            'capacity' => PublicEventStatus::isExceptional($event->status) || $walk?->capacity === null ? null : ($walk->availability ?? (string) $walk->capacity),
+            'capacity' => PublicEventStatus::isExceptional($event->status) || $walk?->capacity === null ? null : ($walk->capacity === 0 ? $walk->capacityLabel() : ($walk->availability ?? (string) $walk->capacity)),
             'leader' => $walk?->primaryLeader?->publicDisplayName(),
             'leader_url' => $walk?->primaryLeader?->publicLeaderProfileUrl(),
             'status' => PublicEventStatus::card($event->status, $walk?->availability),

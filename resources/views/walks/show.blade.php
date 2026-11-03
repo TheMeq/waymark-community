@@ -80,7 +80,13 @@
                 <section class="mt-8" aria-labelledby="kit-heading"><h2 id="kit-heading" class="text-2xl text-ink">What to bring</h2>@if (filled($walk['sections']['kit']['checklist'] ?? null))<ul class="mt-3 list-inside list-disc text-ink-muted">@foreach ($walk['sections']['kit']['checklist'] as $item)<li>{{ $item }}</li>@endforeach</ul>@endif @if (filled($walk['sections']['kit']['notes'] ?? null))<p class="mt-3 text-ink-muted">{{ $walk['sections']['kit']['notes'] }}</p>@endif</section>
             @endif
 
-            @if (isset($walk['sections']['availability']))<section class="mt-8" aria-labelledby="availability-heading"><h2 id="availability-heading" class="text-2xl text-ink">Walk availability</h2><p class="mt-3 text-ink-muted">{{ $walk['sections']['availability']['status'] ?? null }}</p></section>@endif
+            @if (isset($walk['sections']['availability']))
+                <section class="mt-8" aria-labelledby="availability-heading">
+                    <h2 id="availability-heading" class="text-2xl text-ink">Walk availability</h2>
+                    @if (isset($walk['sections']['availability']['limit']))<p class="mt-3 text-ink-muted">{{ $walk['sections']['availability']['limit'] }}</p>@endif
+                    @if (isset($walk['sections']['availability']['status']))<p class="mt-3 text-ink-muted">{{ $walk['sections']['availability']['status'] }}</p>@endif
+                </section>
+            @endif
             @if ($walk['attachments'] !== [])<section class="wm-print-hidden mt-8" aria-labelledby="downloads-heading"><h2 id="downloads-heading" class="text-2xl text-ink">Downloads</h2><ul class="mt-3 grid gap-2">@foreach ($walk['attachments'] as $attachment)<li><a class="font-semibold text-brand underline" href="{{ route('walks.attachment', [$event->slug, $attachment['index']]) }}">{{ $attachment['name'] }}</a></li>@endforeach</ul></section>@endif
             @if ($walk['has_gpx'])<p class="wm-print-hidden mt-8"><x-public.button href="{{ route('walks.gpx', $event->slug) }}" variant="secondary">Download GPX</x-public.button></p>@endif
             @if ($walk['map'])<div class="wm-print-hidden mt-9"><x-public.walk-map :map="$walk['map']" /></div>@endif

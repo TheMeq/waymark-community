@@ -54,6 +54,7 @@ final class CreateWalk extends CreateRecord
             'distance',
             'ascent',
             'estimated_duration_minutes',
+            'unlimited_spaces',
             'capacity',
             'availability',
             'terrain_notes',

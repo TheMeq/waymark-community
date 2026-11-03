@@ -125,7 +125,13 @@ final class WalkResource extends Resource
             TextInput::make('ascent')->numeric()->minValue(0)->maxValue(999999.99),
             TextInput::make('estimated_duration_minutes')->integer()->minValue(1)->maxValue(65535)
                 ->afterStateHydrated(fn (Get $get, Set $set) => WalkEstimatedDuration::fill($get, $set)),
-            TextInput::make('capacity')->integer()->minValue(0)->maxValue(65535),
+            Toggle::make('unlimited_spaces')->label('Unlimited spaces')
+                ->helperText('No upper limit on the number of walkers.')
+                ->default(false)->dehydrated(false)->live()
+                ->afterStateUpdated(fn (bool $state, Set $set) => $set('capacity', $state ? 0 : null)),
+            TextInput::make('capacity')->label('Maximum walkers')->integer()->minValue(0)->maxValue(65535)
+                ->hidden(fn (Get $get): bool => in_array($get('capacity'), [0, '0'], true))
+                ->dehydratedWhenHidden(),
             TextInput::make('availability')->maxLength(255),
             Textarea::make('terrain_notes')->maxLength(5000)->visible(fn (): bool => self::optionalFieldEnabled('terrain_notes')),
             TextInput::make('meeting_location_name')->label('Meeting location')->maxLength(255),

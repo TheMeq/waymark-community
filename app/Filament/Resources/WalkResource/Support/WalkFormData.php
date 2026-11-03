@@ -45,6 +45,7 @@ final class WalkFormData
             ...$walk->event->only(['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at']),
             'co_leader_ids' => $walk->coLeaders->modelKeys(),
             'tag_ids' => $walk->tags->modelKeys(),
+            'unlimited_spaces' => $walk->capacity === 0,
             'featured_image_source' => $source,
             'featured_image_upload' => null,
             'featured_image_external_url' => $externalUrl,

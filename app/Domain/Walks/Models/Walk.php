@@ -99,6 +99,15 @@ final class Walk extends Model
         return $this->belongsToMany(Tag::class);
     }
 
+    public function capacityLabel(): ?string
+    {
+        return match ($this->capacity) {
+            null => null,
+            0 => 'Unlimited spaces',
+            default => $this->capacity.' walkers',
+        };
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {
