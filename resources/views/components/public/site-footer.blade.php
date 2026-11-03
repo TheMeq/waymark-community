@@ -7,7 +7,7 @@
     <div class="wm-container grid gap-8 md:grid-cols-[1fr_auto] md:items-end">
         <div class="sm:flex sm:items-center sm:gap-5">
             <a class="inline-flex items-center gap-3 font-semibold text-white" href="{{ route('home') }}" aria-label="{{ $siteName }} home">
-                @if ($logoUrl)<img class="size-9 rounded-full object-contain lg:size-8" src="{{ $logoUrl }}" alt="">@else<span class="grid size-9 place-items-center rounded-full bg-brand text-on-brand lg:size-8" aria-hidden="true">{{ mb_substr($activeBranding['short_name'] ?? 'W', 0, 2) }}</span>@endif
+                @if ($logoUrl)<img class="h-9 w-auto max-w-28 object-contain lg:h-8" src="{{ $logoUrl }}" alt="">@else<span class="grid size-9 place-items-center rounded-full bg-brand text-on-brand lg:size-8" aria-hidden="true">{{ mb_substr($activeBranding['short_name'] ?? 'W', 0, 2) }}</span>@endif
                 <span>{{ $siteName }}</span>
             </a>
             <p class="mt-2 max-w-md text-xs text-white/70 sm:mt-0">Good walks, shared well.</p>

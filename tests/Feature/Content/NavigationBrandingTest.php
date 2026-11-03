@@ -87,6 +87,29 @@ final class NavigationBrandingTest extends TestCase
         }
     }
 
+    public function test_header_logos_preserve_their_full_shapes_after_join(): void
+    {
+        SiteProfile::query()->create([
+            'group_name' => 'Trail Friends',
+            'logo_path' => 'https://example.org/group.png',
+            'affiliation_name' => 'Trail Alliance',
+            'affiliation_url' => 'https://example.org/alliance',
+            'affiliation_logo_path' => 'https://example.org/wide.png',
+            'affiliation_placement' => 'header',
+        ]);
+        $html = $this->get('/')->assertOk()->getContent();
+        $header = explode('</header>', $html)[0];
+        $this->assertGreaterThan(strrpos($header, 'Join us'), strrpos($header, 'https://example.org/wide.png'));
+        preg_match_all('/<img[^>]+>/', $html, $images);
+        $logos = array_filter($images[0], fn ($image) => str_contains($image, 'https://example.org/group.png') || str_contains($image, 'https://example.org/wide.png'));
+        $this->assertNotEmpty($logos);
+        foreach ($logos as $logo) {
+            $this->assertStringNotContainsString('rounded-full', $logo);
+            $this->assertStringContainsString('object-contain', $logo);
+        }
+        $this->assertStringContainsString('max-w-36', $header);
+    }
+
     public function test_approved_identity_social_affiliation_and_terminology_settings_are_exposed_and_presented(): void
     {
         $administrator = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
