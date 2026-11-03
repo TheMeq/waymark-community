@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Model;
     'typography_option',
     'social_links',
     'terminology',
+    'affiliation_logo_path',
     'affiliation_name',
     'affiliation_url',
     'module_configuration',

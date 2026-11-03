@@ -6,7 +6,7 @@
 <header {{ $attributes->class('wm-print-hidden border-b border-border bg-surface-raised') }}>
     <div class="wm-container flex min-h-20 items-center justify-between gap-2 py-3 sm:gap-5">
         <a class="inline-flex min-w-0 items-center gap-3 text-sm font-semibold text-ink no-underline sm:text-base" href="{{ route('home') }}" aria-label="{{ $siteName }} home">
-            @if ($activeBranding['logo_url'] ?? null)<img class="size-10 rounded-full object-contain" src="{{ $activeBranding['logo_url'] }}" alt="">@else<span class="grid size-10 place-items-center rounded-full bg-brand text-lg font-semibold text-on-brand" aria-hidden="true">{{ mb_substr($activeBranding['short_name'] ?? 'W', 0, 2) }}</span>@endif
+            @if ($activeBranding['logo_url'] ?? null)<img class="h-10 w-auto max-w-28 shrink-0 object-contain" src="{{ $activeBranding['logo_url'] }}" alt="">@else<span class="grid size-10 place-items-center rounded-full bg-brand text-lg font-semibold text-on-brand" aria-hidden="true">{{ mb_substr($activeBranding['short_name'] ?? 'W', 0, 2) }}</span>@endif
             <span class="min-w-0 leading-tight">
                 <span class="block break-words">{{ $siteName }}</span>
                 @if (! empty($site['strapline']))
@@ -29,6 +29,9 @@
                 <ul class="grid gap-2 text-sm font-medium">
                     <li><x-public.button class="w-full" :href="route('walks.index')" variant="secondary">Upcoming {{ strtolower($terms['walks'] ?? 'walks') }}</x-public.button></li>
                     <li><x-public.button class="w-full" :href="route('new-here')">{{ $terms['join'] ?? 'Join us' }}</x-public.button></li>
+                    @if (($activeBranding['affiliation_name'] ?? '') !== '' && ($activeBranding['affiliation_url'] ?? null))
+                        <li><x-public.affiliation-link :branding="$activeBranding" /></li>
+                    @endif
                     <li><x-public.button class="w-full" :href="auth()->check() ? route('account.profile.edit') : route('login')" variant="quiet">Account</x-public.button></li>
                     <li class="mt-2 border-t border-border pt-3"><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="{{ route('events.index') }}">What's on</a></li>
                     <li><a class="block rounded-[var(--wm-radius-sm)] px-4 py-2 hover:bg-surface-soft" href="{{ route('holidays.index') }}">{{ $terms['holidays'] ?? 'Weekends away' }}</a></li>
@@ -51,6 +54,9 @@
                 <li><a class="hover:text-brand" href="{{ auth()->check() ? route('account.profile.edit') : route('login') }}">{{ $terms['members'] ?? 'Members' }}</a></li>
                 <li><a class="grid size-10 place-items-center rounded-full hover:bg-surface-soft" href="{{ route('search') }}" aria-label="Search"><svg class="size-4" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" stroke-linecap="round" /></svg></a></li>
                 <li><x-public.button :href="route('new-here')">{{ $terms['join'] ?? 'Join us' }}</x-public.button></li>
+                @if (($activeBranding['affiliation_name'] ?? '') !== '' && ($activeBranding['affiliation_url'] ?? null))
+                    <li class="shrink-0"><x-public.affiliation-link :branding="$activeBranding" /></li>
+                @endif
             </ul>
         </nav>
     </div>

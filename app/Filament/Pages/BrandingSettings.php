@@ -45,7 +45,7 @@ final class BrandingSettings extends Page
     public function mount(): void
     {
         $profile = SiteProfile::query()->find(SiteProfile::SINGLETON_ID) ?? new SiteProfile;
-        $this->form->fill($profile->only(['group_name', 'short_name', 'contact_email', 'logo_path', 'favicon_path', 'hero_default_path', 'primary_colour', 'accent_colour', 'typography_option', 'social_links', 'terminology', 'affiliation_name', 'affiliation_url']));
+        $this->form->fill($profile->only(['group_name', 'short_name', 'contact_email', 'logo_path', 'favicon_path', 'hero_default_path', 'primary_colour', 'accent_colour', 'typography_option', 'social_links', 'terminology', 'affiliation_name', 'affiliation_url', 'affiliation_logo_path']));
     }
 
     public function form(Schema $schema): Schema
@@ -68,6 +68,7 @@ final class BrandingSettings extends Page
             Select::make('typography_option')->options(['instrument' => 'Instrument Sans', 'system' => 'System sans'])->required(),
             KeyValue::make('social_links')->label('Social links')->keyLabel('Label')->valueLabel('Secure URL'),
             KeyValue::make('terminology')->label('Terminology aliases')->keyLabel('Approved key')->valueLabel('Public label'),
+            TextInput::make('affiliation_logo_path')->label('Affiliation logo URL')->maxLength(2048),
             TextInput::make('affiliation_name')->label('Affiliation name')->maxLength(255),
             TextInput::make('affiliation_url')->label('Affiliation URL')->url()->maxLength(2048),
         ])->statePath('data');

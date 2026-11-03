@@ -20,6 +20,7 @@ final class BrandingConfigurationValidator
         'typography_option',
         'social_links',
         'terminology',
+        'affiliation_logo_path',
         'affiliation_name',
         'affiliation_url',
     ];
@@ -41,6 +42,7 @@ final class BrandingConfigurationValidator
             'typography_option' => ['sometimes', 'nullable', 'in:instrument,system'],
             'social_links' => ['sometimes', 'nullable', 'array', 'max:10'],
             'terminology' => ['sometimes', 'nullable', 'array', 'max:5'],
+            'affiliation_logo_path' => ['sometimes', 'nullable', 'string', 'max:2048'],
             'affiliation_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'affiliation_url' => ['sometimes', 'nullable', 'string', 'max:2048'],
         ])->validate();
@@ -62,7 +64,7 @@ final class BrandingConfigurationValidator
             }
         }
 
-        foreach (['logo_path', 'favicon_path', 'hero_default_path', 'affiliation_url'] as $attribute) {
+        foreach (['logo_path', 'favicon_path', 'hero_default_path', 'affiliation_logo_path', 'affiliation_url'] as $attribute) {
             $url = $validated[$attribute] ?? null;
             if (filled($url) && ! NavigationItem::isAllowedUrl($url)) {
                 throw ValidationException::withMessages([$attribute => 'Use a site path or secure external URL.']);

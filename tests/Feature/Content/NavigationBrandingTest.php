@@ -23,6 +23,30 @@ final class NavigationBrandingTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_affiliation_logo_is_saved_and_displayed_after_join_in_header_only(): void
+    {
+        $profile = app(UpdateSiteProfile::class)->handle([
+            'group_name' => 'Trail Friends',
+            'affiliation_name' => 'Walking Network',
+            'affiliation_url' => 'https://example.org/network',
+            'affiliation_logo_path' => '/images/network-wide.png',
+        ]);
+        $this->assertSame('/images/network-wide.png', $profile->affiliation_logo_path);
+        $html = $this->get('/')->assertOk()->getContent();
+        preg_match('/<header\b.*?<\/header>/s', $html, $header);
+        $this->assertStringContainsString('src="/images/network-wide.png"', $header[0]);
+        $this->assertStringContainsString('alt="Walking Network"', $header[0]);
+        $this->assertGreaterThan(strrpos($header[0], 'Join us'), strrpos($header[0], 'https://example.org/network'));
+        preg_match('/<footer\b.*?<\/footer>/s', $html, $footer);
+        $this->assertStringNotContainsString('https://example.org/network', $footer[0]);
+    }
+
+    public function test_affiliation_logo_rejects_unsafe_urls(): void
+    {
+        $this->expectException(ValidationException::class);
+        app(UpdateSiteProfile::class)->handle(['affiliation_logo_path' => 'javascript:alert(1)']);
+    }
+
     public function test_navigation_is_flat_guardrailed_ordered_and_module_aware(): void
     {
         app(UpdateSiteProfile::class)->handle(['group_name' => 'Trail Friends', 'module_configuration' => ['gallery' => false]]);

@@ -44,6 +44,7 @@ final class PublicBranding
             'hero_url' => $this->url($profile->hero_default_path),
             'social_links' => $socialLinks,
             'terminology' => $terminology,
+            'affiliation_logo_url' => $this->url($profile->affiliation_logo_path),
             'affiliation_name' => trim((string) $profile->affiliation_name),
             'affiliation_url' => $this->url($profile->affiliation_url),
         ];
