@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Domain\Accounts\Queries\FavouriteablePublicEventsQuery;
 use App\Domain\Content\Presentation\PublicSeo;
+use App\Domain\Gallery\Queries\PublicCommunityPhotos;
 use App\Domain\Operations\Queries\CurrentSiteProfile;
 use App\Domain\Operations\Support\BrandTheme;
 use App\Domain\Walks\Queries\PublicWalksQuery;
@@ -16,7 +17,7 @@ use Illuminate\Http\Request;
 
 final class PublicWalkShowController
 {
-    public function __invoke(string $slug, PublicWalksQuery $walks, RelatedWalks $relatedWalks, FavouriteablePublicEventsQuery $favourites, Request $request, CurrentSiteProfile $currentProfile): View
+    public function __invoke(string $slug, PublicWalksQuery $walks, RelatedWalks $relatedWalks, FavouriteablePublicEventsQuery $favourites, Request $request, CurrentSiteProfile $currentProfile, PublicCommunityPhotos $photos): View
     {
         $siteProfile = $currentProfile->get();
         $event = $walks->published()->with('updates')->where('slug', $slug)->firstOrFail();
@@ -31,6 +32,7 @@ final class PublicWalkShowController
             'theme' => BrandTheme::fromSiteProfile($siteProfile),
             'event' => $event,
             'walk' => $walk,
+            'gallery' => $photos->forEvent($event->id, perPage: 6),
             'seo' => app(PublicSeo::class)->event($event, $siteProfile, $walk['featured_image']['url'] ?? null),
             'favourite' => FavouriteControlViewModel::for($event, $request->user(), $favourites),
             'relatedWalks' => $relatedWalks->for($event)

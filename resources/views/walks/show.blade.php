@@ -84,6 +84,23 @@
             @if ($walk['attachments'] !== [])<section class="wm-print-hidden mt-8" aria-labelledby="downloads-heading"><h2 id="downloads-heading" class="text-2xl text-ink">Downloads</h2><ul class="mt-3 grid gap-2">@foreach ($walk['attachments'] as $attachment)<li><a class="font-semibold text-brand underline" href="{{ route('walks.attachment', [$event->slug, $attachment['index']]) }}">{{ $attachment['name'] }}</a></li>@endforeach</ul></section>@endif
             @if ($walk['has_gpx'])<p class="wm-print-hidden mt-8"><x-public.button href="{{ route('walks.gpx', $event->slug) }}" variant="secondary">Download GPX</x-public.button></p>@endif
             @if ($walk['map'])<div class="wm-print-hidden mt-9"><x-public.walk-map :map="$walk['map']" /></div>@endif
+            @if (! $gallery->isEmpty())
+                <section class="wm-print-hidden mt-9" aria-labelledby="walk-gallery-heading">
+                    <div class="flex flex-wrap items-end justify-between gap-4">
+                        <h2 id="walk-gallery-heading" class="text-2xl text-ink">Photos from this walk</h2>
+                        <a class="text-sm font-semibold text-brand underline" href="{{ route('gallery.events.show', $event->slug) }}">View all photos</a>
+                    </div>
+                    <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        @foreach ($gallery as $photo)
+                            <article class="overflow-hidden rounded-[var(--wm-radius-md)] border border-border bg-surface shadow-[var(--wm-shadow-card)]">
+                                <a href="{{ $photo->detailUrl }}"><img class="aspect-[4/3] w-full object-cover" src="{{ $photo->imageUrl }}" alt="{{ $photo->caption ?? 'Photo from this walk' }}" loading="lazy" width="{{ $photo->width }}" height="{{ $photo->height }}" style="{{ $photo->rotationStyle }}"></a>
+                                @if ($photo->caption)<p class="px-4 pt-3 text-sm font-medium text-ink">{{ $photo->caption }}</p>@endif
+                                @if ($photo->photographerName)<p class="px-4 pb-4 text-sm text-ink-muted">Photo: {{ $photo->photographerName }}</p>@endif
+                            </article>
+                        @endforeach
+                    </div>
+                </section>
+            @endif
             @if ($relatedWalks->isNotEmpty())
                 <section class="mt-12" aria-labelledby="related-walks-heading">
                     <h2 id="related-walks-heading" class="text-2xl text-ink">Related walks</h2>

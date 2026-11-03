@@ -282,15 +282,19 @@ $childWalk = $createEvent(
     '2026-09-13 15:30:00',
     'A coastal circuit from the weekend base.',
 );
-app(SaveWalkDetails::class)->handle($childWalk, [
+$childWalkDetails = app(SaveWalkDetails::class)->handle($childWalk, [
     'primary_leader_id' => $leader->id,
     'grade_id' => $grade->id,
     'distance' => 8.0,
     'ascent' => 280,
     'meeting_location_name' => 'Seaview Lodge',
     'availability' => 'Places available',
-    'featured_image_path' => '/images/demo/coastal-weekend-768.webp',
 ]);
+app(UpdateWalkFeaturedImage::class)->handle($leader, $childWalkDetails, WalkFeaturedImageInput::from([
+    'featured_image_source' => 'external',
+    'featured_image_external_url' => '/images/demo/coastal-weekend-768.webp',
+    'featured_image_alt_text' => 'Clifftop circuit featured image',
+]));
 app(AssignHolidayChild::class)->handle($holiday, $childWalk);
 
 $childSocial = $createEvent(

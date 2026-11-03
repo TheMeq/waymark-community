@@ -6,6 +6,7 @@ use App\Domain\Events\Actions\ChangeEventStatus;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
+use App\Domain\Gallery\Models\CommunityPhoto;
 use App\Domain\SiteMedia\Enums\SiteMediaPurpose;
 use App\Domain\SiteMedia\Models\SiteMedia;
 use App\Domain\Walks\Actions\SaveWalkDetails;
@@ -25,6 +26,56 @@ use Tests\TestCase;
 final class PublicWalkPagesTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_walk_page_shows_only_its_public_photos_with_a_link_to_the_full_album(): void
+    {
+        Storage::fake('local');
+        $event = $this->publishedWalk('Photographed walk', '-2 weeks');
+        $visible = $this->walkPhoto($event, ['caption' => 'Walk summit']);
+        $this->walkPhoto($event, ['caption' => 'Pending photo', 'moderation_status' => 'pending']);
+        $this->walkPhoto($event, ['caption' => 'Future photo', 'published_at' => now()->addDay()]);
+        $this->walkPhoto($event, ['caption' => 'Rejected photo', 'moderation_status' => 'rejected']);
+        $missing = $this->walkPhoto($event, ['caption' => 'Missing photo']);
+        Storage::disk('local')->delete(array_values($missing->processed_variants));
+        $this->walkPhoto($this->publishedWalk('Another walk', '-1 week'), ['caption' => 'Other walk photo']);
+
+        $this->get(route('walks.show', $event->slug))->assertOk()
+            ->assertSee('Photos from this walk')->assertSee('Walk summit')
+            ->assertSee(route('gallery.photos.show', $visible), false)
+            ->assertSee(route('gallery.events.show', $event->slug), false)
+            ->assertDontSee('Pending photo')->assertDontSee('Future photo')
+            ->assertDontSee('Rejected photo')->assertDontSee('Missing photo')->assertDontSee('Other walk photo');
+    }
+
+    public function test_walk_gallery_preview_is_bounded_and_empty_gallery_is_not_shown(): void
+    {
+        Storage::fake('local');
+        $event = $this->publishedWalk('Walk album', '-1 week');
+        $this->get(route('walks.show', $event->slug))->assertOk()->assertDontSee('walk-gallery-heading');
+        foreach (range(1, 7) as $index) {
+            $this->walkPhoto($event, ['caption' => 'Album photo '.$index]);
+        }
+        $this->get(route('walks.show', $event->slug))->assertOk()
+            ->assertViewHas('gallery', fn ($gallery): bool => $gallery->items->count() === 6 && $gallery->hasMorePages())
+            ->assertSee('View all photos');
+    }
+
+    private function walkPhoto(Event $event, array $overrides = []): CommunityPhoto
+    {
+        $directory = 'community-photos/'.Str::uuid();
+        $variants = [];
+        foreach (['thumbnail', 'medium', 'large', 'master'] as $variant) {
+            $variants[$variant] = $directory.'/'.$variant.'.jpg';
+            Storage::disk('local')->put($variants[$variant], 'image');
+        }
+
+        return CommunityPhoto::query()->create(array_replace([
+            'event_id' => $event->id, 'uploader_id' => $event->organiser_id,
+            'media_type' => 'image', 'processing_status' => 'complete', 'storage_disk' => 'local',
+            'source_path' => $variants['master'], 'processed_variants' => $variants,
+            'moderation_status' => 'approved', 'published_at' => now(),
+        ], $overrides));
+    }
 
     public function test_walk_index_lists_only_publicly_published_upcoming_walks_in_chronological_order(): void
     {
