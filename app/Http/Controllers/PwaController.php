@@ -20,7 +20,7 @@ final class PwaController
         $name = $this->textOrFallback($profile->group_name, 'Waymark Community');
         $brandedIcons = $this->icons->available($profile);
         $iconUrl = fn (int $size): string => $brandedIcons
-            ? PublicUrl::route('pwa.icon', ['size' => $size, 'logo' => $profile->logo_media_id])
+            ? PublicUrl::route('pwa.icon', ['size' => $size, 'logo' => $profile->logo_media_id ?? substr(hash('sha256', (string) $profile->logo_path), 0, 16)])
             : PublicUrl::asset('/images/pwa/icon-'.$size.'.png');
 
         return response()->json([
