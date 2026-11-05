@@ -24,6 +24,17 @@ final readonly class PublicWalkFilters
         public ?string $timeGrouping,
     ) {}
 
+    public function hasActiveFilters(): bool
+    {
+        foreach (get_object_vars($this) as $value) {
+            if ($value !== null && $value !== false && $value !== []) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static function fromRequest(Request $request): self
     {
         $dateFrom = self::date($request->query('date_from'));

@@ -13,7 +13,12 @@
             <p class="text-xs font-semibold uppercase tracking-[0.15em] text-brand">Explore walks</p>
             <h1 class="mt-2 text-4xl text-ink sm:text-5xl">Walks</h1>
 
-            <form class="mt-8 grid gap-3 rounded-[var(--wm-radius-md)] border border-border bg-surface p-4 sm:grid-cols-2 lg:grid-cols-4" method="get" action="{{ route('walks.index') }}">
+            <details id="walk-filters" class="group mt-8 rounded-[var(--wm-radius-md)] border border-border bg-surface">
+                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-[var(--wm-radius-md)] p-4 font-semibold text-ink [&::-webkit-details-marker]:hidden">
+                    <span class="flex flex-wrap items-center gap-3">Filter walks @if ($filtersActive)<span class="rounded-[var(--wm-radius-pill)] bg-surface-raised px-3 py-1 text-xs font-medium text-brand">Filters applied</span>@endif</span>
+                    <svg class="size-5 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                </summary>
+            <form class="grid gap-3 border-t border-border p-4 sm:grid-cols-2 lg:grid-cols-4" method="get" action="{{ route('walks.index') }}">
                 <div><label class="text-sm font-medium" for="date-from">From date</label><input class="wm-form-control mt-1" id="date-from" type="date" name="date_from" value="{{ $filters->dateFrom?->format('Y-m-d') }}"></div>
                 <div><label class="text-sm font-medium" for="date-to">To date</label><input class="wm-form-control mt-1" id="date-to" type="date" name="date_to" value="{{ $filters->dateTo?->format('Y-m-d') }}"></div>
                 <div><label class="text-sm font-medium" for="min-distance">Minimum distance</label><input class="wm-form-control mt-1" id="min-distance" type="number" min="0" step="0.01" name="min_distance" value="{{ $filters->minimumDistance }}"></div>
@@ -28,6 +33,7 @@
                 <label class="flex min-h-11 items-end gap-2 text-sm font-medium"><input type="checkbox" name="public_transport" value="1" @checked($filters->publicTransport)> Public-transport friendly</label>
                 <div class="flex items-end gap-3"><x-public.button type="submit">Apply filters</x-public.button><a class="pb-2 text-sm font-semibold text-brand underline" href="{{ route('walks.index') }}">Clear</a></div>
             </form>
+            </details>
 
             @if ($walks->isNotEmpty())
                 <div class="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">

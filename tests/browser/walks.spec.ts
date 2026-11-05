@@ -36,6 +36,7 @@ test('public walk list and detail preserve the approved responsive rhythm', asyn
 
 test('public walk filter controls retain a visible accessible control surface', async ({ page }) => {
     await page.goto('/walks');
+    await page.locator('#walk-filters > summary').click();
 
     for (const label of [
         'From date',
@@ -78,6 +79,8 @@ test('walk list and detail have no detectable WCAG A or AA violations, support k
 
     expect(results.violations).toEqual([]);
 
+    await page.locator('#walk-filters > summary').focus();
+    await page.keyboard.press('Enter');
     await page.getByLabel('Location').focus();
     await page.keyboard.press('Tab');
     await expect(page.getByLabel('Time')).toBeFocused();
@@ -101,4 +104,28 @@ test('walk list and detail have no detectable WCAG A or AA violations, support k
     });
 
     await expectNoHorizontalOverflow(page);
+});
+
+
+test.describe('walk filters without JavaScript', () => {
+    test.use({ javaScriptEnabled: false });
+
+    test('filters start closed, open with the keyboard, and retain active choices', async ({ page }) => {
+        await page.goto('/walks');
+        const panel = page.locator('#walk-filters');
+        await expect(panel).not.toHaveAttribute('open');
+        await expect(page.getByLabel('Location', { exact: true })).toBeHidden();
+        await panel.locator('summary').focus();
+        await page.keyboard.press('Enter');
+        await expect(page.getByLabel('Location', { exact: true })).toBeVisible();
+        await page.getByLabel('Location', { exact: true }).fill('Example meeting point');
+        await page.getByRole('button', { name: 'Apply filters' }).press('Enter');
+        await expect(page).toHaveURL(/location=Example/);
+        await expect(panel).not.toHaveAttribute('open');
+        await expect(panel.locator('summary')).toContainText('Filters applied');
+        await panel.locator('summary').press('Enter');
+        await expect(page.getByLabel('Location', { exact: true })).toHaveValue('Example meeting point');
+        await page.getByRole('link', { name: 'Clear', exact: true }).press('Enter');
+        await expect(panel.locator('summary')).not.toContainText('Filters applied');
+    });
 });

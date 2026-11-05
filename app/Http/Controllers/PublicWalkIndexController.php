@@ -26,6 +26,7 @@ final class PublicWalkIndexController
             ],
             'theme' => BrandTheme::fromSiteProfile($siteProfile),
             'filters' => $filters,
+            'filtersActive' => $filters->hasActiveFilters(),
             'grades' => Grade::query()->orderBy('display_order')->orderBy('name')->get(),
             'tags' => Tag::query()->orderBy('name')->get(),
             'leaders' => $walks->publishedLeaders(),
