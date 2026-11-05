@@ -147,7 +147,7 @@ final class NavigationBrandingTest extends TestCase
             ->assertSeeText('County Walking Network')->assertSee('href="/images/demo/favicon.png"', false);
     }
 
-    public function test_managed_branding_renders_one_resolved_logo_in_header_footer_and_seo_and_png_favicon_without_changing_pwa_icons(): void
+    public function test_managed_branding_renders_one_resolved_logo_in_header_footer_seo_and_app_icons(): void
     {
         $administrator = User::factory()->create(['role' => AccountRole::Administrator, 'email_verified_at' => now()]);
         $profile = app(UpdateSiteProfile::class)->handle(['group_name' => 'Managed Pathfinders']);
@@ -182,8 +182,8 @@ final class NavigationBrandingTest extends TestCase
 
         $this->get('/manifest.webmanifest')
             ->assertOk()
-            ->assertJsonPath('icons.0.src', '/images/pwa/icon-192.png')
-            ->assertJsonPath('icons.1.src', '/images/pwa/icon-512.png');
+            ->assertJsonPath('icons.0.src', '/app-icons/192.png?logo='.$profile->logo_media_id)
+            ->assertJsonPath('icons.1.src', '/app-icons/512.png?logo='.$profile->logo_media_id);
     }
 
     public function test_branding_preview_keeps_saved_managed_logo_while_previewing_unsaved_ordinary_values(): void

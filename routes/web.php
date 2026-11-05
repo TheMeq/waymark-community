@@ -91,6 +91,7 @@ Route::post('/updates/activate', [UpdateActivationController::class, 'store'])->
 Route::post('/updates/rollback', UpdateRollbackController::class)->middleware('throttle:recovery')->name('updates.rollback.store');
 Route::get('/', HomeController::class)->name('home');
 Route::get('/manifest.webmanifest', [PwaController::class, 'manifest'])->name('pwa.manifest');
+Route::get('/app-icons/{size}.png', [PwaController::class, 'icon'])->where('size', '192|512')->name('pwa.icon');
 Route::get('/service-worker.js', [PwaController::class, 'serviceWorker'])->name('pwa.service-worker');
 Route::get('/offline', [PwaController::class, 'offline'])->name('pwa.offline');
 Route::get('/media/{media}/image/{variant}', SiteMediaStreamController::class)->whereNumber('media')->name('site-media.stream');

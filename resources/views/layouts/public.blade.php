@@ -26,6 +26,7 @@
             <script type="application/ld+json">{!! json_encode($structuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
         @endforeach
         <link rel="manifest" href="{{ $manifestUrl }}">
+        <link rel="apple-touch-icon" sizes="192x192" href="{{ \App\Domain\Content\Presentation\PublicUrl::route('pwa.icon', ['size' => 192]) }}">
         <meta name="theme-color" content="{{ $theme->primaryColour }}">
         @if ($branding['favicon_url'])<link rel="icon" href="{{ $branding['favicon_url'] }}"@if($branding['favicon_type'] ?? null) type="{{ $branding['favicon_type'] }}"@endif>@endif
 
