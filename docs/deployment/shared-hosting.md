@@ -70,6 +70,12 @@ public_html/
 
 This layout depends on Apache-compatible `.htaccess` overrides denying all requests to `/application/`. Before installation can finish, Waymark requests representative internal paths and blocks setup unless they are inaccessible. System Health continues to report this protection. If it reports exposure, stop using the site, ask the host to enable `.htaccess` overrides, or switch to the preferred package with a private application root.
 
+## HTTPS reverse proxies and installed apps
+
+When HTTPS terminates at a reverse proxy such as Caddy or Cloudflare Tunnel, set `APP_URL` to the public HTTPS address and clear cached configuration with `php artisan optimize:clear`. Waymark uses that configured HTTPS scheme for generated URLs, including Livewire form submissions, even when the connection from the proxy to PHP uses HTTP. An installation served entirely over HTTPS should also set `SESSION_SECURE_COOKIE=true`.
+
+If multiple copies are installed, update the application directory served by the public hostname; updating a separate Git checkout does not update an extracted release package. After changing app icons, existing home-screen installations may need to be removed and installed again to pick up the new icon.
+
 ## Scheduler and cron
 
 Cron is strongly preferred. Configure the hosting control panel to run the release package's PHP executable and `artisan schedule:run` once per minute from the private application root. The scheduler writes a private heartbeat so Waymark can distinguish a working cron entry from one that has never run or has become stale.

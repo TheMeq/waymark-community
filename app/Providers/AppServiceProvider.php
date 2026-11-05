@@ -74,6 +74,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
@@ -136,6 +137,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (parse_url((string) config('app.url'), PHP_URL_SCHEME) === 'https') {
+            URL::forceScheme('https');
+        }
         app(StagingEnvironmentGuard::class)->apply();
         EncryptCookies::except([MaintenanceManager::BYPASS_COOKIE]);
         foreach ([CmsPage::class, NewsArticle::class, Event::class, SpecialAlbum::class, Document::class] as $model) {
