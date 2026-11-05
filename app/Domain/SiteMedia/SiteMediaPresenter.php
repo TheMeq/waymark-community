@@ -2,6 +2,7 @@
 
 namespace App\Domain\SiteMedia;
 
+use App\Domain\Content\Presentation\PublicUrl;
 use App\Domain\SiteMedia\Data\SiteMediaPresentation;
 use App\Domain\SiteMedia\Data\SiteMediaStorageReference;
 use App\Domain\SiteMedia\Models\SiteMedia;
@@ -16,6 +17,6 @@ final class SiteMediaPresenter
             return null;
         }
 
-        return new SiteMediaPresentation($media->id, route('site-media.stream', [$media, $variant]), $media->is_decorative ? '' : (string) $media->alt_text, max(1, $media->width), max(1, $media->height), (float) $media->focal_point_x, (float) $media->focal_point_y);
+        return new SiteMediaPresentation($media->id, PublicUrl::route('site-media.stream', [$media, $variant]), $media->is_decorative ? '' : (string) $media->alt_text, max(1, $media->width), max(1, $media->height), (float) $media->focal_point_x, (float) $media->focal_point_y);
     }
 }

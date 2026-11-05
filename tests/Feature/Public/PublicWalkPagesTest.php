@@ -370,7 +370,7 @@ final class PublicWalkPagesTest extends TestCase
             'featured_image_path' => 'https://images.example.org/retained.jpg',
             'featured_image_alt_text' => 'Walkers crossing a broad grassy ridge',
         ])->save();
-        $mediumUrl = route('site-media.stream', [$media, 'medium']);
+        $mediumUrl = route('site-media.stream', [$media, 'medium'], absolute: false);
         $largeUrl = route('site-media.stream', [$media, 'large']);
 
         $this->get('/walks')
@@ -382,7 +382,7 @@ final class PublicWalkPagesTest extends TestCase
         $this->get('/walks/'.$event->slug)
             ->assertOk()
             ->assertSee('data-walk-featured-image', false)
-            ->assertSee('src="'.$largeUrl.'"', false)
+            ->assertSee('src="'.parse_url($largeUrl, PHP_URL_PATH).'"', false)
             ->assertSee('alt="Walkers crossing a broad grassy ridge"', false)
             ->assertSee('<meta property="og:image" content="'.$largeUrl.'">', false)
             ->assertSee('"image":["'.$largeUrl.'"]', false)

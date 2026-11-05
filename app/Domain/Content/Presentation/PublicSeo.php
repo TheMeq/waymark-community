@@ -49,6 +49,7 @@ final class PublicSeo
 
     public function news(NewsArticle $article, ?string $image = null): SeoMetadata
     {
+        $image = $this->absolute($image);
         $title = $article->share_title ?: $article->title;
         $description = $article->share_description ?: ($article->summary ?: $this->blocksExcerpt((array) $article->blocks));
         $canonical = route('news.show', $article->slug);
@@ -75,6 +76,7 @@ final class PublicSeo
 
     public function event(Event $event, SiteProfile $profile, ?string $resolvedImageUrl = null): SeoMetadata
     {
+        $resolvedImageUrl = $this->absolute($resolvedImageUrl);
         $canonical = match ($event->type) {
             EventType::Walk => route('walks.show', $event->slug),
             EventType::Social => route('socials.show', $event->slug),

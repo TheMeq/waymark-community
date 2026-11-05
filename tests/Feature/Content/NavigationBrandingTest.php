@@ -169,8 +169,8 @@ final class NavigationBrandingTest extends TestCase
                 'favicon_upload' => UploadedFile::fake()->image('favicon.png', 64, 64),
             ], SiteMediaPurpose::SiteFavicon),
         );
-        $logoUrl = route('site-media.stream', [$profile->logoMedia, 'medium']);
-        $faviconUrl = route('site-media.stream', [$profile->faviconMedia, 'favicon']);
+        $logoUrl = route('site-media.stream', [$profile->logoMedia, 'medium'], absolute: false);
+        $faviconUrl = route('site-media.stream', [$profile->faviconMedia, 'favicon'], absolute: false);
 
         $content = $this->get('/')->assertOk()->getContent();
         $this->assertIsString($content);
@@ -178,7 +178,7 @@ final class NavigationBrandingTest extends TestCase
         $this->assertGreaterThanOrEqual(2, substr_count($content, 'Managed Pathfinders'));
         $this->assertStringContainsString('aria-label="Managed Pathfinders home"', $content);
         $this->assertStringContainsString('<link rel="icon" href="'.$faviconUrl.'" type="image/png">', $content);
-        $this->assertStringContainsString('"logo":"'.$logoUrl.'"', $content);
+        $this->assertStringContainsString('"logo":"'.url($logoUrl).'"', $content);
 
         $this->get('/manifest.webmanifest')
             ->assertOk()
@@ -199,7 +199,7 @@ final class NavigationBrandingTest extends TestCase
                 'logo_upload' => UploadedFile::fake()->image('logo.png', 80, 60),
             ], SiteMediaPurpose::SiteLogo),
         );
-        $logoUrl = route('site-media.stream', [$profile->logoMedia, 'medium']);
+        $logoUrl = route('site-media.stream', [$profile->logoMedia, 'medium'], absolute: false);
 
         $preview = app(CreateBrandingPreview::class)->handle($administrator, ['group_name' => 'Unsaved Pathfinders']);
 

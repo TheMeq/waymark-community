@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Cache;
 
 final class PublicContentCache
 {
-    public const BRANDING = 'waymark.public.branding.v1';
+    public const BRANDING = 'waymark.public.branding.v2';
 
     public const NAVIGATION = 'waymark.public.navigation.v1';
 
