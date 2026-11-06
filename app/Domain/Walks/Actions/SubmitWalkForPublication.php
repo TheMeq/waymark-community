@@ -10,6 +10,7 @@ use App\Domain\Walks\Models\Walk;
 use App\Domain\Walks\Models\WalkFieldSettings;
 use App\Models\User;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 final readonly class SubmitWalkForPublication
 {
@@ -23,6 +24,19 @@ final readonly class SubmitWalkForPublication
         Gate::forUser($actor)->authorize('publish', $walk);
 
         $walk->loadMissing('event');
+
+        if ($walk->primary_leader_id === null && blank($walk->primary_leader_name)) {
+            throw ValidationException::withMessages([
+                'primary_leader' => 'Provide a primary leader name or link an eligible account before publication.',
+            ]);
+        }
+
+        if ($walk->primary_leader_id === null && ! $actor->hasCapability(ModuleCapability::ManageAllWalks)) {
+            throw ValidationException::withMessages([
+                'primary_leader_id' => 'Only administrators can publish a walk with a name-only primary leader.',
+            ]);
+        }
+
         $canPublishDirectly = $actor->hasCapability(ModuleCapability::ManageAllWalks)
             || WalkFieldSettings::current()->leaders_can_publish_directly;
 

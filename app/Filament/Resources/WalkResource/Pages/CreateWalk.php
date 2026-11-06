@@ -130,7 +130,7 @@ final class CreateWalk extends CreateRecord
             Step::make('Leader and publishing')
                 ->id('leader-and-publishing')
                 ->schema($this->fields([
-                    'primary_leader_id', 'co_leader_ids', 'private_organiser_notes',
+                    'primary_leader_name', 'primary_leader_id', 'co_leader_ids', 'private_organiser_notes',
                 ])),
         ];
     }
@@ -231,7 +231,7 @@ final class CreateWalk extends CreateRecord
         }
 
         $this->draftId ??= $draft->id;
-        $this->data['primary_leader_id'] ??= $actor->id;
+        $this->data['primary_leader_id'] = $draft->primary_leader_id;
         $this->draftSaveError = null;
         $this->draftSaveStatus = 'Draft saved';
     }

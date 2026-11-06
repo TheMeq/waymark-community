@@ -14,6 +14,7 @@ use App\Domain\Walks\Enums\DuplicateWalkCopyGroup;
 use App\Domain\Walks\Models\Walk;
 use App\Filament\Resources\WalkResource;
 use App\Models\User;
+use App\ViewModels\PublicWalkCardViewModel;
 use App\ViewModels\PublicWalkDetailViewModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
@@ -110,6 +111,47 @@ final class LeaderProfilesTest extends TestCase
 
         $this->assertStringContainsString(route('leaders.show', 'morgan-m'), $details['leader_attribution']);
         $this->assertStringNotContainsString($leader->name, $details['leader_attribution']);
+    }
+
+    public function test_name_only_walk_leader_attribution_has_no_account_link_or_contact_details(): void
+    {
+        $event = Event::factory()->create();
+        app(SaveWalkDetails::class)->handle($event, [
+            'primary_leader_name' => 'Alex Walker',
+            'primary_leader_id' => null,
+        ]);
+        $event = $event->fresh(['walk.grade', 'walk.primaryLeader', 'walk.coLeaders', 'walk.tags', 'updates']);
+
+        $details = PublicWalkDetailViewModel::fromEvent($event, new SiteProfile);
+        $card = PublicWalkCardViewModel::fromEvent($event, new SiteProfile);
+
+        $this->assertSame('Alex Walker', $details['leader_attribution']);
+        $this->assertStringNotContainsString('<a ', $details['leader_attribution']);
+        $this->assertSame('Alex Walker', $card['leader']);
+        $this->assertArrayNotHasKey('leader_url', $card);
+    }
+
+    public function test_linked_leader_public_attribution_uses_the_account_display_name_not_the_imported_source_name(): void
+    {
+        $leader = $this->leader([
+            'name' => 'Morgan Formal Name',
+            'display_name' => 'Morgan',
+        ]);
+        $event = Event::factory()->create();
+        app(SaveWalkDetails::class)->handle($event, [
+            'primary_leader_name' => 'Morgan Formal Name',
+            'primary_leader_id' => $leader->id,
+        ]);
+        $event = $event->fresh(['walk.grade', 'walk.primaryLeader', 'walk.coLeaders', 'walk.tags', 'updates']);
+
+        $details = PublicWalkDetailViewModel::fromEvent($event, new SiteProfile);
+        $card = PublicWalkCardViewModel::fromEvent($event, new SiteProfile);
+
+        $this->assertStringContainsString('Morgan', $details['leader_attribution']);
+        $this->assertStringContainsString(route('leaders.show', 'morgan-m'), $details['leader_attribution']);
+        $this->assertStringNotContainsString('Morgan Formal Name', $details['leader_attribution']);
+        $this->assertSame('Morgan', $card['leader']);
+        $this->assertSame(route('leaders.show', 'morgan-m'), $card['leader_url']);
     }
 
     public function test_public_profile_and_attribution_disappear_when_the_walk_leader_role_loses_manage_own_walks(): void

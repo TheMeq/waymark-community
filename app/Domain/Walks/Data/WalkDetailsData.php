@@ -15,7 +15,8 @@ final readonly class WalkDetailsData
      * @param  array<int, array<string, mixed>>|null  $attachments
      */
     private function __construct(
-        public int $primaryLeaderId,
+        public ?int $primaryLeaderId,
+        public ?string $primaryLeaderName,
         public ?int $gradeId,
         public array $coLeaderIds,
         public array $tagIds,
@@ -59,7 +60,8 @@ final readonly class WalkDetailsData
         $attributes = self::normaliseEmptyStrings($attributes);
 
         $validator = Validator::make($attributes, [
-            'primary_leader_id' => ['required', 'integer', 'exists:users,id'],
+            'primary_leader_id' => ['nullable', 'integer', 'exists:users,id'],
+            'primary_leader_name' => ['nullable', 'string', 'max:255'],
             'grade_id' => ['nullable', 'integer', 'exists:grades,id'],
             'co_leader_ids' => ['nullable', 'array', 'max:8'],
             'co_leader_ids.*' => ['integer', 'distinct', 'exists:users,id'],
@@ -155,7 +157,8 @@ final readonly class WalkDetailsData
         $validated = $validator->validate();
 
         return new self(
-            primaryLeaderId: $validated['primary_leader_id'],
+            primaryLeaderId: $validated['primary_leader_id'] ?? null,
+            primaryLeaderName: $validated['primary_leader_name'] ?? null,
             gradeId: $validated['grade_id'] ?? null,
             coLeaderIds: $validated['co_leader_ids'] ?? [],
             tagIds: $validated['tag_ids'] ?? [],
@@ -197,6 +200,7 @@ final readonly class WalkDetailsData
         return [
             'grade_id' => $this->gradeId,
             'primary_leader_id' => $this->primaryLeaderId,
+            'primary_leader_name' => $this->primaryLeaderName,
             'distance' => $this->distance,
             'ascent' => $this->ascent,
             'estimated_duration_minutes' => $this->estimatedDurationMinutes,

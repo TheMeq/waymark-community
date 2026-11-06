@@ -1,6 +1,6 @@
 {
     "format": 1,
-    "migration_set_hash": "e50e2d1d7d15ef2da8c18f9f98b38aa5744b3b2f15ae010bbc843dbc5103ebf5",
+    "migration_set_hash": "277ec9a5783c481a7b73334add75e72332f1553748bd21fe49f1c49c73429b20",
     "migrations": [
         "0001_01_01_000000_create_users_table",
         "0001_01_01_000001_create_cache_table",
@@ -66,7 +66,8 @@
         "2026_10_25_110000_add_soft_deletes_to_walks",
         "2026_10_25_120000_add_content_image_sources",
         "2026_10_25_140000_add_affiliation_branding_to_site_profiles",
-        "2026_11_03_150000_create_profile_photos_table"
+        "2026_11_03_150000_create_profile_photos_table",
+        "2026_11_06_100000_add_primary_leader_name_to_walks_table"
     ],
     "tables": {
         "account_administration_audits": [
@@ -914,6 +915,7 @@
             "os_grid_reference",
             "parking_notes",
             "primary_leader_id",
+            "primary_leader_name",
             "private_organiser_notes",
             "public_transport_notes",
             "public_transport_station_stop",

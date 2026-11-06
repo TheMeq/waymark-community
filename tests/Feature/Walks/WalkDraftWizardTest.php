@@ -400,6 +400,27 @@ final class WalkDraftWizardTest extends TestCase
         $this->assertDatabaseCount('walks', 1);
     }
 
+    public function test_resuming_a_name_only_draft_keeps_its_unlinked_leader_after_a_checkpoint(): void
+    {
+        $administrator = User::factory()->initialAdministrator()->create();
+        $draft = app(SaveWalkDraft::class)->create($administrator, [
+            'title' => 'Imported programme walk',
+            'starts_at' => '2026-09-12 09:30:00',
+        ]);
+        $draft = app(SaveWalkDraft::class)->update($draft, $administrator, [
+            'primary_leader_name' => 'Unlinked person',
+            'primary_leader_id' => null,
+        ]);
+
+        Livewire::actingAs($administrator);
+        Livewire::withQueryParams(['draft' => $draft->id, 'step' => 'when-and-where'])
+            ->test(CreateWalk::class)
+            ->goToNextWizardStep()
+            ->assertSet('data.primary_leader_id', null);
+
+        $this->assertNull($draft->fresh()->primary_leader_id);
+    }
+
     public function test_missing_or_inaccessible_draft_cannot_be_resumed(): void
     {
         $owner = User::factory()->walkLeader()->create();

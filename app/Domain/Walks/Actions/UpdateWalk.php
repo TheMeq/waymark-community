@@ -2,11 +2,13 @@
 
 namespace App\Domain\Walks\Actions;
 
+use App\Domain\Accounts\Enums\ModuleCapability;
 use App\Domain\Walks\Models\Walk;
 use App\Models\User;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 final readonly class UpdateWalk
 {
@@ -18,12 +20,23 @@ final readonly class UpdateWalk
         Gate::forUser($actor)->authorize('update', $walk);
 
         $walk->loadMissing(['event', 'coLeaders', 'tags']);
+        $primaryLeaderChanged = array_key_exists('primary_leader_id', $attributes)
+            && (int) ($attributes['primary_leader_id'] ?? 0) !== (int) ($walk->primary_leader_id ?? 0);
+
+        if ($primaryLeaderChanged
+            && blank($attributes['primary_leader_id'] ?? null)
+            && ! $actor->hasCapability(ModuleCapability::ManageAllWalks)) {
+            throw ValidationException::withMessages([
+                'primary_leader_id' => 'Only administrators can manage a name-only primary leader.',
+            ]);
+        }
+
         $attributes = [
             ...$this->existingDetailAttributes($walk),
             ...$attributes,
         ];
 
-        return DB::transaction(function () use ($walk, $attributes): Walk {
+        return DB::transaction(function () use ($walk, $actor, $attributes, $primaryLeaderChanged): Walk {
             $walk->event->fill(Arr::only($attributes, [
                 'title',
                 'slug',
@@ -34,7 +47,16 @@ final readonly class UpdateWalk
             ]));
             $walk->event->save();
 
-            return $this->saveWalkDetails->handle($walk->event, $attributes);
+            $updatedWalk = $this->saveWalkDetails->handle($walk->event, $attributes);
+
+            if ($primaryLeaderChanged && $actor->hasCapability(ModuleCapability::ManageAllWalks)) {
+                $walk->event->forceFill([
+                    'organiser_id' => $updatedWalk->primary_leader_id ?? $actor->id,
+                ])->save();
+                $updatedWalk->setRelation('event', $walk->event);
+            }
+
+            return $updatedWalk;
         });
     }
 
@@ -44,6 +66,7 @@ final readonly class UpdateWalk
         return [
             ...Arr::only($walk->attributesToArray(), [
                 'primary_leader_id',
+                'primary_leader_name',
                 'grade_id',
                 'distance',
                 'ascent',

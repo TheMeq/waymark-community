@@ -1,4 +1,9 @@
 <x-filament-panels::page>
+    @if (\App\Filament\Pages\WalkProgrammeImport::canAccess())
+        <div class="mb-6">
+            <x-filament::button tag="a" :href="\App\Filament\Pages\WalkProgrammeImport::getUrl()">Import XLSX walk programme</x-filament::button>
+        </div>
+    @endif
     <section class="max-w-5xl rounded-xl border p-5" aria-labelledby="guided-import-heading">
         <h2 id="guided-import-heading" class="text-lg font-semibold">Guided CSV import</h2>
         <p class="mt-2 text-sm text-gray-600">Preview and dry run every mapped row before Waymark writes private drafts.</p>

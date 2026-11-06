@@ -94,6 +94,7 @@ final readonly class DuplicateWalk
                 ...$attributes,
                 'grade_id' => $source->grade_id,
                 'primary_leader_id' => $source->primary_leader_id,
+                'primary_leader_name' => $source->primary_leader_name,
                 'co_leader_ids' => $source->coLeaders->modelKeys(),
                 'tag_ids' => $source->tags->modelKeys(),
                 ...$this->attributesFrom($source, [

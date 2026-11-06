@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'event_id',
     'grade_id',
     'primary_leader_id',
+    'primary_leader_name',
     'distance',
     'ascent',
     'estimated_duration_minutes',

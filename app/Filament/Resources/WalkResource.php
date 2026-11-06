@@ -106,12 +106,16 @@ final class WalkResource extends Resource
                 ->afterStateUpdated(fn (Get $get, Set $set, mixed $old) => WalkEstimatedDuration::fill($get, $set, 'ends_at', $old)),
             Textarea::make('summary')->maxLength(65535)->columnSpanFull(),
             Textarea::make('description')->maxLength(65535)->columnSpanFull(),
+            TextInput::make('primary_leader_name')
+                ->label('Primary leader name')
+                ->maxLength(255)
+                ->visible(fn (): bool => auth()->user()?->hasCapability(ModuleCapability::ManageAllWalks) ?? false),
             Select::make('primary_leader_id')
-                ->label('Primary leader')
+                ->label('Linked leader account')
                 ->options(fn (): array => app(EligibleWalkLeadersQuery::class)->options())
                 ->getOptionLabelUsing(fn (int|string $value): ?string => app(EligibleWalkLeadersQuery::class)->existingLabel($value))
                 ->searchable()
-                ->required(),
+                ->required(fn (): bool => ! (auth()->user()?->hasCapability(ModuleCapability::ManageAllWalks) ?? false)),
             Select::make('co_leader_ids')
                 ->label('Co-leaders')
                 ->multiple()
@@ -181,7 +185,8 @@ final class WalkResource extends Resource
                 TextColumn::make('event.title')->label('Title')->searchable(),
                 TextColumn::make('event.starts_at')->label('Starts')->dateTime()->sortable(),
                 TextColumn::make('event.status')->label('Status'),
-                TextColumn::make('primaryLeader.name')->label('Leader'),
+                TextColumn::make('primary_leader_name')->label('Leader')
+                    ->formatStateUsing(fn (?string $state, Walk $record): ?string => $state ?? $record->primaryLeader?->publicDisplayName()),
             ])
             ->recordActions([
                 EditAction::make()

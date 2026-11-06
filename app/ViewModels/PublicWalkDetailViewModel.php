@@ -51,10 +51,11 @@ final readonly class PublicWalkDetailViewModel
                 'accent' => GradeAccent::from($walk->grade->colour),
                 'accent_style' => GradeAccent::style($walk->grade->colour),
             ],
-            'leader_attribution' => self::leaderAttribution(collect([
+            'leader_attribution' => self::leaderAttribution(
+                $walk->primary_leader_name,
                 $walk->primaryLeader,
-                ...($settings->isEnabled('co_leaders') ? $walk->coLeaders->all() : []),
-            ])->filter()),
+                $settings->isEnabled('co_leaders') ? $walk->coLeaders : collect(),
+            ),
             'tags' => $walk->tags->pluck('name')->all(),
             'sections' => $sections,
             'attachments' => $settings->isEnabled('attachments') ? WalkAttachment::availableForWalk($walk) : [],
@@ -73,19 +74,25 @@ final readonly class PublicWalkDetailViewModel
         };
     }
 
-    /** @param Collection<int, User> $leaders */
-    private static function leaderAttribution(Collection $leaders): ?string
+    /** @param Collection<int, User> $coLeaders */
+    private static function leaderAttribution(?string $primaryLeaderName, ?User $primaryLeader, Collection $coLeaders): ?string
     {
-        $attribution = $leaders->map(function ($leader): string {
-            $name = e($leader->publicDisplayName());
-            $url = $leader->publicLeaderProfileUrl();
-
-            return $url === null
-                ? $name
-                : '<a class="font-medium text-brand underline decoration-brand/30 underline-offset-2" href="'.e($url).'">'.$name.'</a>';
-        })->implode(', ');
+        $attribution = collect([
+            $primaryLeader !== null ? self::leaderLink($primaryLeader) : ($primaryLeaderName === null ? null : e($primaryLeaderName)),
+            ...$coLeaders->map(fn (User $leader): string => self::leaderLink($leader))->all(),
+        ])->filter()->implode(', ');
 
         return $attribution === '' ? null : $attribution;
+    }
+
+    private static function leaderLink(User $leader): string
+    {
+        $name = e($leader->publicDisplayName());
+        $url = $leader->publicLeaderProfileUrl();
+
+        return $url === null
+            ? $name
+            : '<a class="font-medium text-brand underline decoration-brand/30 underline-offset-2" href="'.e($url).'">'.$name.'</a>';
     }
 
     private static function measurement(?string $value, string $unit): ?string
