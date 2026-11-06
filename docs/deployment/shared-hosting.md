@@ -74,6 +74,8 @@ This layout depends on Apache-compatible `.htaccess` overrides denying all reque
 
 When HTTPS terminates at a reverse proxy such as Caddy or Cloudflare Tunnel, set `APP_URL` to the public HTTPS address and clear cached configuration with `php artisan optimize:clear`. Waymark uses that configured HTTPS scheme for generated URLs, including Livewire form submissions, even when the connection from the proxy to PHP uses HTTP. An installation served entirely over HTTPS should also set `SESSION_SECURE_COOKIE=true`.
 
+Waymark trusts forwarded headers from loopback proxies (`127.0.0.1` and `::1`) by default. The proxy must send `X-Forwarded-Proto: https` for an HTTPS browser request. This lets PHP validate HTTPS-signed URLs, including Livewire workbook/photo uploads, even when the proxy's connection to PHP uses HTTP. Without this, an upload can fail immediately with HTTP 401 before the file reader runs. For a proxy on another machine or a container network, set `TRUSTED_PROXIES` in the private `.env` to a comma-separated list of the actual proxy addresses or narrowly scoped CIDRs, then clear cached configuration. Do not trust arbitrary client-supplied forwarded headers.
+
 If multiple copies are installed, update the application directory served by the public hostname; updating a separate Git checkout does not update an extracted release package. After changing app icons, existing home-screen installations may need to be removed and installed again to pick up the new icon.
 
 ## Scheduler and cron
