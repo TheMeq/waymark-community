@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Domain\Events\Enums\EventStatus;
+use App\Domain\Holidays\Actions\SaveHolidayDetails;
 use App\Domain\Holidays\Models\Holiday;
 use App\Filament\Actions\PublishEventAction;
 use App\Filament\Forms\ContentImageFields;
@@ -11,6 +12,7 @@ use App\Filament\Resources\HolidayResource\Pages\CreateHoliday;
 use App\Filament\Resources\HolidayResource\Pages\EditHoliday;
 use App\Filament\Resources\HolidayResource\Pages\ListHolidays;
 use App\Filament\Resources\HolidayResource\RelationManagers\ChildrenRelationManager;
+use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DateTimePicker;
@@ -18,11 +20,13 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Gate;
 
 final class HolidayResource extends Resource
 {
@@ -54,7 +58,7 @@ final class HolidayResource extends Resource
             TextInput::make('deposit_amount')->numeric()->minValue(0),
             Textarea::make('pricing_notes')->maxLength(5000),
             TextInput::make('capacity')->integer()->minValue(0)->maxValue(65535),
-            TextInput::make('availability')->maxLength(255),
+            TextInput::make('availability')->maxLength(255)->datalist(['Places available', 'Limited places', 'Sold out']),
             DateTimePicker::make('booking_deadline'),
             TextInput::make('booking_status')->maxLength(255),
             Textarea::make('booking_instructions')->maxLength(5000),
@@ -77,9 +81,19 @@ final class HolidayResource extends Resource
             TextColumn::make('event.starts_at')->label('Starts')->dateTime()->sortable(),
             TextColumn::make('destination')->searchable(),
             TextColumn::make('event.status')->label('Status'),
+            TextColumn::make('availability'),
         ])->recordActions([
             EditAction::make()->label(fn (Holiday $record): string => $record->event->status === EventStatus::Draft ? 'Continue draft' : 'Edit'),
             PublishEventAction::make('holiday', 'Holiday published'),
+            Action::make('soldOut')->label('Mark sold out')
+                ->visible(fn (Holiday $record): bool => $record->availability !== 'Sold out' && Gate::allows('update', $record))
+                ->requiresConfirmation()
+                ->modalDescription('The holiday will show as sold out. You can change availability in the edit form if places become available again.')
+                ->action(function (Holiday $record): void {
+                    Gate::authorize('update', $record);
+                    app(SaveHolidayDetails::class)->handle($record->event, ['availability' => 'Sold out']);
+                    Notification::make()->success()->title('Holiday marked sold out')->send();
+                }),
         ]);
     }
 
