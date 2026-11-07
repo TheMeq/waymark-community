@@ -76,7 +76,7 @@ final readonly class LeaderHubPageViewModel
             return [
                 'title' => $event->title,
                 'status' => str($event->status->value)->replace('_', ' ')->title()->toString(),
-                'when' => $event->starts_at->format('j M Y, H:i'),
+                'when' => $event->startLabel('j M Y'),
                 'notes' => $walk?->private_organiser_notes,
                 'edit_label' => $canEdit
                     ? ($event->status === EventStatus::Draft ? 'Continue draft' : 'Edit')

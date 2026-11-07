@@ -37,11 +37,15 @@ use Illuminate\Support\Str;
     'parent_event_id',
     'recurring_series_id',
     'occurrence_number',
+    'start_time_unknown',
+    'import_source',
 ])]
 final class Event extends Model
 {
     /** @use HasFactory<EventFactory> */
     use HasFactory;
+
+    protected $attributes = ['start_time_unknown' => false];
 
     protected static function booted(): void
     {
@@ -50,7 +54,7 @@ final class Event extends Model
             $event->calendar_sequence ??= 0;
         });
         self::updating(function (Event $event): void {
-            if ($event->isDirty(['title', 'summary', 'description', 'starts_at', 'ends_at', 'status'])) {
+            if ($event->isDirty(['title', 'summary', 'description', 'starts_at', 'ends_at', 'status', 'start_time_unknown'])) {
                 $event->calendar_sequence = (int) $event->getOriginal('calendar_sequence') + 1;
             }
         });
@@ -59,6 +63,18 @@ final class Event extends Model
     protected static function newFactory(): EventFactory
     {
         return EventFactory::new();
+    }
+
+    public function startLabel(string $dateFormat = 'l j F Y'): string
+    {
+        return $this->starts_at->format($dateFormat).($this->start_time_unknown
+            ? ' · time not recorded'
+            : ', '.$this->starts_at->format('H:i'));
+    }
+
+    public function startDateValue(): string
+    {
+        return $this->start_time_unknown ? $this->starts_at->format('Y-m-d') : $this->starts_at->toAtomString();
     }
 
     /** @return BelongsTo<User, $this> */
@@ -193,6 +209,8 @@ final class Event extends Model
             'published_at' => 'datetime',
             'completion_override' => 'boolean',
             'occurrence_number' => 'integer',
+            'start_time_unknown' => 'boolean',
+            'import_source' => 'array',
             'calendar_sequence' => 'integer',
         ];
     }

@@ -6,6 +6,7 @@ use App\Domain\Events\Actions\GenerateEventSlug;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
+use App\Domain\Events\Validation\ValidStartTimePrecision;
 use App\Domain\Socials\Models\Social;
 use App\Models\User;
 use Illuminate\Support\Arr;
@@ -34,12 +35,13 @@ final readonly class CreateSocial
             'summary' => ['nullable', 'string', 'max:65535'],
             'description' => ['nullable', 'string', 'max:65535'],
             'starts_at' => ['required', 'date'],
+            'start_time_unknown' => ['sometimes', 'boolean', new ValidStartTimePrecision($attributes['starts_at'] ?? null)],
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
         ])->validate();
 
         return DB::transaction(function () use ($organiser, $attributes, $common): Social {
             $event = Event::query()->create([
-                ...Arr::only($common, ['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at']),
+                ...Arr::only($common, ['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at', 'start_time_unknown']),
                 'slug' => $common['slug'] ?? $this->generateSlug->handle($common['title'], $common['starts_at'], EventType::Social),
                 'type' => EventType::Social,
                 'status' => EventStatus::Draft,

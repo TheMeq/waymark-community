@@ -33,6 +33,11 @@ final readonly class ImportPreview
         return $this->countStatus('invalid');
     }
 
+    public function skippedRows(): int
+    {
+        return $this->countStatus('skipped');
+    }
+
     public function errorReportCsv(): string
     {
         $stream = fopen('php://temp', 'w+b');

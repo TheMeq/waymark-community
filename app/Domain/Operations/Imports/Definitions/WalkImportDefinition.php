@@ -2,20 +2,21 @@
 
 namespace App\Domain\Operations\Imports\Definitions;
 
-use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
-use App\Domain\Events\Models\Event;
 use App\Domain\Operations\Imports\Contracts\ImportDefinition;
+use App\Domain\Operations\Imports\CsvImportSupport;
+use App\Domain\Operations\Queries\CurrentSiteProfile;
+use App\Domain\Walks\Actions\SaveWalkDetails;
+use App\Domain\Walks\Data\WalkDetailsData;
 use App\Domain\Walks\Models\Grade;
-use App\Domain\Walks\Models\Walk;
 use App\Models\User;
-use Carbon\CarbonImmutable;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Str;
-use Throwable;
+use Illuminate\Support\Arr;
+use Illuminate\Validation\ValidationException;
 
-final class WalkImportDefinition implements ImportDefinition
+final class WalkImportDefinition extends CsvImportSupport implements ImportDefinition
 {
+    private const TEXT_FIELDS = ['meeting_location_name', 'meeting_address', 'meeting_postcode', 'os_grid_reference', 'what3words', 'directions', 'parking_notes', 'public_transport_notes', 'toilet_information', 'cafe_pub_information', 'dog_guidance', 'accessibility_notes', 'private_organiser_notes', 'availability', 'estimated_duration_minutes', 'capacity'];
+
     public function key(): string
     {
         return 'walks';
@@ -28,159 +29,93 @@ final class WalkImportDefinition implements ImportDefinition
 
     public function fields(): array
     {
-        return [
-            'title' => ['label' => 'Title', 'required' => true],
-            'starts_at' => ['label' => 'Start date and time', 'required' => true],
-            'leader_email' => ['label' => 'Leader email', 'required' => true],
-            'ends_at' => ['label' => 'End date and time', 'required' => false],
-            'summary' => ['label' => 'Summary', 'required' => false],
-            'description' => ['label' => 'Description', 'required' => false],
-            'grade' => ['label' => 'Grade', 'required' => false],
-            'distance' => ['label' => 'Distance', 'required' => false],
-            'ascent' => ['label' => 'Ascent', 'required' => false],
-            'meeting_location_name' => ['label' => 'Meeting location', 'required' => false],
-            'meeting_postcode' => ['label' => 'Meeting postcode', 'required' => false],
-            'availability' => ['label' => 'Availability', 'required' => false],
-        ];
+        return [...$this->commonFields(), ...$this->optionalFields([
+            'leader_name', 'leader_email', 'grade', 'distance', 'distance_unit', 'ascent', 'ascent_unit',
+            'is_public_transport_friendly', ...self::TEXT_FIELDS,
+        ])];
     }
 
     public function assess(array $values): array
     {
-        $messages = [];
-        $title = trim((string) ($values['title'] ?? ''));
-        if ($title === '' || mb_strlen($title) > 255) {
-            $messages[] = 'Title is required and must be 255 characters or fewer.';
+        $assessment = $this->common($values, EventType::Walk, false);
+        $email = mb_strtolower($this->text($values['leader_email'] ?? null) ?? '');
+        $leader = $email === '' ? null : User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+        if ($email !== '' && (! $leader instanceof User || ! $leader->isEligibleWalkLeader())) {
+            $assessment['messages'][] = 'Leader email must match an existing walk leader.';
         }
-        $startsAt = $this->date($values['starts_at'] ?? null);
-        if ($startsAt === null) {
-            $messages[] = 'Start must be a valid date and time.';
+        if ($leader !== null && $leader->isEligibleWalkLeader()) {
+            $assessment['normalized']['organiser_id'] = $leader->id;
         }
-        $endsAt = $this->date($values['ends_at'] ?? null);
-        if (($values['ends_at'] ?? null) !== null && $endsAt === null) {
-            $messages[] = 'End must be a valid date and time.';
-        } elseif ($startsAt !== null && $endsAt !== null && $endsAt->lessThan($startsAt)) {
-            $messages[] = 'End must not be before the start.';
+        if ($assessment['normalized']['organiser_id'] === null) {
+            $assessment['messages'][] = 'An authorised administrator is required for a name-only or unconfirmed leader.';
         }
+        $gradeName = $this->text($values['grade'] ?? null);
+        $grade = $gradeName === null ? null : Grade::query()->whereRaw('LOWER(name) = ?', [mb_strtolower($gradeName)])->first();
+        if ($gradeName !== null && $grade === null) {
+            $assessment['messages'][] = 'Grade must match an existing grade.';
+        }
+        $details = ['primary_leader_id' => $leader?->id, 'primary_leader_name' => $this->text($values['leader_name'] ?? null), 'grade_id' => $grade?->id];
+        foreach (['distance', 'ascent'] as $measurement) {
+            $value = $this->measurement($values[$measurement] ?? null, $values[$measurement.'_unit'] ?? null, $measurement);
+            if ($value === false) {
+                $assessment['messages'][] = ucfirst($measurement).' must be a non-negative number or fraction with a supported unit.';
+            }
+            $details[$measurement] = $value === false ? null : $value;
+        }
+        foreach (self::TEXT_FIELDS as $field) {
+            $details[$field] = $this->text($values[$field] ?? null);
+        }
+        $details['is_public_transport_friendly'] = $this->boolean($values['is_public_transport_friendly'] ?? null, 'Public transport friendly', $assessment['messages']) ?? false;
+        try {
+            WalkDetailsData::from($details);
+        } catch (ValidationException $exception) {
+            $assessment['messages'] = [...$assessment['messages'], ...$exception->validator->errors()->all()];
+        }
+        $assessment['normalized'] += $details;
 
-        $leaderEmail = mb_strtolower(trim((string) ($values['leader_email'] ?? '')));
-        $leader = $leaderEmail === '' ? null : User::query()->whereRaw('LOWER(email) = ?', [$leaderEmail])->first();
-        if (! $leader instanceof User || ! $leader->isEligibleWalkLeader()) {
-            $messages[] = 'Leader email must match an existing walk leader.';
-        }
-
-        $gradeName = trim((string) ($values['grade'] ?? ''));
-        $grade = $gradeName === '' ? null : Grade::query()->whereRaw('LOWER(name) = ?', [mb_strtolower($gradeName)])->first();
-        if ($gradeName !== '' && ! $grade instanceof Grade) {
-            $messages[] = 'Grade must match an existing grade.';
-        }
-
-        $distance = $this->nonNegativeNumber($values['distance'] ?? null, 'Distance', $messages);
-        $ascent = $this->nonNegativeNumber($values['ascent'] ?? null, 'Ascent', $messages);
-        $normalized = [
-            'title' => $title,
-            'starts_at' => $startsAt,
-            'ends_at' => $endsAt,
-            'leader_id' => $leader?->id,
-            'grade_id' => $grade?->id,
-            'summary' => $this->nullable($values['summary'] ?? null),
-            'description' => $this->nullable($values['description'] ?? null),
-            'distance' => $distance,
-            'ascent' => $ascent,
-            'meeting_location_name' => $this->nullable($values['meeting_location_name'] ?? null),
-            'meeting_postcode' => $this->nullable($values['meeting_postcode'] ?? null),
-            'availability' => $this->nullable($values['availability'] ?? null),
-        ];
-        $identity = $messages === []
-            ? mb_strtolower($title).'|'.$startsAt?->format('Y-m-d H:i:s').'|'.$leader?->id
-            : null;
-
-        return compact('messages', 'normalized', 'identity');
+        return $assessment;
     }
 
     public function duplicateExists(array $normalized): bool
     {
-        if (! $normalized['starts_at'] instanceof CarbonImmutable || ! is_int($normalized['leader_id'])) {
-            return false;
-        }
-
-        return Event::query()
-            ->where('type', EventType::Walk)
-            ->whereRaw('LOWER(title) = ?', [mb_strtolower((string) $normalized['title'])])
-            ->where('starts_at', $normalized['starts_at'])
-            ->whereHas('walk', fn (Builder $query): Builder => $query->where('primary_leader_id', $normalized['leader_id']))
-            ->exists();
+        return $this->duplicate($normalized, EventType::Walk);
     }
 
     public function import(array $normalized): void
     {
-        $event = Event::query()->create([
-            'type' => EventType::Walk,
-            'title' => $normalized['title'],
-            'slug' => $this->uniqueSlug((string) $normalized['title']),
-            'summary' => $normalized['summary'],
-            'description' => $normalized['description'],
-            'starts_at' => $normalized['starts_at'],
-            'ends_at' => $normalized['ends_at'],
-            'status' => EventStatus::Draft,
-            'is_public' => false,
-            'published_at' => null,
-            'organiser_id' => $normalized['leader_id'],
-        ]);
-        Walk::query()->create([
-            'event_id' => $event->id,
-            'grade_id' => $normalized['grade_id'],
-            'primary_leader_id' => $normalized['leader_id'],
-            'distance' => $normalized['distance'],
-            'ascent' => $normalized['ascent'],
-            'meeting_location_name' => $normalized['meeting_location_name'],
-            'meeting_postcode' => $normalized['meeting_postcode'],
-            'availability' => $normalized['availability'],
-        ]);
+        $event = $this->event($normalized, EventType::Walk);
+        app(SaveWalkDetails::class)->handle($event, Arr::only($normalized, [
+            'primary_leader_id', 'primary_leader_name', 'grade_id', 'distance', 'ascent', 'is_public_transport_friendly', ...self::TEXT_FIELDS,
+        ]));
     }
 
-    private function date(?string $value): ?CarbonImmutable
+    private function measurement(mixed $value, mixed $unit, string $kind): string|false|null
     {
-        if ($value === null || trim($value) === '') {
+        $value = $this->text($value);
+        if ($value === null) {
             return null;
         }
-        try {
-            return CarbonImmutable::parse($value);
-        } catch (Throwable) {
-            return null;
+        $fractions = ['½' => .5, '¼' => .25, '¾' => .75, '⅓' => 1 / 3, '⅔' => 2 / 3, '⅛' => .125, '⅜' => .375, '⅝' => .625, '⅞' => .875];
+        if (preg_match('/^(\d*)\s*([½¼¾⅓⅔⅛⅜⅝⅞])$/u', $value, $match)) {
+            $value = (string) ((int) $match[1] + $fractions[$match[2]]);
+        } elseif (preg_match('~^(?:(\d+)\s+)?(\d+)/(\d+)$~', $value, $match) && (int) $match[3] > 0) {
+            $value = (string) ((int) $match[1] + (int) $match[2] / (int) $match[3]);
         }
-    }
-
-    /** @param list<string> $messages */
-    private function nonNegativeNumber(?string $value, string $label, array &$messages): ?string
-    {
-        if ($value === null || trim($value) === '') {
-            return null;
+        if (! is_numeric($value) || ! is_finite((float) $value) || (float) $value < 0) {
+            return false;
         }
-        if (! is_numeric($value) || (float) $value < 0) {
-            $messages[] = $label.' must be a non-negative number.';
-
-            return null;
+        $profile = app(CurrentSiteProfile::class)->get();
+        $configuredUnit = $kind === 'distance' ? $profile->distance_unit : $profile->ascent_unit;
+        $unit = mb_strtolower($this->text($unit) ?? $configuredUnit);
+        if (! in_array($unit, $kind === 'distance' ? ['miles', 'kilometres'] : ['feet', 'metres'], true)) {
+            return false;
         }
-
-        return $value;
-    }
-
-    private function nullable(?string $value): ?string
-    {
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
-    }
-
-    private function uniqueSlug(string $title): string
-    {
-        $base = Str::slug($title) ?: 'walk';
-        $slug = $base;
-        $suffix = 2;
-        while (Event::query()->where('slug', $slug)->exists()) {
-            $slug = $base.'-'.$suffix++;
+        $number = (float) $value;
+        if ($unit !== $configuredUnit) {
+            $factor = $kind === 'distance' ? 1.609344 : .3048;
+            $number = in_array($unit, ['miles', 'feet'], true) ? $number * $factor : $number / $factor;
         }
 
-        return $slug;
+        return number_format($number, 2, '.', '');
     }
 }

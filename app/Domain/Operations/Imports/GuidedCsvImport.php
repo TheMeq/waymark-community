@@ -3,6 +3,7 @@
 namespace App\Domain\Operations\Imports;
 
 use App\Domain\Operations\Imports\Contracts\ImportDefinition;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 final readonly class GuidedCsvImport
@@ -41,9 +42,22 @@ final readonly class GuidedCsvImport
                 $values[$field] = $source === null || $source === '' ? null : ($row[$source] ?? null);
             }
 
+            $enabled = strtolower(trim((string) ($values['import_enabled'] ?? '')));
+            if (in_array($enabled, ['false', '0', 'no'], true)) {
+                $previewRows[] = [
+                    'row' => $index + 2, 'status' => 'skipped',
+                    'messages' => array_filter(['Import disabled in CSV.', $values['review_notes'] ?? null]),
+                    'data' => $values, 'normalized' => [],
+                ];
+
+                continue;
+            }
             $assessment = $importDefinition->assess($values);
             $status = 'valid';
             $messages = $assessment['messages'];
+            if (! in_array($enabled, ['', 'true', '1', 'yes'], true)) {
+                $messages[] = 'Import enabled must be true or false.';
+            }
             if ($messages !== []) {
                 $status = 'invalid';
             } elseif ($importDefinition->duplicateExists($assessment['normalized'])) {
@@ -60,7 +74,7 @@ final readonly class GuidedCsvImport
             $previewRows[] = [
                 'row' => $index + 2,
                 'status' => $status,
-                'messages' => $messages,
+                'messages' => [...$messages, ...($assessment['warnings'] ?? [])],
                 'data' => $values,
                 'normalized' => $assessment['normalized'],
             ];
@@ -73,14 +87,15 @@ final readonly class GuidedCsvImport
     public function execute(string $definition, string $path, array $mapping): ImportResult
     {
         $importDefinition = $this->definitions->find($definition);
-        $preview = $this->preview($definition, $path, $mapping);
-        if ($preview->invalidRows() > 0) {
-            return new ImportResult(0, $preview->duplicateRows(), $preview->invalidRows(), false, $preview);
-        }
 
-        $imported = 0;
-        $duplicates = $preview->duplicateRows();
-        DB::transaction(function () use ($preview, $importDefinition, &$imported, &$duplicates): void {
+        return DB::transaction(function () use ($definition, $path, $mapping, $importDefinition): ImportResult {
+            User::query()->oldest('id')->lockForUpdate()->first();
+            $preview = $this->preview($definition, $path, $mapping);
+            if ($preview->invalidRows() > 0) {
+                return new ImportResult(0, $preview->duplicateRows(), $preview->invalidRows(), false, $preview);
+            }
+            $imported = 0;
+            $duplicates = $preview->duplicateRows();
             foreach ($preview->rows as $row) {
                 if ($row['status'] !== 'valid') {
                     continue;
@@ -93,9 +108,9 @@ final readonly class GuidedCsvImport
                 $importDefinition->import($row['normalized']);
                 $imported++;
             }
-        });
 
-        return new ImportResult($imported, $duplicates, 0, true, $preview);
+            return new ImportResult($imported, $duplicates, 0, true, $preview);
+        });
     }
 
     /**

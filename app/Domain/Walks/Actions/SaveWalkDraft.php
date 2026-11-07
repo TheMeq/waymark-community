@@ -5,6 +5,7 @@ namespace App\Domain\Walks\Actions;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Events\Enums\EventType;
 use App\Domain\Events\Models\Event;
+use App\Domain\Events\Validation\ValidStartTimePrecision;
 use App\Domain\Walks\Models\Walk;
 use App\Models\User;
 use Illuminate\Support\Arr;
@@ -30,6 +31,7 @@ final readonly class SaveWalkDraft
             $validated = Validator::make($attributes, [
                 'title' => ['required', 'string', 'max:255'],
                 'starts_at' => ['required', 'date'],
+                'start_time_unknown' => ['sometimes', 'boolean', new ValidStartTimePrecision($attributes['starts_at'] ?? null)],
                 'ends_at' => ['nullable', 'date', 'after:starts_at'],
                 'meeting_location_name' => ['nullable', 'string', 'max:255'],
                 'meeting_address' => ['nullable', 'string', 'max:5000'],
@@ -41,7 +43,7 @@ final readonly class SaveWalkDraft
             ])->validate();
 
             $event = Event::query()->create([
-                ...Arr::only($validated, ['title', 'starts_at', 'ends_at']),
+                ...Arr::only($validated, ['title', 'starts_at', 'ends_at', 'start_time_unknown']),
                 'slug' => $this->generateWalkSlug->handle((string) $validated['title'], $validated['starts_at']),
                 'type' => EventType::Walk,
                 'status' => EventStatus::Draft,

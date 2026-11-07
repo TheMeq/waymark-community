@@ -33,7 +33,7 @@ final readonly class PublicWalkDetailViewModel
             'summary' => $event->summary,
             'description' => $event->description,
             'featured_image' => $featuredImage?->toArray(),
-            'starts_at' => $event->starts_at->format('l j F Y, H:i'),
+            'starts_at' => $event->startLabel(),
             'ends_at' => $event->ends_at?->format('H:i'),
             'status' => self::status($event->status),
             'recap' => $settings->isEnabled('recap') && ($event->isPast() || $event->status === EventStatus::Completed) ? $walk->recap : null,

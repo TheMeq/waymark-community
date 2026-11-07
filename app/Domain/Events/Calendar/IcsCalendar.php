@@ -35,10 +35,14 @@ final readonly class IcsCalendar
             'BEGIN:VEVENT',
             'UID:'.$event->calendar_uid,
             'DTSTAMP:'.now()->utc()->format('Ymd\THis\Z'),
-            'DTSTART:'.$event->starts_at->copy()->utc()->format('Ymd\THis\Z'),
+            $event->start_time_unknown
+                ? 'DTSTART;VALUE=DATE:'.$event->starts_at->format('Ymd')
+                : 'DTSTART:'.$event->starts_at->copy()->utc()->format('Ymd\THis\Z'),
         ];
         if ($event->ends_at !== null) {
-            $lines[] = 'DTEND:'.$event->ends_at->copy()->utc()->format('Ymd\THis\Z');
+            $lines[] = $event->start_time_unknown
+                ? 'DTEND;VALUE=DATE:'.$event->ends_at->copy()->addDay()->format('Ymd')
+                : 'DTEND:'.$event->ends_at->copy()->utc()->format('Ymd\THis\Z');
         }
         $lines[] = 'SEQUENCE:'.$event->calendar_sequence;
         $lines[] = 'STATUS:'.($event->status === EventStatus::Cancelled ? 'CANCELLED' : 'CONFIRMED');

@@ -1,9 +1,4 @@
 <x-filament-panels::page>
-    @if (\App\Filament\Pages\WalkProgrammeImport::canAccess())
-        <div class="mb-6">
-            <x-filament::button tag="a" :href="\App\Filament\Pages\WalkProgrammeImport::getUrl()">Import XLSX walk programme</x-filament::button>
-        </div>
-    @endif
     <section class="max-w-5xl rounded-xl border p-5" aria-labelledby="guided-import-heading">
         <h2 id="guided-import-heading" class="text-lg font-semibold">Guided CSV import</h2>
         <p class="mt-2 text-sm text-gray-600">Preview and dry run every mapped row before Waymark writes private drafts.</p>
@@ -60,6 +55,7 @@
                     <div class="rounded-lg border p-3"><dt class="text-sm text-gray-600">Valid</dt><dd class="text-xl font-semibold">{{ $previewSummary['valid'] }}</dd></div>
                     <div class="rounded-lg border p-3"><dt class="text-sm text-gray-600">Duplicates</dt><dd class="text-xl font-semibold">{{ $previewSummary['duplicates'] }}</dd></div>
                     <div class="rounded-lg border p-3"><dt class="text-sm text-gray-600">Invalid</dt><dd class="text-xl font-semibold">{{ $previewSummary['invalid'] }}</dd></div>
+                    <div class="rounded-lg border p-3"><dt class="text-sm text-gray-600">Skipped</dt><dd class="text-xl font-semibold">{{ $previewSummary['skipped'] }}</dd></div>
                 </dl>
 
                 <div class="mt-4 overflow-x-auto">
@@ -78,12 +74,13 @@
                     </table>
                 </div>
 
-                <p class="mt-4 text-sm">Imports are all-or-nothing when any row is invalid. Matching duplicates are reported and skipped.</p>
-                <x-filament::button class="mt-3" wire:click="runImport" wire:loading.attr="disabled" :disabled="$previewSummary['invalid'] > 0">Import valid private drafts</x-filament::button>
+                <p class="mt-4 text-sm">Imports are all-or-nothing when any enabled row is invalid. Duplicates and rows with Import enabled set to false are reported and skipped. All imported records are private drafts. The table shows the first 100 rows; the row report covers the entire CSV.</p>
+                <x-filament::button class="mt-3" wire:click="runImport" wire:loading.attr="disabled" :disabled="$previewFingerprint === '' || $previewSummary['invalid'] > 0 || $previewSummary['valid'] === 0">Import valid private drafts</x-filament::button>
                 @if ($resultSummary !== [])
                     <p class="mt-3 font-medium">
                         @if ($resultSummary['committed'])
                             Imported {{ $resultSummary['imported'] }} {{ Str::plural('row', $resultSummary['imported']) }}; skipped {{ $resultSummary['duplicates'] }} {{ Str::plural('duplicate', $resultSummary['duplicates']) }}.
+                            {{ $resultSummary['skipped'] }} {{ Str::plural('row', $resultSummary['skipped']) }} disabled in the CSV.
                         @else
                             No rows were imported.
                         @endif

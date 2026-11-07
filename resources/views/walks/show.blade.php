@@ -16,7 +16,7 @@
             @if ($walk['status'])
                 <p class="mt-4 inline-flex rounded-[var(--wm-radius-pill)] bg-surface-soft px-3 py-1 text-sm font-semibold text-ink">{{ $walk['status'] }}</p>
             @endif
-            <p class="mt-4 text-ink-muted"><time datetime="{{ $event->starts_at->toAtomString() }}">{{ $walk['starts_at'] }}</time>@if ($walk['ends_at']) – {{ $walk['ends_at'] }}@endif</p>
+            <p class="mt-4 text-ink-muted"><time datetime="{{ $event->startDateValue() }}">{{ $walk['starts_at'] }}</time>@if ($walk['ends_at']) – {{ $walk['ends_at'] }}@endif</p>
             <x-account.favourite-control :favourite="$favourite" />
             @auth<p class="wm-print-hidden mt-5"><x-public.button :href="route('community-photos.upload.create', ['event' => $event->id])" variant="secondary">Share photos</x-public.button></p>@endauth
             @if ($walk['featured_image'])

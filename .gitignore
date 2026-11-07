@@ -72,3 +72,5 @@ Homestead.yaml
 *.tmp
 *.swp
 *.swo
+__pycache__/
+*.pyc

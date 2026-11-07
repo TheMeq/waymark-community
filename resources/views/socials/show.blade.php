@@ -12,7 +12,7 @@
             <p class="mt-5 text-xs font-semibold uppercase tracking-[0.15em] text-brand">Social</p>
             <h1 class="mt-2 text-4xl text-ink sm:text-5xl">{{ $social['title'] }}</h1>
             @if ($social['status'])<p class="mt-4 inline-flex rounded-[var(--wm-radius-pill)] bg-surface-soft px-3 py-1 text-sm font-semibold text-ink">{{ $social['status'] }}</p>@endif
-            <p class="mt-4 text-ink-muted"><time datetime="{{ $event->starts_at->toAtomString() }}">{{ $social['starts_at'] }}</time>@if ($social['ends_at']) – {{ $social['ends_at'] }}@endif</p>
+            <p class="mt-4 text-ink-muted"><time datetime="{{ $event->startDateValue() }}">{{ $social['starts_at'] }}</time>@if ($social['ends_at']) – {{ $social['ends_at'] }}@endif</p>
             <x-account.favourite-control :favourite="$favourite" />
             @auth<p class="wm-print-hidden mt-5"><x-public.button :href="route('community-photos.upload.create', ['event' => $event->id])" variant="secondary">Share photos</x-public.button></p>@endauth
             @if ($social['summary'])<p class="mt-6 text-lg text-ink-muted">{{ $social['summary'] }}</p>@endif

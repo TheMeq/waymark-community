@@ -2,6 +2,7 @@
 
 namespace App\Domain\Socials\Actions;
 
+use App\Domain\Events\Validation\ValidStartTimePrecision;
 use App\Domain\Socials\Models\Social;
 use App\Models\User;
 use Illuminate\Support\Arr;
@@ -18,17 +19,19 @@ final readonly class UpdateSocial
     {
         Gate::forUser($actor)->authorize('update', $social);
         $social->loadMissing('event');
+        $attributes = ['start_time_unknown' => $social->event->start_time_unknown, ...$attributes];
         $common = Validator::make($attributes, [
             'title' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:255', 'unique:events,slug,'.$social->event_id],
             'summary' => ['nullable', 'string', 'max:65535'],
             'description' => ['nullable', 'string', 'max:65535'],
             'starts_at' => ['required', 'date'],
+            'start_time_unknown' => ['sometimes', 'boolean', new ValidStartTimePrecision($attributes['starts_at'] ?? null)],
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
         ])->validate();
 
         return DB::transaction(function () use ($social, $attributes, $common): Social {
-            $social->event->fill(Arr::only($common, ['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at']));
+            $social->event->fill(Arr::only($common, ['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at', 'start_time_unknown']));
             $social->event->save();
 
             return $this->saveSocialDetails->handle($social->event, $attributes);

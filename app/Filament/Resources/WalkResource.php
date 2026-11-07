@@ -13,6 +13,7 @@ use App\Domain\Walks\Models\Walk;
 use App\Domain\Walks\Queries\CurrentWalkFieldSettings;
 use App\Filament\Actions\DeleteWalkAction;
 use App\Filament\Actions\DuplicateWalkAction;
+use App\Filament\Forms\ImportedEventFields;
 use App\Filament\Resources\WalkResource\Pages\CreateWalk;
 use App\Filament\Resources\WalkResource\Pages\EditWalk;
 use App\Filament\Resources\WalkResource\Pages\ListWalks;
@@ -102,6 +103,8 @@ final class WalkResource extends Resource
             TextInput::make('slug')->required()->maxLength(255),
             DateTimePicker::make('starts_at')->required()->live(onBlur: true)
                 ->afterStateUpdated(fn (Get $get, Set $set, mixed $old) => WalkEstimatedDuration::fill($get, $set, 'starts_at', $old)),
+            ImportedEventFields::timeUnknown(),
+            ImportedEventFields::source(),
             DateTimePicker::make('ends_at')->live(onBlur: true)
                 ->afterStateUpdated(fn (Get $get, Set $set, mixed $old) => WalkEstimatedDuration::fill($get, $set, 'ends_at', $old)),
             Textarea::make('summary')->maxLength(65535)->columnSpanFull(),

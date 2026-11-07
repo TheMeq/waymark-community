@@ -34,7 +34,7 @@ final readonly class FavouritesPageViewModel
             };
             $favourites[$label][] = [
                 'title' => $event->title,
-                'when' => $event->starts_at->format('D j M Y, H:i'),
+                'when' => $event->startLabel('D j M Y'),
                 'url' => self::eventUrl($event),
                 'remove_url' => route('favourites.destroy', $event),
             ];

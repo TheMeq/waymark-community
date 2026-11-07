@@ -39,6 +39,10 @@ final readonly class PublicEventCardViewModel
 
     private static function calendarLabel(Event $event, CarbonInterface $calendarDay, string $type): string
     {
+        if ($event->start_time_unknown) {
+            return 'Time not recorded · '.$type;
+        }
+
         if ($event->ends_at === null || $event->starts_at->isSameDay($event->ends_at) || $calendarDay->isSameDay($event->starts_at)) {
             return $event->starts_at->format('H:i').' · '.$type;
         }

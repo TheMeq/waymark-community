@@ -13,7 +13,7 @@ interface ImportDefinition
 
     /**
      * @param  array<string, string|null>  $values
-     * @return array{messages: list<string>, normalized: array<string, mixed>, identity: string|null}
+     * @return array{messages: list<string>, normalized: array<string, mixed>, identity: string|null, warnings?: list<string>}
      */
     public function assess(array $values): array;
 

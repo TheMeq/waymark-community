@@ -42,7 +42,7 @@ final class WalkFormData
                 'featured_image_path',
                 'featured_image_alt_text',
             ]),
-            ...$walk->event->only(['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at']),
+            ...$walk->event->only(['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at', 'start_time_unknown']),
             'co_leader_ids' => $walk->coLeaders->modelKeys(),
             'tag_ids' => $walk->tags->modelKeys(),
             'unlimited_spaces' => $walk->capacity === 0,

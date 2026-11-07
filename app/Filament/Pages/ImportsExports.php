@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Domain\Accounts\Enums\ModuleCapability;
+use App\Domain\Accounts\Security\SensitiveActionAssurance;
 use App\Domain\Operations\Imports\GuidedCsvImport;
 use App\Domain\Operations\Imports\ImportDefinitionRegistry;
 use App\Domain\Operations\Imports\ImportPreview;
@@ -12,7 +13,9 @@ use App\Models\User;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Panel;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use Livewire\Attributes\Locked;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -55,6 +58,9 @@ final class ImportsExports extends Page
 
     public string $reportCsv = '';
 
+    #[Locked]
+    public string $previewFingerprint = '';
+
     public string $portabilityMessage = '';
 
     public static function getSlug(?Panel $panel = null): string
@@ -85,8 +91,11 @@ final class ImportsExports extends Page
 
     public function inspectCsv(): void
     {
-        $this->validate(['csvFile' => ['required', 'file', 'max:5120']]);
+        $this->authorizeCsvImport();
+        $this->validate(['csvFile' => ['required', 'file', 'extensions:csv', 'max:5120']]);
         $this->resetPreview();
+        $this->headers = [];
+        $this->mapping = [];
 
         try {
             $this->headers = app(GuidedCsvImport::class)->headers($this->csvPath());
@@ -105,14 +114,17 @@ final class ImportsExports extends Page
 
     public function previewImport(): void
     {
+        $this->authorizeCsvImport();
         $this->resetPreview();
 
         try {
-            $this->storePreview(app(GuidedCsvImport::class)->preview(
+            $preview = app(GuidedCsvImport::class)->preview(
                 $this->definition,
                 $this->csvPath(),
                 $this->mapping,
-            ));
+            );
+            $this->storePreview($preview);
+            $this->previewFingerprint = $this->fingerprint($preview);
         } catch (Throwable $exception) {
             report($exception);
             $this->addError('mapping', $exception->getMessage());
@@ -121,7 +133,22 @@ final class ImportsExports extends Page
 
     public function runImport(): void
     {
+        $this->authorizeCsvImport();
+        if ($this->previewFingerprint === '') {
+            $this->addError('mapping', 'Preview the current CSV, import type and mapping before importing.');
+
+            return;
+        }
         try {
+            $preview = app(GuidedCsvImport::class)->preview($this->definition, $this->csvPath(), $this->mapping);
+            if (! hash_equals($this->previewFingerprint, $this->fingerprint($preview))) {
+                $this->previewFingerprint = '';
+                $this->storePreview($preview);
+                $this->addError('mapping', 'The CSV, import type, mapping or existing records changed. Preview again.');
+
+                return;
+            }
+            $this->previewFingerprint = '';
             $result = app(GuidedCsvImport::class)->execute(
                 $this->definition,
                 $this->csvPath(),
@@ -133,6 +160,7 @@ final class ImportsExports extends Page
                 'duplicates' => $result->duplicatesSkipped,
                 'invalid' => $result->invalid,
                 'committed' => $result->committed,
+                'skipped' => $result->preview->skippedRows(),
             ];
 
             Notification::make()
@@ -214,13 +242,14 @@ final class ImportsExports extends Page
             'valid' => $preview->validRows(),
             'duplicates' => $preview->duplicateRows(),
             'invalid' => $preview->invalidRows(),
+            'skipped' => $preview->skippedRows(),
         ];
         $this->previewRows = array_map(
             fn (array $row): array => [
                 'row' => $row['row'],
                 'status' => $row['status'],
                 'messages' => $row['messages'],
-                'data' => $row['data'],
+                'data' => Arr::only($row['data'], ['title', 'starts_at', 'leader_name', 'leader_email', 'grade', 'distance', 'destination', 'venue_name', 'review_notes']),
             ],
             array_slice($preview->rows, 0, 100),
         );
@@ -229,10 +258,46 @@ final class ImportsExports extends Page
 
     private function resetPreview(): void
     {
+        $this->previewFingerprint = '';
         $this->previewSummary = [];
         $this->previewRows = [];
         $this->resultSummary = [];
         $this->reportCsv = '';
         $this->resetErrorBag();
+    }
+
+    public function updated(string $property): void
+    {
+        if ($property === 'definition' || $property === 'csvFile') {
+            $this->headers = $this->mapping = [];
+            $this->resetPreview();
+        } elseif (str_starts_with($property, 'mapping')) {
+            $this->previewFingerprint = '';
+            $this->resultSummary = [];
+        }
+    }
+
+    private function fingerprint(ImportPreview $preview): string
+    {
+        return hash('sha256', json_encode([
+            $this->definition, hash_file('sha256', $this->csvPath()), $this->mapping, $preview->rows,
+        ], JSON_THROW_ON_ERROR));
+    }
+
+    private function authorizeCsvImport(): void
+    {
+        abort_unless(self::canAccess(), 403);
+        $actor = auth()->user();
+        $capability = match ($this->definition) {
+            'walks' => ModuleCapability::ManageAllWalks,
+            'holidays' => ModuleCapability::ManageHolidays,
+            'events' => ModuleCapability::ManageSocials,
+            default => null,
+        };
+        abort_unless($capability !== null && $actor->hasCapability($capability), 403);
+        $assurance = app(SensitiveActionAssurance::class);
+        $session = app('session.store');
+        abort_unless($assurance->hasRecentPasswordConfirmation($actor, $session)
+            && (! $assurance->requiresSecondFactor($actor) || $assurance->hasRecentSecondFactorConfirmation($actor, $session)), 403);
     }
 }

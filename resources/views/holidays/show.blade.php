@@ -13,7 +13,7 @@
             <p class="mt-5 text-xs font-semibold uppercase tracking-[0.15em] text-brand">Weekend away</p>
             <h1 class="mt-2 text-4xl text-ink sm:text-5xl">{{ $event->title }}</h1>
             @if ($holiday['status'])<p class="mt-4 inline-flex rounded-[var(--wm-radius-pill)] bg-surface-soft px-3 py-1 text-sm font-semibold text-ink">{{ $holiday['status'] }}</p>@endif
-            <p class="mt-4 text-ink-muted"><time datetime="{{ $event->starts_at->toAtomString() }}">{{ $event->starts_at->format('l j F Y') }}</time>@if ($event->ends_at) &ndash; {{ $event->ends_at->format('l j F Y') }}@endif</p>
+            <p class="mt-4 text-ink-muted"><time datetime="{{ $event->startDateValue() }}">{{ $event->starts_at->format('l j F Y') }}</time>@if ($event->start_time_unknown) · time not recorded @endif @if ($event->ends_at) &ndash; {{ $event->ends_at->format('l j F Y') }}@endif</p>
             <x-account.favourite-control :favourite="$favourite" />
             @auth<p class="wm-print-hidden mt-5"><x-public.button :href="route('community-photos.upload.create', ['event' => $event->id])" variant="secondary">Share photos</x-public.button></p>@endauth
             @if ($event->summary)<p class="mt-6 text-lg text-ink-muted">{{ $event->summary }}</p>@endif

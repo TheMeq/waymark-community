@@ -42,7 +42,7 @@ final readonly class PublicHolidayDetailViewModel
                 ->map(fn (Event $child): array => [
                     'title' => $child->title,
                     'type' => ucfirst($child->type->value),
-                    'date' => $child->starts_at->format('l j F, H:i'),
+                    'date' => $child->startLabel('l j F'),
                     'url' => $child->type === EventType::Walk ? route('walks.show', $child->slug) : route('socials.show', $child->slug),
                 ])->values()->all(),
             'gallery_source' => HolidayGallerySource::forPublic($event)->eventIds,

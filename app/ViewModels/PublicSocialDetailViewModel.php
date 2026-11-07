@@ -18,7 +18,7 @@ final readonly class PublicSocialDetailViewModel
             'title' => $event->title,
             'summary' => $event->summary,
             'description' => $event->description,
-            'starts_at' => $event->starts_at->format('l j F Y, H:i'),
+            'starts_at' => $event->startLabel(),
             'ends_at' => $event->ends_at?->format('l j F Y, H:i'),
             'status' => PublicEventStatus::lifecycle($event->status),
             'organiser' => $event->organiser?->publicDisplayName(),

@@ -2,6 +2,7 @@
 
 namespace App\Domain\Holidays\Actions;
 
+use App\Domain\Events\Validation\ValidStartTimePrecision;
 use App\Domain\Holidays\Models\Holiday;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -20,12 +21,14 @@ final readonly class UpdateHoliday
     {
         Gate::forUser($user)->authorize('update', $holiday);
         $event = $holiday->event;
+        $attributes = ['start_time_unknown' => $event->start_time_unknown, ...$attributes];
         $common = Validator::make($attributes, [
             'title' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:255', 'unique:events,slug,'.$event->id],
             'summary' => ['nullable', 'string', 'max:65535'],
             'description' => ['nullable', 'string', 'max:65535'],
             'starts_at' => ['required', 'date'],
+            'start_time_unknown' => ['sometimes', 'boolean', new ValidStartTimePrecision($attributes['starts_at'] ?? null)],
             'ends_at' => ['required', 'date', 'after_or_equal:starts_at'],
         ])->validate();
 
@@ -42,7 +45,7 @@ final readonly class UpdateHoliday
         }
 
         return DB::transaction(function () use ($attributes, $common, $event): Holiday {
-            $event->update(Arr::only($common, ['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at']));
+            $event->update(Arr::only($common, ['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at', 'start_time_unknown']));
 
             return $this->saveHolidayDetails->handle($event, $attributes);
         });

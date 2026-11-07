@@ -39,6 +39,7 @@ final class CreateWalk extends CreateRecord
         1 => [
             'title',
             'starts_at',
+            'start_time_unknown',
             'ends_at',
             'meeting_location_name',
             'meeting_address',

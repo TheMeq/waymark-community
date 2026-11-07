@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Domain\Holidays\Models\Holiday;
 use App\Filament\Forms\ContentImageFields;
+use App\Filament\Forms\ImportedEventFields;
 use App\Filament\Resources\HolidayResource\Pages\CreateHoliday;
 use App\Filament\Resources\HolidayResource\Pages\EditHoliday;
 use App\Filament\Resources\HolidayResource\Pages\ListHolidays;
@@ -37,6 +38,8 @@ final class HolidayResource extends Resource
             TextInput::make('title')->required()->maxLength(255)->columnSpanFull(),
             TextInput::make('slug')->required()->maxLength(255)->visibleOn('edit'),
             DateTimePicker::make('starts_at')->required(),
+            ImportedEventFields::timeUnknown(),
+            ImportedEventFields::source(),
             DateTimePicker::make('ends_at')->required()->afterOrEqual('starts_at'),
             Textarea::make('summary')->maxLength(65535)->columnSpanFull(),
             Textarea::make('description')->maxLength(65535)->columnSpanFull(),

@@ -3,11 +3,13 @@
 namespace App\Domain\Walks\Actions;
 
 use App\Domain\Accounts\Enums\ModuleCapability;
+use App\Domain\Events\Validation\ValidStartTimePrecision;
 use App\Domain\Walks\Models\Walk;
 use App\Models\User;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 final readonly class UpdateWalk
@@ -18,8 +20,10 @@ final readonly class UpdateWalk
     public function handle(Walk $walk, User $actor, array $attributes): Walk
     {
         Gate::forUser($actor)->authorize('update', $walk);
-
         $walk->loadMissing(['event', 'coLeaders', 'tags']);
+        Validator::make(['start_time_unknown' => $attributes['start_time_unknown'] ?? $walk->event->start_time_unknown], [
+            'start_time_unknown' => ['boolean', new ValidStartTimePrecision($attributes['starts_at'] ?? $walk->event->starts_at)],
+        ])->validate();
         $primaryLeaderChanged = array_key_exists('primary_leader_id', $attributes)
             && (int) ($attributes['primary_leader_id'] ?? 0) !== (int) ($walk->primary_leader_id ?? 0);
 
@@ -44,6 +48,7 @@ final readonly class UpdateWalk
                 'description',
                 'starts_at',
                 'ends_at',
+                'start_time_unknown',
             ]));
             $walk->event->save();
 

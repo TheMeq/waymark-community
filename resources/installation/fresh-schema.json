@@ -1,6 +1,6 @@
 {
     "format": 1,
-    "migration_set_hash": "277ec9a5783c481a7b73334add75e72332f1553748bd21fe49f1c49c73429b20",
+    "migration_set_hash": "b4c3b6faa119b52a9445687d65190488fe1a9a45c1830475724557c92e56ccf2",
     "migrations": [
         "0001_01_01_000000_create_users_table",
         "0001_01_01_000001_create_cache_table",
@@ -67,7 +67,8 @@
         "2026_10_25_120000_add_content_image_sources",
         "2026_10_25_140000_add_affiliation_branding_to_site_profiles",
         "2026_11_03_150000_create_profile_photos_table",
-        "2026_11_06_100000_add_primary_leader_name_to_walks_table"
+        "2026_11_06_100000_add_primary_leader_name_to_walks_table",
+        "2026_11_07_100000_add_event_import_source_and_date_precision"
     ],
     "tables": {
         "account_administration_audits": [
@@ -390,6 +391,7 @@
             "description",
             "ends_at",
             "id",
+            "import_source",
             "is_public",
             "occurrence_number",
             "organiser_id",
@@ -397,6 +399,7 @@
             "published_at",
             "recurring_series_id",
             "slug",
+            "start_time_unknown",
             "starts_at",
             "status",
             "summary",
