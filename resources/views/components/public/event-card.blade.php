@@ -39,29 +39,31 @@
             <p class="mt-0.5 text-[0.7rem] text-ink-muted">{{ $event['location'] }}</p>
         @endif
 
-        @if ($metadata !== [])
-            <dl class="mt-2 grid grid-cols-2 gap-x-2 gap-y-2 border-t border-border pt-2 lg:grid-cols-4">
-                @foreach ($metadata as $item)
-                    <div class="min-w-0 text-[0.62rem] leading-tight text-ink-muted">
-                        <dt class="flex items-center gap-1 font-medium text-ink">
-                            <span class="text-brand" aria-hidden="true">{{ $item['symbol'] }}</span>
-                            {{ $item['value'] }}
-                        </dt>
-                        <dd class="mt-0.5">{{ $item['label'] }}</dd>
-                    </div>
-                @endforeach
-            </dl>
-        @endif
+        <div class="mt-auto pt-2">
+            @if ($metadata !== [])
+                <dl class="grid gap-x-2 gap-y-2 border-t border-border pt-2" style="grid-template-columns: repeat({{ min(count($metadata), 4) }}, minmax(0, 1fr))">
+                    @foreach ($metadata as $item)
+                        <div class="min-w-0 text-[0.62rem] leading-tight text-ink-muted">
+                            <dt class="flex items-center gap-1 font-medium text-ink">
+                                <span class="text-brand" aria-hidden="true">{{ $item['symbol'] }}</span>
+                                {{ $item['value'] }}
+                            </dt>
+                            <dd class="mt-0.5">{{ $item['label'] }}</dd>
+                        </div>
+                    @endforeach
+                </dl>
+            @endif
 
-        @if (filled($event['leader'] ?? null) || filled($event['status'] ?? null))
-            <div class="mt-auto flex min-h-8 flex-wrap items-end justify-between gap-x-2 gap-y-1 border-t border-border pt-2 text-[0.65rem]">
-                @if (filled($event['leader'] ?? null))
-                    <span class="font-medium text-ink-muted">{{ $event['leader_label'] ?? 'Led by' }} @if (filled($event['leader_url'] ?? null))<a class="text-brand underline decoration-brand/30 underline-offset-2" href="{{ $event['leader_url'] }}">{{ $event['leader'] }}</a>@else{{ $event['leader'] }}@endif</span>
-                @endif
-                @if (filled($event['status'] ?? null))
-                    <span class="font-semibold text-brand"><span aria-hidden="true">✓</span> {{ $event['status'] }}</span>
-                @endif
-            </div>
-        @endif
+            @if (filled($event['leader'] ?? null) || filled($event['status'] ?? null))
+                <div class="mt-2 flex min-h-8 flex-wrap items-end justify-between gap-x-2 gap-y-1 border-t border-border pt-2 text-[0.65rem]">
+                    @if (filled($event['leader'] ?? null))
+                        <span class="font-medium text-ink-muted">{{ $event['leader_label'] ?? 'Led by' }} @if (filled($event['leader_url'] ?? null))<a class="text-brand underline decoration-brand/30 underline-offset-2" href="{{ $event['leader_url'] }}">{{ $event['leader'] }}</a>@else{{ $event['leader'] }}@endif</span>
+                    @endif
+                    @if (filled($event['status'] ?? null))
+                        <span class="font-semibold text-brand"><span aria-hidden="true">✓</span> {{ $event['status'] }}</span>
+                    @endif
+                </div>
+            @endif
+        </div>
     </div>
 </article>
