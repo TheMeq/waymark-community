@@ -7,9 +7,11 @@ use App\Domain\Accounts\Queries\EligibleWalkLeadersQuery;
 use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Walks\Actions\CreateGrade as CreateGradeAction;
 use App\Domain\Walks\Actions\CreateTag as CreateTagAction;
+use App\Domain\Walks\Actions\SubmitWalkForPublication;
 use App\Domain\Walks\Models\Grade;
 use App\Domain\Walks\Models\Tag;
 use App\Domain\Walks\Models\Walk;
+use App\Domain\Walks\Models\WalkFieldSettings;
 use App\Domain\Walks\Queries\CurrentWalkFieldSettings;
 use App\Filament\Actions\DeleteWalkAction;
 use App\Filament\Actions\DuplicateWalkAction;
@@ -29,6 +31,7 @@ use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Utilities\Get;
@@ -38,6 +41,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 final class WalkResource extends Resource
 {
@@ -183,7 +187,11 @@ final class WalkResource extends Resource
 
     public static function table(Table $table): Table
     {
+        $publishesDirectly = fn (): bool => (auth()->user()?->hasCapability(ModuleCapability::ManageAllWalks) ?? false)
+            || WalkFieldSettings::current()->leaders_can_publish_directly;
+
         return $table
+            ->defaultSort('event.starts_at', 'desc')
             ->columns([
                 TextColumn::make('event.title')->label('Title')->searchable(),
                 TextColumn::make('event.starts_at')->label('Starts')->dateTime()->sortable(),
@@ -197,6 +205,27 @@ final class WalkResource extends Resource
                     ->url(fn (Walk $record): string => $record->event->status === EventStatus::Draft
                         ? self::getUrl('create', ['draft' => $record->getKey()])
                         : self::getUrl('edit', ['record' => $record])),
+                Action::make('publish')
+                    ->label(fn (): string => $publishesDirectly() ? 'Publish' : 'Submit for approval')
+                    ->visible(fn (Walk $record): bool => $record->event->status === EventStatus::Draft && Gate::allows('publish', $record))
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (): string => $publishesDirectly() ? 'Publish walk?' : 'Submit walk for approval?')
+                    ->modalDescription(fn (): string => $publishesDirectly()
+                        ? 'This walk will become visible on public pages.'
+                        : 'This walk will remain private until an administrator approves it.')
+                    ->action(function (Walk $record): void {
+                        try {
+                            $walk = app(SubmitWalkForPublication::class)->handle($record, auth()->user());
+                        } catch (ValidationException $exception) {
+                            Notification::make()->danger()->title('Complete the walk before publishing')
+                                ->body(implode(' ', $exception->validator->errors()->all()))->send();
+
+                            return;
+                        }
+                        Notification::make()->success()
+                            ->title($walk->event->status === EventStatus::Published ? 'Walk published' : 'Walk submitted for approval')
+                            ->send();
+                    }),
                 DuplicateWalkAction::make(),
                 DeleteWalkAction::make(),
             ]);
