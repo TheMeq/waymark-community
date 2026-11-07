@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources;
 
+use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Socials\Models\Social;
+use App\Filament\Actions\PublishEventAction;
 use App\Filament\Forms\ImportedEventFields;
 use App\Filament\Resources\SocialResource\Pages\CreateSocial;
 use App\Filament\Resources\SocialResource\Pages\EditSocial;
@@ -59,12 +61,15 @@ final class SocialResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table->columns([
+        return $table->defaultSort('event.starts_at', 'desc')->columns([
             TextColumn::make('event.title')->label('Title')->searchable(),
             TextColumn::make('event.starts_at')->label('Starts')->dateTime()->sortable(),
             TextColumn::make('event.status')->label('Status'),
             TextColumn::make('venue_name')->label('Venue'),
-        ])->recordActions([EditAction::make()]);
+        ])->recordActions([
+            EditAction::make()->label(fn (Social $record): string => $record->event->status === EventStatus::Draft ? 'Continue draft' : 'Edit'),
+            PublishEventAction::make('social', 'Social published'),
+        ]);
     }
 
     /** @return array<string, class-string> */

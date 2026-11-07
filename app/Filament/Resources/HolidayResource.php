@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources;
 
+use App\Domain\Events\Enums\EventStatus;
 use App\Domain\Holidays\Models\Holiday;
+use App\Filament\Actions\PublishEventAction;
 use App\Filament\Forms\ContentImageFields;
 use App\Filament\Forms\ImportedEventFields;
 use App\Filament\Resources\HolidayResource\Pages\CreateHoliday;
@@ -70,12 +72,15 @@ final class HolidayResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table->columns([
+        return $table->defaultSort('event.starts_at', 'desc')->columns([
             TextColumn::make('event.title')->label('Title')->searchable(),
             TextColumn::make('event.starts_at')->label('Starts')->dateTime()->sortable(),
             TextColumn::make('destination')->searchable(),
             TextColumn::make('event.status')->label('Status'),
-        ])->recordActions([EditAction::make()]);
+        ])->recordActions([
+            EditAction::make()->label(fn (Holiday $record): string => $record->event->status === EventStatus::Draft ? 'Continue draft' : 'Edit'),
+            PublishEventAction::make('holiday', 'Holiday published'),
+        ]);
     }
 
     /** @return array<string, class-string> */
