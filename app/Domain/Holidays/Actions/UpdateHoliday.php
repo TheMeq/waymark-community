@@ -23,7 +23,8 @@ final readonly class UpdateHoliday
         $event = $holiday->event;
         $attributes = ['start_time_unknown' => $event->start_time_unknown, ...$attributes];
         $common = Validator::make($attributes, [
-            'organiser_id' => ['sometimes', 'required', 'integer', 'exists:users,id'],
+            'organiser_id' => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
+            'organiser_name' => ['nullable', 'string', 'max:255'],
             'title' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:255', 'unique:events,slug,'.$event->id],
             'summary' => ['nullable', 'string', 'max:65535'],
@@ -45,8 +46,12 @@ final readonly class UpdateHoliday
             ]);
         }
 
+        if (array_key_exists('organiser_name', $common)) {
+            $common['organiser_name'] = trim($common['organiser_name'] ?? '') ?: null;
+        }
+
         return DB::transaction(function () use ($attributes, $common, $event): Holiday {
-            $event->update(Arr::only($common, ['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at', 'start_time_unknown', 'organiser_id']));
+            $event->update(Arr::only($common, ['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at', 'start_time_unknown', 'organiser_id', 'organiser_name']));
 
             return $this->saveHolidayDetails->handle($event, $attributes);
         });

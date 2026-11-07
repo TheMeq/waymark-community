@@ -34,6 +34,7 @@ use Illuminate\Support\Str;
     'published_at',
     'completion_override',
     'organiser_id',
+    'organiser_name',
     'parent_event_id',
     'recurring_series_id',
     'occurrence_number',
@@ -81,6 +82,11 @@ final class Event extends Model
     public function organiser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'organiser_id');
+    }
+
+    public function organiserDisplayName(): ?string
+    {
+        return $this->organiser?->publicDisplayName() ?? $this->organiser_name;
     }
 
     /** @return BelongsTo<Event, $this> */

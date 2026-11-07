@@ -31,7 +31,7 @@ final readonly class PublicHolidayCardViewModel
             'capacity_label' => 'Capacity',
             'capacity' => $holiday?->capacity === null ? null : (string) $holiday->capacity,
             'leader_label' => 'Organised by',
-            'leader' => $event->organiser?->publicDisplayName(),
+            'leader' => $event->organiserDisplayName(),
             'status' => PublicEventStatus::card($event->status, $holiday?->availability),
         ];
     }

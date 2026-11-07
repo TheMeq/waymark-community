@@ -30,6 +30,8 @@ final readonly class CreateHoliday
         }
 
         $common = Validator::make($attributes, [
+            'organiser_id' => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
+            'organiser_name' => ['nullable', 'string', 'max:255'],
             'title' => ['required', 'string', 'max:255'],
             'slug' => ['nullable', 'string', 'max:255', 'unique:events,slug'],
             'summary' => ['nullable', 'string', 'max:65535'],
@@ -47,7 +49,8 @@ final readonly class CreateHoliday
                 'status' => EventStatus::Draft,
                 'is_public' => false,
                 'published_at' => null,
-                'organiser_id' => $organiser->id,
+                'organiser_id' => array_key_exists('organiser_id', $common) ? $common['organiser_id'] : (filled($common['organiser_name'] ?? null) ? null : $organiser->id),
+                'organiser_name' => trim($common['organiser_name'] ?? '') ?: null,
             ]);
 
             return $this->saveHolidayDetails->handle($event, $attributes);

@@ -34,7 +34,8 @@ final class SocialResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Select::make('organiser_id')->label('Organiser')->options(fn (): array => User::query()->orderBy('name')->pluck('name', 'id')->all())->searchable()->required()->visibleOn('edit'),
+            TextInput::make('organiser_name')->label('Organiser name')->maxLength(255),
+            Select::make('organiser_id')->label('Linked organiser account')->options(fn (): array => User::query()->orderBy('name')->pluck('name', 'id')->all())->searchable()->default(fn (): ?int => auth()->id()),
             TextInput::make('title')->required()->maxLength(255)->columnSpanFull(),
             TextInput::make('slug')->required()->maxLength(255)->visibleOn('edit'),
             DateTimePicker::make('starts_at')->required(),

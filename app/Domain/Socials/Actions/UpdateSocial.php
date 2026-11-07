@@ -21,7 +21,8 @@ final readonly class UpdateSocial
         $social->loadMissing('event');
         $attributes = ['start_time_unknown' => $social->event->start_time_unknown, ...$attributes];
         $common = Validator::make($attributes, [
-            'organiser_id' => ['sometimes', 'required', 'integer', 'exists:users,id'],
+            'organiser_id' => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
+            'organiser_name' => ['nullable', 'string', 'max:255'],
             'title' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:255', 'unique:events,slug,'.$social->event_id],
             'summary' => ['nullable', 'string', 'max:65535'],
@@ -31,8 +32,12 @@ final readonly class UpdateSocial
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
         ])->validate();
 
+        if (array_key_exists('organiser_name', $common)) {
+            $common['organiser_name'] = trim($common['organiser_name'] ?? '') ?: null;
+        }
+
         return DB::transaction(function () use ($social, $attributes, $common): Social {
-            $social->event->fill(Arr::only($common, ['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at', 'start_time_unknown', 'organiser_id']));
+            $social->event->fill(Arr::only($common, ['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at', 'start_time_unknown', 'organiser_id', 'organiser_name']));
             $social->event->save();
 
             return $this->saveSocialDetails->handle($social->event, $attributes);

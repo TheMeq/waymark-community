@@ -21,7 +21,7 @@ final readonly class PublicSocialDetailViewModel
             'starts_at' => $event->startLabel(),
             'ends_at' => $event->ends_at?->format('l j F Y, H:i'),
             'status' => PublicEventStatus::lifecycle($event->status),
-            'organiser' => $event->organiser?->publicDisplayName(),
+            'organiser' => $event->organiserDisplayName(),
             'venue' => array_filter(['name' => $social?->venue_name, 'address' => $social?->venue_address]),
             'cost' => $social?->cost,
             'booking' => $showBookingState ? array_filter([

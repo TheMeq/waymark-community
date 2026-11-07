@@ -22,7 +22,7 @@ final readonly class PublicSocialCardViewModel
             'month' => $event->starts_at->format('M'),
             'location' => $event->social?->venue_name,
             'capacity' => PublicEventStatus::isExceptional($event->status) ? null : ($event->social?->availability ?? ($event->social?->capacity === null ? null : (string) $event->social->capacity)),
-            'leader' => $event->organiser?->publicDisplayName(),
+            'leader' => $event->organiserDisplayName(),
             'leader_label' => 'Organised by',
             'status' => PublicEventStatus::card($event->status, $event->social?->availability),
         ], static fn (mixed $value): bool => $value !== null && $value !== '');
