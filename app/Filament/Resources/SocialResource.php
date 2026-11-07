@@ -9,9 +9,11 @@ use App\Filament\Forms\ImportedEventFields;
 use App\Filament\Resources\SocialResource\Pages\CreateSocial;
 use App\Filament\Resources\SocialResource\Pages\EditSocial;
 use App\Filament\Resources\SocialResource\Pages\ListSocials;
+use App\Models\User;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
@@ -32,6 +34,7 @@ final class SocialResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
+            Select::make('organiser_id')->label('Organiser')->options(fn (): array => User::query()->orderBy('name')->pluck('name', 'id')->all())->searchable()->required()->visibleOn('edit'),
             TextInput::make('title')->required()->maxLength(255)->columnSpanFull(),
             TextInput::make('slug')->required()->maxLength(255)->visibleOn('edit'),
             DateTimePicker::make('starts_at')->required(),

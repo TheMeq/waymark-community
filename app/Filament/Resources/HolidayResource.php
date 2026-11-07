@@ -12,6 +12,7 @@ use App\Filament\Resources\HolidayResource\Pages\CreateHoliday;
 use App\Filament\Resources\HolidayResource\Pages\EditHoliday;
 use App\Filament\Resources\HolidayResource\Pages\ListHolidays;
 use App\Filament\Resources\HolidayResource\RelationManagers\ChildrenRelationManager;
+use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Checkbox;
@@ -41,6 +42,7 @@ final class HolidayResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
+            Select::make('organiser_id')->label('Organiser')->options(fn (): array => User::query()->orderBy('name')->pluck('name', 'id')->all())->searchable()->required()->visibleOn('edit'),
             TextInput::make('title')->required()->maxLength(255)->columnSpanFull(),
             TextInput::make('slug')->required()->maxLength(255)->visibleOn('edit'),
             DateTimePicker::make('starts_at')->required(),

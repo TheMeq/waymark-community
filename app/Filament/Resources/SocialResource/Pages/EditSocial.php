@@ -26,7 +26,7 @@ final class EditSocial extends EditRecord
     {
         $event = $this->getRecord()->event;
 
-        return [...$data, ...$event->only(['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at', 'start_time_unknown'])];
+        return [...$data, ...$event->only(['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at', 'start_time_unknown', 'organiser_id'])];
     }
 
     /** @param array<string, mixed> $data */

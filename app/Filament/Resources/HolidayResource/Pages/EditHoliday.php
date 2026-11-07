@@ -28,7 +28,7 @@ final class EditHoliday extends EditRecord
     /** @param array<string, mixed> $data */
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        return parent::mutateFormDataBeforeFill([...$data, ...$this->getRecord()->event->only(['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at', 'start_time_unknown'])]);
+        return parent::mutateFormDataBeforeFill([...$data, ...$this->getRecord()->event->only(['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at', 'start_time_unknown', 'organiser_id'])]);
     }
 
     /** @param array<string, mixed> $data */

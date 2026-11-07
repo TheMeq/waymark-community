@@ -21,6 +21,7 @@ final readonly class UpdateSocial
         $social->loadMissing('event');
         $attributes = ['start_time_unknown' => $social->event->start_time_unknown, ...$attributes];
         $common = Validator::make($attributes, [
+            'organiser_id' => ['sometimes', 'required', 'integer', 'exists:users,id'],
             'title' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:255', 'unique:events,slug,'.$social->event_id],
             'summary' => ['nullable', 'string', 'max:65535'],
@@ -31,7 +32,7 @@ final readonly class UpdateSocial
         ])->validate();
 
         return DB::transaction(function () use ($social, $attributes, $common): Social {
-            $social->event->fill(Arr::only($common, ['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at', 'start_time_unknown']));
+            $social->event->fill(Arr::only($common, ['title', 'slug', 'summary', 'description', 'starts_at', 'ends_at', 'start_time_unknown', 'organiser_id']));
             $social->event->save();
 
             return $this->saveSocialDetails->handle($social->event, $attributes);
